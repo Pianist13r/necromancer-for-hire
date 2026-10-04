@@ -123,6 +123,7 @@ func _ready() -> void:
 		return
 	_ensure_audio()
 	show_menu()
+	add_child(PlayMetrics.new())
 	# приёмка обучения из кампании настоящим вводом: --dev save=… --dev tutorial_play=campaign|skip
 	# (tools/tutorial_play.sh). Без чужого сохранения не запускаем — водитель жмёт «Начать кампанию».
 	if dev.has("tutorial_play") and Campaign.is_safe_dev_save(dev_save):

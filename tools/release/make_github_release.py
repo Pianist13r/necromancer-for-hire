@@ -26,6 +26,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 DIST = REPO / "dist"
 LICENSES = [
+    REPO / "PRIVACY.md",
     REPO / "LICENSING.md", REPO / "LICENSE.md", REPO / "ASSETS_LICENSE.md", REPO / "TRADEMARKS.md",
     REPO / "THIRD_PARTY_NOTICES.md", REPO / "tools/release/GODOT_LICENSE.txt",
     REPO / "tools/release/GODOT_COPYRIGHT.txt", REPO / "godot/assets/fonts/OFL-Underdog.txt",

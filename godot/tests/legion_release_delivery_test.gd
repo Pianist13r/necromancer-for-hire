@@ -213,7 +213,8 @@ func _run() -> void:
 	root.add_child(settings)
 	await process_frame
 	var version := settings.find_child("SettingsVersion", true, false) as Label
-	_check(version != null and version.text == "Версия 0.1.0-alpha", "версия видна в О игре")
+	_check(version != null and version.text == "Версия " + ReleaseInfo.VERSION,
+		"версия видна в О игре")
 	var button := settings.find_child("SettingsReleases", true, false) as Button
 	_check(button != null, "кнопка Версии и обновления доступна")
 	button.pressed.emit()

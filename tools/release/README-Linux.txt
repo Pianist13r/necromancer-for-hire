@@ -1,6 +1,7 @@
 НЕКРОМАНТ ПО НАЙМУ (Necromancer for Hire) — сборка для Linux
 Смерть с гарантией по договору.
-Альфа-версия 0.1.0-alpha.
+Альфа-версия 0.1.1-alpha.
+Добровольная статистика сеансов выключена до вашего согласия; подробности — licenses/PRIVACY.md.
 
 КАК ЗАПУСТИТЬ
   tar -xzf NecromancerForHire-Linux.tar.gz

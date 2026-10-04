@@ -7,18 +7,24 @@
 Душ. Договор истекает участками, и отпущенные бойцы идут в натиск. Кампания на нарисованных
 картах, случайные поля, бесконечный подряд, вызов дня и «Схватка» — против бота или по сети.
 
-**Альфа-версия 0.1.0-alpha.** Игра на русском языке. Сделано на Godot 4.7.2.
+**Альфа-версия 0.1.1-alpha.** Игра на русском языке. Сделано на Godot 4.7.2.
 
 ![Натиск скелетов по договору на карте «Пустырь»](media/gameplay.png)
 
+[Игровой ролик — 1080p, 24 секунды](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/necromancer-gameplay-HQ-1080p.mp4).
+Кадры сняты в самой игре с подготовленной расстановкой; музыка игры добавлена при монтаже.
+
 ## Скачать
+
+[**Страница игры на itch.io — скачать и оставить отзыв**](https://pianist13r.itch.io/necromancer-for-hire).
+Для игры не нужно устанавливать Git или скачивать исходники.
 
 | Система | Файл | Как запустить |
 |---|---|---|
-| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.0-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
-| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.0-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
-| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.0-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
-| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.0-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
+| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
+| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
+| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
+| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
 
 Windows и Linux: x86_64, видеокарта и драйвер с поддержкой Vulkan.
 macOS: универсальная сборка для Intel и Apple Silicon, графика с поддержкой Metal.
@@ -65,6 +71,10 @@ wss://51-250-12-39.sslip.io
 Обучение и полная справка — в самой игре («Как играть»).
 
 ## Ошибки, идеи, правки
+
+При первом запуске игра предлагает добровольно поделиться статистикой: версия, система,
+сеансы и время активного боя. По умолчанию отправка выключена; выбор можно изменить
+в настройках. Имена, сохранения и полные логи не отправляются. [Подробности](PRIVACY.md).
 
 - Нашли ошибку или есть идея — [Issues](https://github.com/Pianist13r/necromancer-for-hire/issues):
   система, версия, что делали, по возможности скриншот.

@@ -160,6 +160,25 @@ func _ready() -> void:
 	_style_check(hints_check)
 	content.add_child(hints_check)
 
+	content.add_child(HSeparator.new())
+	_section(content, "Помочь разработке")
+	var metrics_check := CheckBox.new()
+	metrics_check.name = "SharePlayMetrics"
+	metrics_check.text = "Отправлять статистику сеансов и времени боя"
+	metrics_check.button_pressed = PlayMetrics.consent()
+	metrics_check.tooltip_text = PlayMetrics.NOTICE
+	metrics_check.toggled.connect(func(on: bool) -> void:
+		Settings.set_value(PlayMetrics.SECTION, PlayMetrics.KEY, on))
+	metrics_check.add_theme_font_override("font", ThemeDB.fallback_font)
+	metrics_check.add_theme_font_size_override("font_size", 16)
+	_style_check(metrics_check)
+	content.add_child(metrics_check)
+	var privacy_note := UiStyle.label(
+		"Добровольно: версия, система и минуты боя. Без имени и логов. "
+		+ "Записи сеансов — 30 дней, общие итоги сохраняются. Подробнее — наведите на галочку.", 15)
+	privacy_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(privacy_note)
+
 	var close_btn := Button.new()
 	close_btn.name = "SettingsClose"
 	close_btn.text = "Готово"
