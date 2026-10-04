@@ -11,8 +11,10 @@ func _initialize() -> void:
 	var pixel := Image.create(1, 1, false, Image.FORMAT_RGBA8)
 	pixel.fill(Color.WHITE)
 	var texture := ImageTexture.create_from_image(pixel)
-	var attack: Dictionary = CfgAnim.SKELETON_ANIM_CLIPS["attack"]
-	assert(float(attack["fps"]) == 20.0 and int(attack["contact_frame"]) == 2)
+	# Этот тест создаёт синтетические восемь кадров и не загружает арт/metadata.
+	# Боевые клипы проверяются legion_action_timing_test и directional_actions_assets:
+	# здесь фиксированный контакт нужен для независимой проверки walk_start.
+	var attack := {"fps": 20.0, "contact_frame": 2}
 	for state: String in ["idle", "walk", "walk_start", "attack"]:
 		frames.add_animation(state)
 		frames.set_animation_speed(state, float(attack["fps"]) if state == "attack" else 33.0)

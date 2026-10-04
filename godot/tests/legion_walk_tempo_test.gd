@@ -91,13 +91,28 @@ func _run() -> void:
 	_check(int(slow[0]) == int(full[0]) and int(full[0]) > 0,
 		"кадр контакта на том же кадре: %d при ×0,5 против %d при ×1" % [int(slow[0]), int(full[0])])
 
-	# без walk_speed (скелет) темп постоянный
+	# У новой направленной походки скелета есть walk_speed: половинная скорость
+	# должна менять темп, как у счетовода, а не оставаться старым исключением.
 	var sk := _make("skeleton")
-	await _walk(sk[0], 35.0, 90)
+	var sk_ref := float(CfgAnim.CHARS["skeleton"]["walk_speed"])
+	await _walk(sk[0], sk_ref * 0.5, 90)
 	var sk_view: CharView = sk[1]
-	_check(sk_view.walk_tempo() == 1.0 and is_equal_approx(sk_view.clip_speed_scale(), 1.0),
-		"персонаж без walk_speed: темп постоянный")
+	_check(absf(sk_view.walk_tempo() - 0.5) < 0.03,
+		"направленный скелет: половинная скорость даёт темп 0,5")
+	_check(absf(sk_view.clip_speed_scale() - 0.5) < 0.03,
+		"направленный скелет: сам клип замедляется до 0,5")
 	(sk[0] as Node2D).queue_free()
+
+	# Явная fixture необязательного walk_speed, без привязки к текущему составу
+	# персонажей: setup хранит отсутствие настройки в _walk_ref как 0.
+	var no_ref := _make("skeleton")
+	var no_ref_view: CharView = no_ref[1]
+	no_ref_view.set("_walk_ref", 0.0)
+	await _walk(no_ref[0], sk_ref * 0.5, 90)
+	_check(no_ref_view.walk_tempo() == 1.0
+		and is_equal_approx(no_ref_view.clip_speed_scale(), 1.0),
+		"персонаж без walk_speed: темп постоянный")
+	(no_ref[0] as Node2D).queue_free()
 
 	# walk_speed рядом с расчётом из боевого конфига (не разошлись ли числа)
 	for kind: StringName in LegionCfg.UNIT_KINDS:
