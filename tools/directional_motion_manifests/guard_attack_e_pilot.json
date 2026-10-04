@@ -1,0 +1,144 @@
+{
+  "character": "guard",
+  "state": "attack",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_0b47eecf83ceaf1e0ddbc2e15fc6fb1d_1.mp4",
+  "source_sha256": "d2bce9f6a0d3486af7e239d2ff0b268cc889c6daa09b7abfba8abc68231f6176",
+  "source_fps": 30,
+  "fps": 20,
+  "total_seconds": 0.5,
+  "contact_frame": 5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 10,
+      "seconds": 0.3333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 13,
+      "seconds": 0.43333333333333335,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 16,
+      "seconds": 0.5333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 19,
+      "seconds": 0.6333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 22,
+      "seconds": 0.7333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 25,
+      "seconds": 0.8333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 31,
+      "seconds": 1.0333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 34,
+      "seconds": 1.1333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 37,
+      "seconds": 1.2333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 40,
+      "seconds": 1.3333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 43,
+      "seconds": 1.4333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 46,
+      "seconds": 1.5333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 49,
+      "seconds": 1.6333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 52,
+      "seconds": 1.7333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 55,
+      "seconds": 1.8333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 58,
+      "seconds": 1.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 61,
+      "seconds": 2.033333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 65,
+      "seconds": 2.1666666666666665,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 69,
+      "seconds": 2.3,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 73,
+      "seconds": 2.433333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 78,
+      "seconds": 2.6,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 83,
+      "seconds": 2.7666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 89,
+      "seconds": 2.966666666666667,
+      "duration_weight": 0.42105263157894735
+    }
+  ],
+  "collapse_exact_duplicates": true,
+  "approval": "Root reviewed/accepted source motion; delivery selected source contact and samples; compact runtime preview pending"
+}

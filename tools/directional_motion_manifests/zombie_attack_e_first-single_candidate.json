@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "character": "zombie",
+  "state": "attack",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_4e45d5bfac57a139c20b95a2a80be627_1.mp4",
+  "source_sha256": "1dfb8cbb1a4e8fd73eb883fb78d802236b5eeaab5555012f3f69b0ee6037ad5b",
+  "source_fps": 30.0,
+  "total_seconds": 0.5,
+  "fps": 20.0,
+  "contact_frame": 5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "key": {
+    "hue_tolerance_degrees": 18,
+    "min_saturation": 80
+  },
+  "samples": [
+    {
+      "frame": 8,
+      "seconds": 0.26666666666666666,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 12,
+      "seconds": 0.4,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 15,
+      "seconds": 0.5,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 18,
+      "seconds": 0.6,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 22,
+      "seconds": 0.7333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 24,
+      "seconds": 0.8,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 26,
+      "seconds": 0.8666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 30,
+      "seconds": 1.0,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 32,
+      "seconds": 1.0666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 34,
+      "seconds": 1.1333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 36,
+      "seconds": 1.2,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 38,
+      "seconds": 1.2666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 40,
+      "seconds": 1.3333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 65,
+      "seconds": 2.1666666666666665,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 67,
+      "seconds": 2.2333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 69,
+      "seconds": 2.3,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 70,
+      "seconds": 2.3333333333333335,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 72,
+      "seconds": 2.4,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 74,
+      "seconds": 2.466666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 76,
+      "seconds": 2.533333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 77,
+      "seconds": 2.566666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 79,
+      "seconds": 2.6333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 81,
+      "seconds": 2.7,
+      "duration_weight": 0.42105263157894735
+    }
+  ],
+  "approval": "REJECTED by root: montage jumps do not meet smooth-motion requirement; retained provenance only; do not connect",
+  "source_note": "AI-generated Wan2.7 I2V; raw video outside repository; video frame0 is standing scale reference",
+  "timing_note": "Contact is final PNG5: prior5 durations sum2/fps20=.1s; contact/recovery19 durations sum8/fps20=.4s",
+  "source_contact_note": "Source contact frame 24 / 0.800000s. One-hand contact24; source41..64 second two-hand push omitted; extended palm source40 joins neutral recovery65 (must inspect jump).",
+  "collapse_exact_duplicates": true
+}

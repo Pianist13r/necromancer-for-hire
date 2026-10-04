@@ -1,0 +1,39 @@
+{
+  "source": "assets/img/skeleton_v2.png",
+  "parts": {
+    "body": {
+      "file": "res://assets/parts/body_v3.png",
+      "w": 475,
+      "h": 291,
+      "offset_from_center": [
+        -11.300000000000011,
+        -20.0
+      ],
+      "pivot_in_crop": [
+        248.8,
+        165.5
+      ],
+      "pivot_in_master": [
+        423.8,
+        584.5
+      ]
+    },
+    "head": {
+      "file": "res://assets/parts/head_v2.png",
+      "w": 375,
+      "h": 356,
+      "offset_from_center": [
+        -6.0,
+        -175.0
+      ],
+      "pivot_in_crop": [
+        193.5,
+        353.0
+      ],
+      "pivot_in_master": [
+        433.5,
+        415.0
+      ]
+    }
+  }
+}

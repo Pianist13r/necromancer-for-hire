@@ -1,0 +1,18 @@
+# Кэш импорта Godot — генерируется движком, в репо не нужен
+.godot/
+# Собранные билды
+export/
+build/
+*.tmp
+
+# флаг глушения для агентных прогонов (см. world.gd)
+.agent_mute
+
+# флаг явного включения dev-моста MCP (порт 9090) — мост по умолчанию выключен, см.
+# scripts/dev/mcp_interaction_server.gd; у владельца лежит локально
+.dev_bridge
+
+# MCP-сервер (godot-mcp) при каждом run_project кладёт СВОЮ копию моста в корень проекта.
+# Наш форк с правками живёт в scripts/dev/ и прописан автолоадом; копия — мусор.
+/mcp_interaction_server.gd
+/mcp_interaction_server.gd.uid

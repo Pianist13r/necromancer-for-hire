@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs><linearGradient id="bronze" x2=".2" y2="1"><stop stop-color="#ffe6a6"/><stop offset=".35" stop-color="#c69a60"/><stop offset=".7" stop-color="#967047"/><stop offset="1" stop-color="#e8bd7c"/></linearGradient><linearGradient id="steel" x2=".2" y2="1"><stop stop-color="#f4f0ff"/><stop offset=".5" stop-color="#b9b3cf"/><stop offset="1" stop-color="#8b85a3"/></linearGradient></defs>
+<path d="M104 22L52 74M24 22l52 52" fill="none" stroke="#2b2638" stroke-width="20" stroke-linecap="round"/>
+<path d="M104 22L52 74M24 22l52 52" fill="none" stroke="url(#steel)" stroke-width="10" stroke-linecap="round"/>
+<path d="M99 27L57 69M29 27l42 42" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+<path d="M40 86l20-20M88 86L68 66" fill="none" stroke="#2b2638" stroke-width="20" stroke-linecap="round"/>
+<path d="M40 86l20-20M88 86L68 66" fill="none" stroke="url(#bronze)" stroke-width="11" stroke-linecap="round"/>
+<path d="M28 108l16-16M100 108L84 92" fill="none" stroke="#2b2638" stroke-width="19" stroke-linecap="round"/>
+<path d="M28 108l16-16M100 108L84 92" fill="none" stroke="#765346" stroke-width="10" stroke-linecap="round"/>
+<circle cx="24" cy="112" r="8" fill="#2b2638"/><circle cx="24" cy="112" r="5" fill="url(#bronze)"/>
+<circle cx="104" cy="112" r="8" fill="#2b2638"/><circle cx="104" cy="112" r="5" fill="url(#bronze)"/>
+</svg>

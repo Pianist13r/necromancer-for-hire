@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "character": "zombie",
+  "state": "death",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.6-i2v-flash_0aeb6eb50544a0b82f805aaf752c1002_1.mp4",
+  "source_sha256": "3c00eab16715ab358a1aa3ffa35584d6b1de34179e80feedb70f0bb66d3afdfe",
+  "source_fps": 30.0,
+  "total_seconds": 0.4,
+  "fps": 15.0,
+  "contact_frame": -1,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "key": {
+    "hue_tolerance_degrees": 18,
+    "min_saturation": 80
+  },
+  "samples": [
+    {
+      "frame": 45,
+      "seconds": 1.5,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 48,
+      "seconds": 1.6,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 51,
+      "seconds": 1.7,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 54,
+      "seconds": 1.8,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 57,
+      "seconds": 1.9,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 60,
+      "seconds": 2.0,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 63,
+      "seconds": 2.1,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 66,
+      "seconds": 2.2,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 69,
+      "seconds": 2.3,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 72,
+      "seconds": 2.4,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 75,
+      "seconds": 2.5,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 78,
+      "seconds": 2.6,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 81,
+      "seconds": 2.7,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 84,
+      "seconds": 2.8,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 87,
+      "seconds": 2.9,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 90,
+      "seconds": 3.0,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 93,
+      "seconds": 3.1,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 96,
+      "seconds": 3.2,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 99,
+      "seconds": 3.3,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 102,
+      "seconds": 3.4,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 105,
+      "seconds": 3.5,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 108,
+      "seconds": 3.6,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 111,
+      "seconds": 3.7,
+      "duration_weight": 1.0
+    },
+    {
+      "frame": 114,
+      "seconds": 3.8,
+      "duration_weight": 1.0
+    }
+  ],
+  "approval": "root accepted half96 keyed sprites for runtime trial after contactsheet review; full192 comparison only; in-engine test/publishing pending",
+  "source_note": "AI-generated Wan2.6 I2V Flash; raw video outside repository; frame0 is standing scale reference",
+  "collapse_exact_duplicates": true
+}

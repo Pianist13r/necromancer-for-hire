@@ -1,0 +1,208 @@
+{
+ "src_frames": 16,
+ "factor": 2,
+ "loop": true,
+ "model": "rife-v4.6",
+ "src_index": [
+  0,
+  2,
+  4,
+  6,
+  8,
+  10,
+  12,
+  14,
+  16,
+  18,
+  20,
+  22,
+  24,
+  26,
+  28,
+  30
+ ],
+ "rejected": 0,
+ "report": [
+  {
+   "pair": 0,
+   "t": 0.5,
+   "semi": 1.15,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 1,
+   "t": 0.5,
+   "semi": 1.22,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 2,
+   "t": 0.5,
+   "semi": 1.04,
+   "edge": 1.01,
+   "rejected": false
+  },
+  {
+   "pair": 3,
+   "t": 0.5,
+   "semi": 0.99,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 4,
+   "t": 0.5,
+   "semi": 0.99,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 5,
+   "t": 0.5,
+   "semi": 1.02,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 6,
+   "t": 0.5,
+   "semi": 1.14,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 7,
+   "t": 0.5,
+   "semi": 1.07,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 8,
+   "t": 0.5,
+   "semi": 1.21,
+   "edge": 1.01,
+   "rejected": false
+  },
+  {
+   "pair": 9,
+   "t": 0.5,
+   "semi": 1.17,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 10,
+   "t": 0.5,
+   "semi": 1.02,
+   "edge": 0.99,
+   "rejected": false
+  },
+  {
+   "pair": 11,
+   "t": 0.5,
+   "semi": 0.99,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 12,
+   "t": 0.5,
+   "semi": 0.99,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 13,
+   "t": 0.5,
+   "semi": 1.02,
+   "edge": 0.99,
+   "rejected": false
+  },
+  {
+   "pair": 14,
+   "t": 0.5,
+   "semi": 1.23,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 15,
+   "t": 0.5,
+   "semi": 1.11,
+   "edge": 1.0,
+   "rejected": false
+  }
+ ],
+ "stride": [
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0
+ ],
+ "contact_phase": 0.0,
+ "durations": [
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5
+ ]
+}

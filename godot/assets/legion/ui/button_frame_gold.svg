@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="80" viewBox="0 0 240 80">
+  <!-- Золотая рамка кнопки «мрачная канцелярия» — для главных действий («Играть», «Вызвать»).
+       Та же геометрия, что у button_frame.svg: девять-патч 240x80, поля 16/16/16/16,
+       срез углов 8px, фаска 5px. Центр (16..224 x 16..64) без узоров — под текст. -->
+  <defs>
+    <linearGradient id="enamel_g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#33200f"/>
+      <stop offset="1" stop-color="#1c0e05"/>
+    </linearGradient>
+    <linearGradient id="brass_g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4dc9a"/>
+      <stop offset="0.5" stop-color="#c39a48"/>
+      <stop offset="1" stop-color="#6b4d1c"/>
+    </linearGradient>
+    <radialGradient id="rivet_g" cx="0.35" cy="0.35" r="0.9">
+      <stop offset="0" stop-color="#fbeec2"/>
+      <stop offset="0.6" stop-color="#c39a48"/>
+      <stop offset="1" stop-color="#634817"/>
+    </radialGradient>
+  </defs>
+
+  <!-- золотой фасеточный ободок 5px -->
+  <path d="M8 0 H232 L240 8 V72 L232 80 H8 L0 72 V8 Z" fill="url(#brass_g)"/>
+
+  <!-- тёмная бронзово-сливовая эмаль -->
+  <path d="M13 5 H227 L235 13 V67 L227 75 H13 L5 67 V13 Z" fill="url(#enamel_g)"/>
+
+  <!-- фаска: светлый верх -->
+  <path d="M9 1.2 H231" stroke="#fdf0c4" stroke-width="1.8" fill="none" opacity="0.95"/>
+  <path d="M233.5 3 L238.6 8" stroke="#f0d795" stroke-width="1.4" fill="none" opacity="0.8"/>
+  <path d="M1.4 8 L6.4 3" stroke="#f0d795" stroke-width="1.4" fill="none" opacity="0.8"/>
+  <!-- фаска: тёмный низ -->
+  <path d="M9 78.8 H231" stroke="#2e1e06" stroke-width="1.8" fill="none" opacity="0.95"/>
+  <path d="M238.6 72 L233.5 77" stroke="#3a2808" stroke-width="1.4" fill="none" opacity="0.85"/>
+  <path d="M6.4 77 L1.4 72" stroke="#3a2808" stroke-width="1.4" fill="none" opacity="0.85"/>
+
+  <!-- двойная внутренняя кромка — «позолота в два прута» -->
+  <path d="M13 5.6 H227 L234.4 13 V67 L227 74.4 H13 L5.6 67 V13 Z"
+        stroke="#eccf85" stroke-width="1.1" fill="none" opacity="0.8"/>
+  <path d="M17 9.5 H223 L230.5 17 V63 L223 70.5 H17 L9.5 63 V17 Z"
+        stroke="#e2c172" stroke-width="0.8" fill="none" opacity="0.35"/>
+
+  <!-- заклёпки крупнее и светлее -->
+  <g>
+    <circle cx="11" cy="11" r="3.6" fill="url(#rivet_g)" stroke="#3a2808" stroke-width="0.8"/>
+    <circle cx="229" cy="11" r="3.6" fill="url(#rivet_g)" stroke="#3a2808" stroke-width="0.8"/>
+    <circle cx="11" cy="69" r="3.6" fill="url(#rivet_g)" stroke="#3a2808" stroke-width="0.8"/>
+    <circle cx="229" cy="69" r="3.6" fill="url(#rivet_g)" stroke="#3a2808" stroke-width="0.8"/>
+  </g>
+
+  <!-- филигрань в углах: завиток плюс точка -->
+  <g stroke="#e0bc6c" stroke-width="1" fill="none" opacity="0.65">
+    <path d="M17.5 15.5 Q20 10.5 25 12.5"/>
+    <path d="M222.5 15.5 Q220 10.5 215 12.5"/>
+    <path d="M17.5 64.5 Q20 69.5 25 67.5"/>
+    <path d="M222.5 64.5 Q220 69.5 215 67.5"/>
+  </g>
+  <g fill="#e8cd92">
+    <circle cx="26" cy="13" r="1" opacity="0.7"/>
+    <circle cx="214" cy="13" r="1" opacity="0.7"/>
+    <circle cx="26" cy="67" r="1" opacity="0.7"/>
+    <circle cx="214" cy="67" r="1" opacity="0.7"/>
+  </g>
+
+  <!-- микропотёртости: только по краям -->
+  <g fill="#fdf0c4">
+    <rect x="52" y="1.5" width="9" height="1" opacity="0.35"/>
+    <rect x="140" y="1.5" width="5" height="1" opacity="0.25"/>
+    <rect x="90" y="77.5" width="9" height="1" opacity="0.3"/>
+    <rect x="176" y="77.5" width="5" height="1" opacity="0.2"/>
+    <rect x="1.5" y="28" width="1" height="7" opacity="0.28"/>
+    <rect x="237.5" y="46" width="1" height="6" opacity="0.28"/>
+  </g>
+  <g fill="#241703">
+    <rect x="78" y="1.5" width="6" height="1" opacity="0.35"/>
+    <rect x="146" y="77.5" width="7" height="1" opacity="0.32"/>
+    <rect x="237.5" y="20" width="1" height="6" opacity="0.3"/>
+  </g>
+</svg>

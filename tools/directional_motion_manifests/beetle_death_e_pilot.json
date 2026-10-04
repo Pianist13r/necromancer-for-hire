@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "character": "beetle",
+  "state": "death",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_3dcb5f1246560ada09a9dfcaef3ed6a3_1.mp4",
+  "source_sha256": "fdc586ea821a4d249d3607faa43a60fc434ce9d21b0dadbb58bcc6bb815069dc",
+  "source_fps": 30.0,
+  "fps": 15,
+  "total_seconds": 0.4,
+  "contact_frame": -1,
+  "collapse_exact_duplicates": true,
+  "runtime_scale": 0.5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 33,
+      "seconds": 1.1,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 35,
+      "seconds": 1.1666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 36,
+      "seconds": 1.2,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 38,
+      "seconds": 1.2666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 40,
+      "seconds": 1.3333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 41,
+      "seconds": 1.3666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 43,
+      "seconds": 1.4333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 45,
+      "seconds": 1.5,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 47,
+      "seconds": 1.5666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 48,
+      "seconds": 1.6,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 50,
+      "seconds": 1.6666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 52,
+      "seconds": 1.7333333333333334,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 53,
+      "seconds": 1.7666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 55,
+      "seconds": 1.8333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 57,
+      "seconds": 1.9,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 58,
+      "seconds": 1.9333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 60,
+      "seconds": 2.0,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 62,
+      "seconds": 2.066666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 64,
+      "seconds": 2.1333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 65,
+      "seconds": 2.1666666666666665,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 67,
+      "seconds": 2.2333333333333334,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 69,
+      "seconds": 2.3,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 70,
+      "seconds": 2.3333333333333335,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 72,
+      "seconds": 2.4,
+      "duration_weight": 0.25
+    }
+  ],
+  "approval": "Root accepted connected fall and identity; selected exact dynamic source poses; final CharView runtime acceptance pending"
+}

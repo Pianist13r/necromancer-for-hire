@@ -1,0 +1,112 @@
+{
+ "src_frames": 8,
+ "factor": 2,
+ "loop": true,
+ "model": "rife-v4.6",
+ "src_index": [
+  0,
+  2,
+  4,
+  6,
+  8,
+  10,
+  12,
+  14
+ ],
+ "rejected": 0,
+ "report": [
+  {
+   "pair": 0,
+   "t": 0.5,
+   "semi": 1.25,
+   "edge": 1.01,
+   "rejected": false
+  },
+  {
+   "pair": 1,
+   "t": 0.5,
+   "semi": 1.2,
+   "edge": 1.01,
+   "rejected": false
+  },
+  {
+   "pair": 2,
+   "t": 0.5,
+   "semi": 1.14,
+   "edge": 0.99,
+   "rejected": false
+  },
+  {
+   "pair": 3,
+   "t": 0.5,
+   "semi": 1.18,
+   "edge": 0.99,
+   "rejected": false
+  },
+  {
+   "pair": 4,
+   "t": 0.5,
+   "semi": 1.24,
+   "edge": 1.01,
+   "rejected": false
+  },
+  {
+   "pair": 5,
+   "t": 0.5,
+   "semi": 1.2,
+   "edge": 1.0,
+   "rejected": false
+  },
+  {
+   "pair": 6,
+   "t": 0.5,
+   "semi": 1.25,
+   "edge": 1.01,
+   "rejected": false
+  },
+  {
+   "pair": 7,
+   "t": 0.5,
+   "semi": 1.24,
+   "edge": 1.0,
+   "rejected": false
+  }
+ ],
+ "stride": [
+  0.4,
+  0.667,
+  0.867,
+  1.0,
+  1.0,
+  0.867,
+  0.733,
+  0.533,
+  0.333,
+  0.2,
+  0.067,
+  0.0,
+  0.0,
+  0.0,
+  0.067,
+  0.2
+ ],
+ "contact_phase": 0.1875,
+ "durations": [
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5
+ ]
+}

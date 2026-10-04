@@ -1,0 +1,40 @@
+{
+  "leg_near": {
+    "file": "res://assets/parts/leg_near_whole.png",
+    "w": 154,
+    "h": 106,
+    "split_row": 33,
+    "box_origin": [
+      436,
+      606
+    ],
+    "hip_in_crop": [
+      45.0,
+      2.0
+    ],
+    "knee_in_crop": [
+      85.5,
+      33.0
+    ],
+    "sole_row": 98
+  },
+  "leg_far": {
+    "file": "res://assets/parts/leg_far_whole.png",
+    "w": 136,
+    "h": 106,
+    "split_row": 28,
+    "box_origin": [
+      310,
+      606
+    ],
+    "hip_in_crop": [
+      67.5,
+      2.0
+    ],
+    "knee_in_crop": [
+      56.0,
+      28.0
+    ],
+    "sole_row": 99
+  }
+}

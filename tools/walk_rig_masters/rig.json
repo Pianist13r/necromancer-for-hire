@@ -1,0 +1,82 @@
+{
+ "signer": {
+  "src": "signer/walk/spr_00.png",
+  "cut": [[60, 189], [92, 190], [100, 191], [104, 192], [116, 193], [128, 192], [140, 192], [170, 190]],
+  "hip": {"back": [96, 188], "front": [128, 188]},
+  "draw": {
+   "len": 25, "w_top": 22, "w_bot": 19, "fill_at": [132, 201],
+   "boot": {"rect": [124, 204, 156, 224], "top_line": [[126, 211], [150, 208]], "ankle": [137, 212],
+            "flatten_deg": -8}
+  },
+  "near": "front", "swing_deg": 36, "lift": 5, "frames": 16, "support": 0.85
+ },
+ "zombie": {
+  "src": "zombie/walk/spr_10.png",
+  "cut": [[60, 177], [136, 177], [140, 172], [180, 172]],
+  "hip": {"back": [102, 176], "front": [121, 176]},
+  "draw": {
+   "len": 34, "w_top": 26, "w_bot": 24, "fill_at": [100, 190],
+   "boot": {"rect": [82, 202, 120, 224], "top_line": [[84, 208], [116, 208]], "ankle": [100, 210],
+            "flatten_deg": 0}
+  },
+  "near": "front", "swing_deg": 26, "lift": 4, "frames": 16, "support": 0.7
+ },
+ "beetle": {
+  "src": "beetle/walk/spr_12.png",
+  "cut": [[40, 240], [80, 240], [81, 181], [139, 181], [140, 240], [224, 240]],
+  "hip": {"back": [98, 178], "front": [123, 178]},
+  "draw": {
+   "len": 32, "w_top": 20, "w_bot": 19, "fill_at": [122, 190],
+   "boot": {"rect": [108, 200, 142, 222], "top_line": [[110, 208], [140, 205]], "ankle": [124, 209],
+            "flatten_deg": -6}
+  },
+  "near": "front", "swing_deg": 34, "lift": 4, "frames": 12, "support": 0.75
+ },
+ "lawyer": {
+  "src": "lawyer/walk/spr_08.png",
+  "cut": [[40, 240], [95, 240], [97, 191], [110, 194], [120, 197], [140, 201], [150, 200], [224, 200]],
+  "hip": {"back": [108, 192], "front": [130, 194]},
+  "draw": {
+   "len": 22, "w_top": 17, "w_bot": 15, "fill_at": [125, 205], "shade_at": [118, 200],
+   "boot": {"rect": [126, 204, 156, 224], "top_line": [[128, 213], [152, 208]], "ankle": [137, 213],
+            "flatten_deg": -18}
+  },
+  "near": "front", "swing_deg": 36, "lift": 4, "frames": 16, "support": 0.8
+ },
+ "mimic": {
+  "src": "mimic/walk/spr_00.png",
+  "cut": [[40, 240], [62, 240], [64, 188], [78, 189], [90, 191], [140, 191], [144, 189], [150, 187],
+          [156, 185], [162, 186], [224, 186]],
+  "hip": {"back": [104, 186], "front": [140, 186]},
+  "draw": {
+   "len": 26, "w_top": 15, "w_bot": 14, "fill_at": [160, 190], "track_pull": 0.8,
+   "boot": {"rect": [152, 190, 194, 224], "top_line": [[154, 201], [175, 193]], "ankle": [163, 202],
+            "flatten_deg": -25}
+  },
+  "near": "front", "swing_deg": 32, "lift": 5, "frames": 16, "support": 0.85
+ },
+ "boss": {
+  "src": "boss/walk/spr_00.png",
+  "cut": [[40, 276], [98, 276], [100, 251], [230, 251], [232, 262], [320, 262]],
+  "keep": [{"rect": [95, 245, 145, 285], "max_sat": 0.2, "min_lum": 0.55, "grow": 2}],
+  "hip": {"back": [142, 250], "front": [182, 250]},
+  "draw": {
+   "len": 41, "w_top": 44, "w_bot": 40, "fill_at": [200, 270], "track_pull": 0.8,
+   "boot": {"rect": [174, 286, 226, 318], "top_line": [[174, 289], [226, 289]], "ankle": [197, 291],
+            "flatten_deg": 0}
+  },
+  "near": "front", "swing_deg": 22, "lift": 9, "frames": 16, "support": 0.85
+ },
+ "clerk": {
+  "src": "clerk/walk/spr_00.png",
+  "cut": [[40, 240], [76, 240], [77, 167], [180, 167]],
+  "hip": {"back": [100, 160], "front": [122, 160]},
+  "draw": {
+   "len": 33, "w_top": 18, "w_bot": 15, "outline": 2.0, "fill_at": [118, 172], "shade_at": [95, 168],
+   "boot": {"rect": [116, 176, 156, 212], "top_line": [[118, 187], [140, 181]], "ankle": [129, 190],
+            "flatten_deg": -22},
+   "swing_tilt": 14, "idle": true
+  },
+  "near": "front", "swing_deg": 40, "lift": 5, "frames": 16, "support": 0.75, "far_shade": 0.8, "ground_row": 219
+ }
+}

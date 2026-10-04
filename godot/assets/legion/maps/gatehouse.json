@@ -1,0 +1,716 @@
+{
+  "id": "gatehouse",
+  "order": 1.5,
+  "title": "Проходная",
+  "subtitle": "Проверка пришла со щитами — пропуск не спрашивает",
+  "theme": "office",
+  "cauldron": [
+    188,
+    360
+  ],
+  "cauldron_art": [-3, 0],
+  "cauldron_hp": 200,
+  "start_army": 22,
+  "army_cap": 110,
+  "rocks": [
+    [
+      [
+        -4,
+        -4
+      ],
+      [
+        300,
+        -4
+      ],
+      [
+        300,
+        280
+      ],
+      [
+        150,
+        280
+      ],
+      [
+        150,
+        460
+      ],
+      [
+        302,
+        460
+      ],
+      [
+        302,
+        724
+      ],
+      [
+        -4,
+        724
+      ]
+    ],
+    [
+      [
+        375,
+        -4
+      ],
+      [
+        607,
+        -4
+      ],
+      [
+        607,
+        125
+      ],
+      [
+        570,
+        125
+      ],
+      [
+        570,
+        110
+      ],
+      [
+        375,
+        110
+      ]
+    ],
+    [
+      [
+        665,
+        243
+      ],
+      [
+        758,
+        243
+      ],
+      [
+        758,
+        500
+      ],
+      [
+        665,
+        500
+      ]
+    ],
+    [
+      [
+        993,
+        6
+      ],
+      [
+        1079,
+        6
+      ],
+      [
+        1079,
+        139
+      ],
+      [
+        993,
+        139
+      ]
+    ],
+    [
+      [
+        1250,
+        -4
+      ],
+      [
+        1284,
+        -4
+      ],
+      [
+        1284,
+        724
+      ],
+      [
+        1250,
+        724
+      ]
+    ]
+  ],
+  "walls": [
+    {
+      "path": [
+        [
+          904,
+          -4
+        ],
+        [
+          904,
+          338
+        ]
+      ],
+      "w": 18,
+      "kind": "fence"
+    },
+    {
+      "path": [
+        [
+          904,
+          400
+        ],
+        [
+          904,
+          700
+        ]
+      ],
+      "w": 18,
+      "kind": "fence"
+    },
+    {
+      "path": [
+        [
+          302,
+          692
+        ],
+        [
+          904,
+          692
+        ]
+      ],
+      "w": 18,
+      "kind": "fence"
+    },
+    {
+      "path": [
+        [
+          236,
+          268
+        ],
+        [
+          236,
+          326
+        ],
+        [
+          278,
+          326
+        ]
+      ],
+      "w": 10,
+      "kind": "fence"
+    },
+    {
+      "path": [
+        [
+          278,
+          406
+        ],
+        [
+          236,
+          406
+        ],
+        [
+          236,
+          457
+        ]
+      ],
+      "w": 10,
+      "kind": "fence"
+    }
+  ],
+  "roads": [
+    {
+      "id": "gate",
+      "path": [
+        [
+          1360,
+          585
+        ],
+        [
+          998,
+          585
+        ],
+        [
+          998,
+          368
+        ],
+        [
+          800,
+          368
+        ],
+        [
+          800,
+          189
+        ],
+        [
+          623,
+          189
+        ],
+        [
+          623,
+          378
+        ],
+        [
+          330,
+          378
+        ],
+        [
+          188,
+          360
+        ]
+      ]
+    },
+    {
+      "id": "yard",
+      "path": [
+        [
+          1360,
+          585
+        ],
+        [
+          998,
+          585
+        ],
+        [
+          998,
+          368
+        ],
+        [
+          800,
+          368
+        ],
+        [
+          800,
+          561
+        ],
+        [
+          474,
+          561
+        ],
+        [
+          385,
+          378
+        ],
+        [
+          330,
+          378
+        ],
+        [
+          188,
+          360
+        ]
+      ]
+    }
+  ],
+  "bot_lines": [
+    {
+      "road": "gate",
+      "a": [
+        860,
+        305
+      ],
+      "b": [
+        860,
+        435
+      ],
+      "release": 1,
+      "kind": "guard",
+      "id": "line_0",
+      "role": "front",
+      "dir": [
+        1.0,
+        0.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_3",
+        "line_1",
+        "line_2"
+      ],
+      "support_id": "line_2"
+    },
+    {
+      "road": "yard",
+      "a": [
+        620,
+        520
+      ],
+      "b": [
+        620,
+        605
+      ],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_1",
+      "role": "flank",
+      "dir": [
+        1.0,
+        0.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_2",
+        "line_0"
+      ],
+      "support_id": "line_2"
+    },
+    {
+      "road": "gate",
+      "a": [
+        320,
+        322
+      ],
+      "b": [
+        320,
+        440
+      ],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_2",
+      "role": "flank",
+      "dir": [
+        1.0,
+        0.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_0",
+        "line_1"
+      ],
+      "support_id": "line_0"
+    },
+    {
+      "road": "gate",
+      "a": [
+        700,
+        135
+      ],
+      "b": [
+        700,
+        236
+      ],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_3",
+      "role": "flank",
+      "dir": [
+        1.0,
+        0.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_2",
+        "line_0"
+      ],
+      "support_id": "line_2"
+    }
+  ],
+  "hint": "Вахтёров — к турникету: охрана держит напор щитоносцев. Кто свернул во двор, выходит к строю сбоку — поверните стрелку Пробелом, а разбежавшихся после натиска соберите «Сбором» (R).",
+  "unlocks": [
+    "control_unlocked_aim",
+    "kind_unlocked_guard",
+    "control_unlocked_rally"
+  ],
+  "lessons": [
+    {
+      "id": "aim",
+      "voice": "lg_tut_aim",
+      "when": "start",
+      "hold": 25,
+      "done": "aimed",
+      "mark": {
+        "line": [
+          [
+            320,
+            322
+          ],
+          [
+            320,
+            440
+          ]
+        ]
+      },
+      "text": "Стрелка отряда: наведите на линию, зажмите Пробел или колесо и ведите мышью — туда ударит отряд."
+    },
+    {
+      "id": "erase",
+      "when": "start",
+      "hold": 25,
+      "done": "tab_erased",
+      "text": "Нажмите Таб над линией — она сотрётся целиком, бойцы уйдут в натиск. У разрезанной — лишь кусок под курсором."
+    },
+    {
+      "id": "guard",
+      "voice": "lg_tut_guard",
+      "when": "first_foe:shield_inspector",
+      "done": "building_built:guard",
+      "mark": {
+        "plot": "p1"
+      },
+      "text": "Щитоносцы давят строй. Постройте Проходную на площадке — вахтёры держат напор щитов (их линия — 2)."
+    },
+    {
+      "id": "spring",
+      "voice": "lg_tut_spring",
+      "when": "pressed",
+      "done": "spring_released",
+      "text": "Строй прогибается под напором — ПКМ по прогнутому участку: «пружина» ударит сильнее."
+    },
+    {
+      "id": "rally",
+      "voice": "lg_tut_rally",
+      "when": "wave:2",
+      "done": "rally_used",
+      "text": "Бойцы разбежались? Зажмите Эр (R) у свободных — круг покажет кого; отпустите — побегут к курсору."
+    }
+  ],
+  "water": [],
+  "bridges": [],
+  "swamp": [],
+  "crypts": [],
+  "sleepers": [],
+  "decor": [],
+  "waves": [
+    {
+      "pause": 3,
+      "next_in": 34,
+      "groups": [
+        {
+          "road": "gate",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.0,
+          "delay": 0.0
+        },
+        {
+          "road": "gate",
+          "type": "zombie",
+          "count": 12,
+          "interval": 0.5,
+          "delay": 2.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 40,
+      "groups": [
+        {
+          "road": "gate",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 1.0,
+          "delay": 0.0
+        },
+        {
+          "road": "gate",
+          "type": "zombie",
+          "count": 16,
+          "interval": 0.5,
+          "delay": 2.5
+        },
+        {
+          "road": "yard",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.5,
+          "delay": 12.0
+        },
+        {
+          "road": "yard",
+          "type": "beetle",
+          "count": 5,
+          "interval": 0.9,
+          "delay": 15.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 42,
+      "groups": [
+        {
+          "road": "gate",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 1.0,
+          "delay": 0.0
+        },
+        {
+          "road": "gate",
+          "type": "zombie",
+          "count": 18,
+          "interval": 0.5,
+          "delay": 2.5
+        },
+        {
+          "road": "gate",
+          "type": "signer",
+          "count": 3,
+          "interval": 1.5,
+          "delay": 6.0
+        },
+        {
+          "road": "yard",
+          "type": "shield_inspector",
+          "count": 1,
+          "interval": 1.0,
+          "delay": 12.0
+        },
+        {
+          "road": "yard",
+          "type": "zombie",
+          "count": 10,
+          "interval": 0.5,
+          "delay": 13.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 50,
+      "groups": [
+        {
+          "road": "gate",
+          "type": "shield_inspector",
+          "count": 5,
+          "interval": 1.0,
+          "delay": 0.0
+        },
+        {
+          "road": "gate",
+          "type": "zombie",
+          "count": 26,
+          "interval": 0.5,
+          "delay": 4.0
+        },
+        {
+          "road": "gate",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.9,
+          "delay": 16.0
+        },
+        {
+          "road": "yard",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 1.0,
+          "delay": 10.0
+        },
+        {
+          "road": "yard",
+          "type": "zombie",
+          "count": 16,
+          "interval": 0.5,
+          "delay": 13.0
+        },
+        {
+          "road": "yard",
+          "type": "signer",
+          "count": 4,
+          "interval": 1.5,
+          "delay": 16.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "groups": [
+        {
+          "road": "gate",
+          "type": "shield_inspector",
+          "count": 4,
+          "interval": 1.0,
+          "delay": 0.0
+        },
+        {
+          "road": "gate",
+          "type": "zombie",
+          "count": 22,
+          "interval": 0.5,
+          "delay": 3.0
+        },
+        {
+          "road": "gate",
+          "type": "signer",
+          "count": 3,
+          "interval": 1.5,
+          "delay": 7.0
+        },
+        {
+          "road": "yard",
+          "type": "zombie",
+          "count": 10,
+          "interval": 0.5,
+          "delay": 12.0
+        },
+        {
+          "road": "yard",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.9,
+          "delay": 15.0
+        }
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "p1",
+      "pos": [
+        461,
+        280
+      ],
+      "bot_priority": 4,
+      "serves_lines": [
+        "line_2",
+        "line_3",
+        "line_0"
+      ],
+      "preferred_kinds": [
+        "guard",
+        "laborer"
+      ]
+    },
+    {
+      "id": "p2",
+      "pos": [
+        858,
+        262
+      ],
+      "bot_priority": 3,
+      "serves_lines": [
+        "line_3",
+        "line_0"
+      ],
+      "preferred_kinds": [
+        "guard",
+        "laborer"
+      ]
+    },
+    {
+      "id": "p3",
+      "pos": [
+        561,
+        469
+      ],
+      "bot_priority": 2,
+      "serves_lines": [
+        "line_1",
+        "line_2"
+      ],
+      "preferred_kinds": [
+        "clerk",
+        "laborer"
+      ]
+    },
+    {
+      "id": "p4",
+      "pos": [
+        660,
+        641
+      ],
+      "bot_priority": 1,
+      "serves_lines": [
+        "line_1",
+        "line_0"
+      ],
+      "preferred_kinds": [
+        "laborer",
+        "laborer"
+      ]
+    }
+  ],
+  "bg": "res://assets/legion/maps/gatehouse_bg.jpg"
+}

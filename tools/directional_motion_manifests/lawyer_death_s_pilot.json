@@ -1,0 +1,145 @@
+{
+  "character": "lawyer",
+  "state": "death",
+  "direction": "s",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_fa1aa9c843d19634a9c11ade292262d6_1.mp4",
+  "source_sha256": "87ab7591ada9f462e1af59856080fa7f6ebf187aa0ea884b9bcb6ca9d8f8d994",
+  "source_fps": 30,
+  "fps": 15,
+  "total_seconds": 0.4,
+  "contact_frame": -1,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 11,
+      "seconds": 0.36666666666666664,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 12,
+      "seconds": 0.4,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 13,
+      "seconds": 0.43333333333333335,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 14,
+      "seconds": 0.4666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 15,
+      "seconds": 0.5,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 16,
+      "seconds": 0.5333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 17,
+      "seconds": 0.5666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 18,
+      "seconds": 0.6,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 19,
+      "seconds": 0.6333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 20,
+      "seconds": 0.6666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 21,
+      "seconds": 0.7,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 22,
+      "seconds": 0.7333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 23,
+      "seconds": 0.7666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 24,
+      "seconds": 0.8,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 25,
+      "seconds": 0.8333333333333334,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 26,
+      "seconds": 0.8666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 27,
+      "seconds": 0.9,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 29,
+      "seconds": 0.9666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 30,
+      "seconds": 1.0,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 31,
+      "seconds": 1.0333333333333334,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 32,
+      "seconds": 1.0666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 36,
+      "seconds": 1.2,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 40,
+      "seconds": 1.3333333333333333,
+      "duration_weight": 0.25
+    }
+  ],
+  "collapse_exact_duplicates": true,
+  "runtime_scale": 0.5,
+  "approval": "Root/delivery accepted source motion; exact source samples curated by delivery; keyfix compact runtime trial pending"
+}

@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "character": "mimic",
+  "state": "attack",
+  "direction": "n",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_bc303e20e3772f8a5469b103c3c1e28c_1.mp4",
+  "source_sha256": "e7e67cae56e9b150551f625fef0d2e64992625d2ba31749afb2b164d57cb1141",
+  "source_fps": 30.0,
+  "fps": 20,
+  "total_seconds": 0.5,
+  "contact_frame": 5,
+  "collapse_exact_duplicates": true,
+  "runtime_scale": 0.5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 8,
+      "seconds": 0.26666666666666666,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 16,
+      "seconds": 0.5333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 22,
+      "seconds": 0.7333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 32,
+      "seconds": 1.0666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 30,
+      "seconds": 1.0,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 27,
+      "seconds": 0.9,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 25,
+      "seconds": 0.8333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 23,
+      "seconds": 0.7666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 21,
+      "seconds": 0.7,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 20,
+      "seconds": 0.6666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 18,
+      "seconds": 0.6,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 16,
+      "seconds": 0.5333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 14,
+      "seconds": 0.4666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 12,
+      "seconds": 0.4,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 11,
+      "seconds": 0.36666666666666664,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 9,
+      "seconds": 0.3,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 7,
+      "seconds": 0.23333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 5,
+      "seconds": 0.16666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 4,
+      "seconds": 0.13333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 2,
+      "seconds": 0.06666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "duration_weight": 0.42105263157894735
+    }
+  ],
+  "approval": "Root accepted source motion; exact contact neighborhood and whole source reviewed; final CharView runtime acceptance pending",
+  "allow_reverse_samples": true,
+  "curation_note": "Rear jaw is occluded; accepted heavy body lean expresses the one contact. Reverse recovers neutral pose."
+}

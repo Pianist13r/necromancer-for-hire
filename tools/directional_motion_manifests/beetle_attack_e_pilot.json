@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "character": "beetle",
+  "state": "attack",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_dfbc037f0199b5e89a94d4c3f9be7c0b_1.mp4",
+  "source_sha256": "48b211fd739bb709c39d062ae57a8fe894344d302a329f1377899dd97c500861",
+  "source_fps": 30.0,
+  "fps": 20,
+  "total_seconds": 0.5,
+  "contact_frame": 5,
+  "collapse_exact_duplicates": true,
+  "runtime_scale": 0.5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 6,
+      "seconds": 0.2,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 10,
+      "seconds": 0.3333333333333333,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 12,
+      "seconds": 0.4,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 15,
+      "seconds": 0.5,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 21,
+      "seconds": 0.7,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 23,
+      "seconds": 0.7666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 25,
+      "seconds": 0.8333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 27,
+      "seconds": 0.9,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 29,
+      "seconds": 0.9666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 31,
+      "seconds": 1.0333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 33,
+      "seconds": 1.1,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 35,
+      "seconds": 1.1666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 37,
+      "seconds": 1.2333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 39,
+      "seconds": 1.3,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 41,
+      "seconds": 1.3666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 43,
+      "seconds": 1.4333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 45,
+      "seconds": 1.5,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 47,
+      "seconds": 1.5666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 49,
+      "seconds": 1.6333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 51,
+      "seconds": 1.7,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 53,
+      "seconds": 1.7666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 55,
+      "seconds": 1.8333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 57,
+      "seconds": 1.9,
+      "duration_weight": 0.42105263157894735
+    }
+  ],
+  "approval": "Root accepted source motion; exact contact neighborhood and whole source reviewed; final CharView runtime acceptance pending",
+  "curation_note": "White impact FX in source frames18-20 excluded; source21 is the first clean extended strike pose. No paint/masking of actor or FX."
+}

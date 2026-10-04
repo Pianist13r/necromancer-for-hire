@@ -1,0 +1,145 @@
+{
+  "character": "clerk",
+  "state": "attack",
+  "direction": "n",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_c1532a573c1f6dcadc6f710adb151b45_1.mp4",
+  "source_sha256": "634dfc87d349eccb72d16a14e6466e4877fbba28929624177a49c5ce3372a56f",
+  "source_fps": 30,
+  "fps": 20,
+  "total_seconds": 0.5,
+  "contact_frame": 5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 8,
+      "seconds": 0.26666666666666666,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 11,
+      "seconds": 0.36666666666666664,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 14,
+      "seconds": 0.4666666666666667,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 17,
+      "seconds": 0.5666666666666667,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 20,
+      "seconds": 0.6666666666666666,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 24,
+      "seconds": 0.8,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 26,
+      "seconds": 0.8666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 30,
+      "seconds": 1.0,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 32,
+      "seconds": 1.0666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 34,
+      "seconds": 1.1333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 36,
+      "seconds": 1.2,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 38,
+      "seconds": 1.2666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 40,
+      "seconds": 1.3333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 42,
+      "seconds": 1.4,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 44,
+      "seconds": 1.4666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 46,
+      "seconds": 1.5333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 48,
+      "seconds": 1.6,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 50,
+      "seconds": 1.6666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 52,
+      "seconds": 1.7333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 54,
+      "seconds": 1.8,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 56,
+      "seconds": 1.8666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 58,
+      "seconds": 1.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 59,
+      "seconds": 1.9666666666666666,
+      "duration_weight": 0.42105263157894735
+    }
+  ],
+  "collapse_exact_duplicates": true,
+  "runtime_scale": 0.5,
+  "approval": "Root/delivery accepted source motion; exact source samples curated by delivery; keyfix compact runtime trial pending"
+}

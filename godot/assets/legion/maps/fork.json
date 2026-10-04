@@ -1,0 +1,624 @@
+{
+  "id": "fork",
+  "order": 2,
+  "title": "Два отдела",
+  "subtitle": "Общий резерв — две очереди",
+  "theme": "grave",
+  "cauldron": [180, 360],
+  "start_army": 28,
+  "army_cap": 120,
+  "rocks": [
+    [
+      [657.6, 70],
+      [702.4, 70],
+      [715, 107.8],
+      [705.9, 205],
+      [654.1, 205],
+      [645, 144.25]
+    ],
+    [
+      [657.6, 515],
+      [702.4, 515],
+      [715, 552.8],
+      [705.9, 650],
+      [654.1, 650],
+      [645, 589.25]
+    ],
+    [
+      [909.2, 330],
+      [1030.8, 330],
+      [1065, 346.8],
+      [1040.3, 390],
+      [899.7, 390],
+      [875, 363.0]
+    ],
+    [
+      [604, 322],
+      [741, 322],
+      [746, 328],
+      [746, 394],
+      [741, 399],
+      [604, 399],
+      [598, 394],
+      [598, 328]
+    ]
+  ],
+  "walls": [
+    {"path": [[370, 203], [524, 203], [524, 518], [370, 518]], "w": 26, "kind": "stone"},
+    {"path": [[159, 265], [302, 265], [302, 118], [583, 118], [583, -4]], "w": 18, "kind": "fence"},
+    {"path": [[-4, 265], [116, 265]], "w": 18, "kind": "fence"},
+    {"path": [[-4, 442], [111, 442]], "w": 18, "kind": "fence"},
+    {"path": [[159, 443], [264, 443]], "w": 18, "kind": "fence"},
+    {"path": [[764, -4], [764, 112], [1093, 112]], "w": 18, "kind": "fence"},
+    {"path": [[1067, 179], [1067, 300], [1284, 300]], "w": 18, "kind": "fence"},
+    {"path": [[1284, 416], [1079, 416], [1079, 529]], "w": 18, "kind": "fence"},
+    {"path": [[318, 724], [318, 601], [581, 601], [581, 724]], "w": 18, "kind": "fence"},
+    {"path": [[781, 724], [781, 601], [1076, 601], [1076, 650]], "w": 18, "kind": "fence"}
+  ],
+  "roads": [
+    {
+      "id": "north",
+      "path": [
+        [1120, -80],
+        [1120, 160],
+        [800, 160],
+        [800, 290],
+        [560, 290],
+        [560, 160],
+        [340, 160],
+        [340, 290],
+        [180, 360]
+      ]
+    },
+    {
+      "id": "south",
+      "path": [
+        [1120, 800],
+        [1120, 560],
+        [800, 560],
+        [800, 430],
+        [560, 430],
+        [560, 560],
+        [340, 560],
+        [340, 430],
+        [180, 360]
+      ]
+    }
+  ],
+  "bot_lines": [
+    {
+      "road": "north",
+      "a": [314, 230],
+      "b": [395, 230],
+      "release": 1,
+      "kind": "guard",
+      "id": "line_0",
+      "role": "front",
+      "dir": [0.0, -1.0],
+      "min_units": 3,
+      "next_ids": ["line_1", "line_2"],
+      "support_id": "line_1"
+    },
+    {
+      "road": "south",
+      "a": [285, 490],
+      "b": [395, 490],
+      "release": -1,
+      "kind": "guard",
+      "id": "line_1",
+      "role": "front",
+      "dir": [-0.0, 1.0],
+      "min_units": 3,
+      "next_ids": ["line_0", "line_2"],
+      "support_id": "line_2"
+    },
+    {
+      "road": "north",
+      "a": [265, 282],
+      "b": [265, 428],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_2",
+      "role": "flank",
+      "dir": [1.0, 0.0],
+      "min_units": 3,
+      "next_ids": ["line_0", "line_1"],
+      "support_id": "line_0"
+    }
+  ],
+  "hint": "Держите резерв между дорогами: один близкий договор переводит его на нужный фланг.",
+  "unlocks": [
+    "shape_unlocked_ring",
+    "ability_unlocked_w",
+    "ability_unlocked_e"
+  ],
+  "lessons": [
+    {
+      "id": "ring",
+      "voice": "lg_tut_ring",
+      "when": "start",
+      "hold": 25,
+      "done": "figure_made:ring",
+      "mark": {
+        "at": [
+          420,
+          300
+        ],
+        "r": 60
+      },
+      "text": "«Оцепление»: обведите кольцо одним штрихом ЛКМ — бойцы встанут кругом; ПКМ по кольцу — сжать."
+    },
+    {
+      "id": "hero_w",
+      "voice": "lg_tut_hero_w",
+      "when": "wave:2",
+      "done": "hero_cast:W",
+      "text": "Дубль-вэ (W) у свежих трупов врагов — встанут за вас бригадой на %d с."
+    },
+    {
+      "id": "hero_e",
+      "voice": "lg_tut_hero_e",
+      "when": "pressed",
+      "done": "hero_cast:E",
+      "text": "Линию продавливают — Е «Аврал» у строя: %d с быстрее и сильнее, строй держит давку."
+    }
+  ],
+  "water": [],
+  "bridges": [],
+  "swamp": [],
+  "crypts": [],
+  "sleepers": [],
+  "cauldron_hp": 200,
+  "decor": [
+    {
+      "kind": "tree",
+      "pos": [115, 150]
+    },
+    {
+      "kind": "grave",
+      "pos": [149, 162]
+    },
+    {
+      "kind": "candle",
+      "pos": [134, 178]
+    },
+    {
+      "kind": "tree",
+      "pos": [115, 565]
+    },
+    {
+      "kind": "grave",
+      "pos": [149, 577]
+    },
+    {
+      "kind": "candle",
+      "pos": [134, 593]
+    },
+    {
+      "kind": "tree",
+      "pos": [430, 75]
+    },
+    {
+      "kind": "grave",
+      "pos": [464, 87]
+    },
+    {
+      "kind": "candle",
+      "pos": [449, 103]
+    },
+    {
+      "kind": "tree",
+      "pos": [430, 635]
+    },
+    {
+      "kind": "grave",
+      "pos": [464, 647]
+    },
+    {
+      "kind": "candle",
+      "pos": [449, 663]
+    },
+    {
+      "kind": "tree",
+      "pos": [1000, 360]
+    },
+    {
+      "kind": "grave",
+      "pos": [1034, 372]
+    },
+    {
+      "kind": "candle",
+      "pos": [1019, 388]
+    }
+  ],
+  "waves": [
+    {
+      "pause": 3,
+      "next_in": 36,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.43,
+          "delay": 0.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.43,
+          "delay": 1.5
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 42,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 16,
+          "interval": 0.43,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 3,
+          "interval": 1.16,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 16,
+          "interval": 0.43,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 3,
+          "interval": 1.17,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 0.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 1.5,
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 46,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 29,
+          "interval": 0.43,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 4,
+          "interval": 1.16,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 29,
+          "interval": 0.43,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 4,
+          "interval": 1.17,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 9.0
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 0.9,
+          "delay": 0.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 0.9,
+          "delay": 1.0,
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "climax": true,
+      "next_in": 48,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 31,
+          "interval": 0.43,
+          "delay": 1.5
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 4.5
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 31,
+          "interval": 0.43,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 6.75
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 10.5
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 4,
+          "interval": 0.8,
+          "delay": 0.5,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 0.8,
+          "delay": 0.5,
+          "tier": 1
+        },
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 6,
+          "interval": 0.43,
+          "delay": 5.5,
+          "tier": 2
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 6,
+          "interval": 0.43,
+          "delay": 5.5,
+          "tier": 2
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.8,
+          "delay": 4.5,
+          "tier": 2
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.8,
+          "delay": 4.5,
+          "tier": 2
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 29,
+          "interval": 0.43,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.16,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 29,
+          "interval": 0.43,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.17,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 9.0
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 0.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 0.5,
+          "tier": 1
+        }
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "p1",
+      "pos": [380, 360],
+      "bot_priority": 5,
+      "serves_lines": ["line_2", "line_0"],
+      "preferred_kinds": ["guard", "laborer"]
+    },
+    {
+      "id": "p2",
+      "pos": [620, 220],
+      "bot_priority": 4,
+      "serves_lines": ["line_0", "line_2"],
+      "preferred_kinds": ["clerk", "laborer"]
+    },
+    {
+      "id": "p3",
+      "pos": [610, 490],
+      "bot_priority": 3,
+      "serves_lines": ["line_1", "line_2"],
+      "preferred_kinds": ["laborer", "laborer"]
+    },
+    {
+      "id": "p4",
+      "pos": [930, 230],
+      "bot_priority": 2,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["guard", "laborer"]
+    },
+    {
+      "id": "p5",
+      "pos": [930, 490],
+      "bot_priority": 1,
+      "serves_lines": ["line_1", "line_0"],
+      "preferred_kinds": ["clerk", "laborer"]
+    }
+  ],
+  "bg": "res://assets/legion/maps/fork_bg.jpg"
+}

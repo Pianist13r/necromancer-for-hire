@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "character": "mimic",
+  "state": "attack",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_6c878e063766ecb9e1c1bc96ea92ba81_1.mp4",
+  "source_sha256": "64d78534cb1bcffd306e8e9b9715b3081ad69906d633913538d2e9426b39706b",
+  "source_fps": 30.0,
+  "fps": 20,
+  "total_seconds": 0.5,
+  "contact_frame": 5,
+  "collapse_exact_duplicates": true,
+  "runtime_scale": 0.5,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 18,
+      "seconds": 0.6,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 24,
+      "seconds": 0.8,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 27,
+      "seconds": 0.9,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 30,
+      "seconds": 1.0,
+      "duration_weight": 0.4
+    },
+    {
+      "frame": 33,
+      "seconds": 1.1,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 31,
+      "seconds": 1.0333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 29,
+      "seconds": 0.9666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 26,
+      "seconds": 0.8666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 24,
+      "seconds": 0.8,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 22,
+      "seconds": 0.7333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 20,
+      "seconds": 0.6666666666666666,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 18,
+      "seconds": 0.6,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 16,
+      "seconds": 0.5333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 15,
+      "seconds": 0.5,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 13,
+      "seconds": 0.43333333333333335,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 11,
+      "seconds": 0.36666666666666664,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 9,
+      "seconds": 0.3,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 7,
+      "seconds": 0.23333333333333334,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 6,
+      "seconds": 0.2,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 4,
+      "seconds": 0.13333333333333333,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 2,
+      "seconds": 0.06666666666666667,
+      "duration_weight": 0.42105263157894735
+    },
+    {
+      "frame": 0,
+      "seconds": 0.0,
+      "duration_weight": 0.42105263157894735
+    }
+  ],
+  "approval": "Root accepted source motion; exact contact neighborhood and whole source reviewed; final CharView runtime acceptance pending",
+  "allow_reverse_samples": true
+}

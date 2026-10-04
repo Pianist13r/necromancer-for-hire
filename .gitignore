@@ -1,0 +1,11 @@
+dist/
+batches/
+_anim_out/
+__pycache__/
+*.pyc
+.claude/_repos/
+
+# Тяжёлые материалы анимационной лаборатории (позы, листы, генерации, видео) — вне git.
+# В git остаются конфиг и документация пайплайна.
+assets/anim-lab/*
+!assets/anim-lab/anim_config.json

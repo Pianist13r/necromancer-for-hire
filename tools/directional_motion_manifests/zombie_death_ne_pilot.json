@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "character": "zombie",
+  "state": "death",
+  "direction": "ne",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_5f089664a6d6f2118ad294964fe96bf3_1.mp4",
+  "source_sha256": "73c27777990b915cf196245bbc9d29a217cfe974819281ce6b525f1a20484559",
+  "source_fps": 30.0,
+  "total_seconds": 0.4,
+  "fps": 15.0,
+  "contact_frame": -1,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "key": {
+    "hue_tolerance_degrees": 18,
+    "min_saturation": 80
+  },
+  "samples": [
+    {
+      "frame": 12,
+      "seconds": 0.4,
+      "duration_weight": 1
+    },
+    {
+      "frame": 14,
+      "seconds": 0.4666666666666667,
+      "duration_weight": 1
+    },
+    {
+      "frame": 17,
+      "seconds": 0.5666666666666667,
+      "duration_weight": 1
+    },
+    {
+      "frame": 19,
+      "seconds": 0.6333333333333333,
+      "duration_weight": 1
+    },
+    {
+      "frame": 21,
+      "seconds": 0.7,
+      "duration_weight": 1
+    },
+    {
+      "frame": 24,
+      "seconds": 0.8,
+      "duration_weight": 1
+    },
+    {
+      "frame": 26,
+      "seconds": 0.8666666666666667,
+      "duration_weight": 1
+    },
+    {
+      "frame": 28,
+      "seconds": 0.9333333333333333,
+      "duration_weight": 1
+    },
+    {
+      "frame": 31,
+      "seconds": 1.0333333333333334,
+      "duration_weight": 1
+    },
+    {
+      "frame": 33,
+      "seconds": 1.1,
+      "duration_weight": 1
+    },
+    {
+      "frame": 35,
+      "seconds": 1.1666666666666667,
+      "duration_weight": 1
+    },
+    {
+      "frame": 38,
+      "seconds": 1.2666666666666666,
+      "duration_weight": 1
+    },
+    {
+      "frame": 40,
+      "seconds": 1.3333333333333333,
+      "duration_weight": 1
+    },
+    {
+      "frame": 43,
+      "seconds": 1.4333333333333333,
+      "duration_weight": 1
+    },
+    {
+      "frame": 45,
+      "seconds": 1.5,
+      "duration_weight": 1
+    },
+    {
+      "frame": 47,
+      "seconds": 1.5666666666666667,
+      "duration_weight": 1
+    },
+    {
+      "frame": 50,
+      "seconds": 1.6666666666666667,
+      "duration_weight": 1
+    },
+    {
+      "frame": 52,
+      "seconds": 1.7333333333333334,
+      "duration_weight": 1
+    },
+    {
+      "frame": 54,
+      "seconds": 1.8,
+      "duration_weight": 1
+    },
+    {
+      "frame": 57,
+      "seconds": 1.9,
+      "duration_weight": 1
+    },
+    {
+      "frame": 59,
+      "seconds": 1.9666666666666666,
+      "duration_weight": 1
+    },
+    {
+      "frame": 61,
+      "seconds": 2.033333333333333,
+      "duration_weight": 1
+    },
+    {
+      "frame": 64,
+      "seconds": 2.1333333333333333,
+      "duration_weight": 1
+    },
+    {
+      "frame": 66,
+      "seconds": 2.2,
+      "duration_weight": 1
+    }
+  ],
+  "approval": "Root accepted source identity/motion; keyed compact runtime preview pending",
+  "source_note": "Reviewed AI-generated video; video frame0 is standing calibration; raw video outside repository",
+  "collapse_exact_duplicates": true
+}

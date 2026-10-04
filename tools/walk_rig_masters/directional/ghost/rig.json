@@ -1,0 +1,5 @@
+{
+ "character":"ghost","body_h":44,"speed":30,
+ "gait":{"mode":"float","frames":1,"cycle":1.5},
+ "views":{"e":{},"se":{},"s":{},"ne":{},"n":{}}
+}

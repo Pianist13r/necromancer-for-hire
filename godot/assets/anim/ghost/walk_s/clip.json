@@ -1,0 +1,16 @@
+{
+  "frames": 1,
+  "fps": 0.6667,
+  "loop": true,
+  "duration": 1.5,
+  "pivot_px": [
+    64.0,
+    112.0
+  ],
+  "figure_fill": 0.75,
+  "stride": [],
+  "step_canvas_px": 0,
+  "contact_phase": 0.0,
+  "support_ratio": null,
+  "residual_slide_world_px_s": null
+}

@@ -1,0 +1,565 @@
+{
+  "id": "_plots",
+  "order": 99,
+  "title": "Серый срез: участки",
+  "subtitle": "Тестовая карта пакета STAFF (копия _gray + 4 участка)",
+  "theme": "grave",
+  "cauldron": [
+    180,
+    360
+  ],
+  "cauldron_hp": 200,
+  "start_army": 90,
+  "army_cap": 140,
+  "rocks": [
+    [
+      [
+        880,
+        380
+      ],
+      [
+        960,
+        360
+      ],
+      [
+        1000,
+        420
+      ],
+      [
+        940,
+        470
+      ],
+      [
+        870,
+        440
+      ]
+    ],
+    [
+      [
+        420,
+        110
+      ],
+      [
+        500,
+        95
+      ],
+      [
+        530,
+        160
+      ],
+      [
+        450,
+        190
+      ]
+    ],
+    [
+      [
+        400,
+        610
+      ],
+      [
+        480,
+        590
+      ],
+      [
+        500,
+        660
+      ],
+      [
+        420,
+        675
+      ]
+    ]
+  ],
+  "water": [
+    [
+      [
+        620,
+        -40
+      ],
+      [
+        700,
+        -40
+      ],
+      [
+        706,
+        200
+      ],
+      [
+        694,
+        400
+      ],
+      [
+        700,
+        760
+      ],
+      [
+        620,
+        760
+      ],
+      [
+        614,
+        500
+      ],
+      [
+        626,
+        300
+      ]
+    ]
+  ],
+  "bridges": [
+    [
+      [
+        596,
+        236
+      ],
+      [
+        724,
+        236
+      ],
+      [
+        724,
+        284
+      ],
+      [
+        596,
+        284
+      ]
+    ],
+    [
+      [
+        596,
+        534
+      ],
+      [
+        724,
+        534
+      ],
+      [
+        724,
+        586
+      ],
+      [
+        596,
+        586
+      ]
+    ]
+  ],
+  "swamp": [
+    [
+      [
+        770,
+        640
+      ],
+      [
+        900,
+        625
+      ],
+      [
+        960,
+        720
+      ],
+      [
+        780,
+        720
+      ]
+    ]
+  ],
+  "roads": [
+    {
+      "id": "north",
+      "path": [
+        [
+          1340,
+          150
+        ],
+        [
+          1000,
+          180
+        ],
+        [
+          820,
+          255
+        ],
+        [
+          660,
+          260
+        ],
+        [
+          480,
+          290
+        ],
+        [
+          300,
+          340
+        ],
+        [
+          180,
+          360
+        ]
+      ]
+    },
+    {
+      "id": "south",
+      "path": [
+        [
+          1340,
+          600
+        ],
+        [
+          1000,
+          620
+        ],
+        [
+          830,
+          570
+        ],
+        [
+          660,
+          560
+        ],
+        [
+          480,
+          500
+        ],
+        [
+          300,
+          410
+        ],
+        [
+          180,
+          360
+        ]
+      ]
+    }
+  ],
+  "crypts": [],
+  "plots": [
+    {
+      "id": "p1",
+      "pos": [
+        470,
+        395
+      ],
+      "bot_priority": 3,
+      "preferred_kinds": [
+        "guard"
+      ],
+      "serves_lines": []
+    },
+    {
+      "id": "p2",
+      "pos": [
+        300,
+        250
+      ],
+      "bot_priority": 2,
+      "preferred_kinds": [
+        "laborer"
+      ],
+      "serves_lines": []
+    },
+    {
+      "id": "p3",
+      "pos": [
+        300,
+        470
+      ],
+      "bot_priority": 2,
+      "preferred_kinds": [
+        "clerk"
+      ],
+      "serves_lines": []
+    },
+    {
+      "id": "p4",
+      "pos": [
+        760,
+        130
+      ],
+      "bot_priority": 1,
+      "preferred_kinds": [
+        "laborer"
+      ],
+      "serves_lines": []
+    }
+  ],
+  "decor": [],
+  "sleepers": [
+    {
+      "pos": [
+        860,
+        330
+      ]
+    }
+  ],
+  "bot_lines": [
+    {
+      "road": "north",
+      "a": [
+        540,
+        145
+      ],
+      "b": [
+        540,
+        385
+      ],
+      "release": 1
+    },
+    {
+      "road": "south",
+      "a": [
+        530,
+        438
+      ],
+      "b": [
+        530,
+        668
+      ],
+      "release": 1
+    }
+  ],
+  "waves": [
+    {
+      "pause": 6,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 10,
+          "interval": 0.9,
+          "delay": 0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 8,
+          "interval": 1.0,
+          "delay": 3
+        }
+      ]
+    },
+    {
+      "pause": 7,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 12,
+          "interval": 0.8,
+          "delay": 0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 10,
+          "interval": 0.8,
+          "delay": 2
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.2,
+          "delay": 5
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 6
+        }
+      ]
+    },
+    {
+      "pause": 7,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 14,
+          "interval": 0.7,
+          "delay": 0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 14,
+          "interval": 0.7,
+          "delay": 2
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.2,
+          "delay": 5
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "pause": 7,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 16,
+          "interval": 0.7,
+          "delay": 0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 16,
+          "interval": 0.7,
+          "delay": 2
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 8,
+          "interval": 1.0,
+          "delay": 5
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        }
+      ]
+    },
+    {
+      "pause": 7,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 18,
+          "interval": 0.7,
+          "delay": 0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 18,
+          "interval": 0.7,
+          "delay": 2
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 4,
+          "interval": 2.0,
+          "delay": 4
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 4,
+          "interval": 2.0,
+          "delay": 6
+        }
+      ]
+    },
+    {
+      "pause": 7,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 20,
+          "interval": 0.6,
+          "delay": 0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 20,
+          "interval": 0.6,
+          "delay": 2
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.0,
+          "delay": 5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.0,
+          "delay": 5
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 7
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 6,
+          "interval": 1.5,
+          "delay": 4
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 6,
+          "interval": 1.5,
+          "delay": 6
+        }
+      ]
+    }
+  ],
+  "hint": "Строй держит мост. Отпусти участок на нотариусов."
+}

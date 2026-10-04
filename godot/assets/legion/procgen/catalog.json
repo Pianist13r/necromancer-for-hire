@@ -1,0 +1,5126 @@
+{
+ "version": 1,
+ "items": [
+  {
+   "id": "grave_sarc_01",
+   "biomes": [
+    "grave",
+    "swamp"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/grave_sarc_01.png",
+   "w": 130,
+   "h": 101.3,
+   "anchor": [
+    0.4971,
+    0.5771
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     59.7,
+     -37.4
+    ],
+    [
+     58.3,
+     34.5
+    ],
+    [
+     -30.1,
+     39.9
+    ],
+    [
+     -58.9,
+     33.9
+    ],
+    [
+     -57.6,
+     -37.4
+    ]
+   ]
+  },
+  {
+   "id": "grave_crypt_01",
+   "biomes": [
+    "grave",
+    "swamp"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/grave_crypt_01.png",
+   "w": 100,
+   "h": 168.7,
+   "anchor": [
+    0.4972,
+    0.7042
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      33.7
+     ],
+     "r": 26,
+     "color": "ffb060"
+    }
+   ],
+   "tags": [
+    "stone",
+    "crypt"
+   ],
+   "foot": [
+    [
+     40.9,
+     -42.0
+    ],
+    [
+     47.0,
+     -15.5
+    ],
+    [
+     38.3,
+     43.7
+    ],
+    [
+     -38.4,
+     43.7
+    ],
+    [
+     -47.2,
+     -16.8
+    ],
+    [
+     -40.3,
+     -42.0
+    ]
+   ]
+  },
+  {
+   "id": "grave_boulder_01",
+   "biomes": [
+    "grave",
+    "swamp",
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/grave_boulder_01.png",
+   "w": 110,
+   "h": 93.3,
+   "anchor": [
+    0.502,
+    0.5574
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     51.5,
+     13.5
+    ],
+    [
+     41.7,
+     25.6
+    ],
+    [
+     22.4,
+     35.6
+    ],
+    [
+     -8.1,
+     38.0
+    ],
+    [
+     -41.5,
+     26.2
+    ],
+    [
+     -52.6,
+     7.7
+    ],
+    [
+     -48.6,
+     -9.0
+    ],
+    [
+     -30.6,
+     -36.5
+    ],
+    [
+     31.5,
+     -36.5
+    ],
+    [
+     46.8,
+     -10.9
+    ]
+   ]
+  },
+  {
+   "id": "grave_stones_s_01",
+   "biomes": [
+    "grave",
+    "swamp",
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/grave_stones_s_01.png",
+   "w": 46,
+   "h": 38.7,
+   "anchor": [
+    0.4595,
+    0.5185
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     22.2,
+     4.9
+    ],
+    [
+     2.0,
+     16.0
+    ],
+    [
+     -17.9,
+     6.0
+    ],
+    [
+     -19.2,
+     2.4
+    ],
+    [
+     -12.4,
+     -13.3
+    ],
+    [
+     -9.4,
+     -15.0
+    ],
+    [
+     2.5,
+     -14.7
+    ],
+    [
+     18.9,
+     -1.2
+    ]
+   ]
+  },
+  {
+   "id": "grave_column_01",
+   "biomes": [
+    "grave"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/grave_column_01.png",
+   "w": 90,
+   "h": 35.3,
+   "anchor": [
+    0.4961,
+    0.5302
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     39.5,
+     14.6
+    ],
+    [
+     -39.4,
+     14.6
+    ],
+    [
+     -41.4,
+     -14.1
+    ],
+    [
+     40.8,
+     -14.7
+    ]
+   ]
+  },
+  {
+   "id": "grave_pillar_01",
+   "biomes": [
+    "grave"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/grave_pillar_01.png",
+   "w": 30,
+   "h": 50.7,
+   "anchor": [
+    0.4889,
+    0.7093
+   ],
+   "fx": [],
+   "tags": [
+    "stone",
+    "pillar"
+   ],
+   "foot": [
+    [
+     9.0,
+     5.7
+    ],
+    [
+     0.0,
+     12.1
+    ],
+    [
+     -9.0,
+     5.7
+    ],
+    [
+     -9.2,
+     -9.2
+    ],
+    [
+     9.2,
+     -9.2
+    ]
+   ]
+  },
+  {
+   "id": "grave_tomb_01",
+   "biomes": [
+    "grave",
+    "ash",
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_tomb_01.png",
+   "w": 30,
+   "h": 36.0,
+   "anchor": [
+    0.4926,
+    0.7469
+   ],
+   "fx": [],
+   "tags": [
+    "tomb"
+   ],
+   "foot": [],
+   "base": [
+    [
+     12.2,
+     7.4
+    ],
+    [
+     -12.4,
+     7.4
+    ],
+    [
+     -12.8,
+     2.7
+    ],
+    [
+     -10.5,
+     -7.7
+    ],
+    [
+     10.9,
+     -7.7
+    ],
+    [
+     12.6,
+     2.7
+    ]
+   ]
+  },
+  {
+   "id": "grave_tomb_02",
+   "biomes": [
+    "grave",
+    "ash",
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_tomb_02.png",
+   "w": 30,
+   "h": 39.3,
+   "anchor": [
+    0.4753,
+    0.7002
+   ],
+   "fx": [],
+   "tags": [
+    "tomb"
+   ],
+   "foot": [],
+   "base": [
+    [
+     11.4,
+     -7.1
+    ],
+    [
+     7.6,
+     7.1
+    ],
+    [
+     4.2,
+     9.3
+    ],
+    [
+     -12.3,
+     3.3
+    ],
+    [
+     -8.7,
+     -7.0
+    ]
+   ]
+  },
+  {
+   "id": "grave_cross_01",
+   "biomes": [
+    "grave",
+    "ash"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_cross_01.png",
+   "w": 24,
+   "h": 36.0,
+   "anchor": [
+    0.4884,
+    0.7623
+   ],
+   "fx": [],
+   "tags": [
+    "tomb"
+   ],
+   "foot": [],
+   "base": [
+    [
+     7.4,
+     6.0
+    ],
+    [
+     -7.5,
+     6.0
+    ],
+    [
+     -7.1,
+     -0.6
+    ],
+    [
+     -2.4,
+     -7.5
+    ],
+    [
+     2.3,
+     -7.5
+    ],
+    [
+     7.0,
+     -1.1
+    ]
+   ]
+  },
+  {
+   "id": "grave_candles_01",
+   "biomes": [
+    "grave",
+    "ash",
+    "swamp",
+    "site"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_candles_01.png",
+   "w": 24,
+   "h": 35.3,
+   "anchor": [
+    0.4992,
+    0.711
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -21.2
+     ],
+     "r": 55,
+     "color": "ffb060"
+    }
+   ],
+   "tags": [
+    "light",
+    "candle"
+   ],
+   "foot": [],
+   "base": [
+    [
+     9.7,
+     -6.7
+    ],
+    [
+     8.8,
+     2.9
+    ],
+    [
+     2.6,
+     7.0
+    ],
+    [
+     -0.5,
+     7.5
+    ],
+    [
+     -10.1,
+     3.5
+    ],
+    [
+     -8.4,
+     -6.0
+    ]
+   ]
+  },
+  {
+   "id": "grave_tree_01",
+   "biomes": [
+    "grave",
+    "ash",
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_tree_01.png",
+   "w": 120,
+   "h": 100.7,
+   "anchor": [
+    0.5031,
+    0.719
+   ],
+   "fx": [],
+   "tags": [
+    "tree"
+   ],
+   "foot": [],
+   "base": [
+    [
+     55.7,
+     -12.0
+    ],
+    [
+     42.4,
+     16.9
+    ],
+    [
+     23.5,
+     22.9
+    ],
+    [
+     -17.2,
+     25.3
+    ],
+    [
+     -38.6,
+     18.1
+    ],
+    [
+     -54.5,
+     -17.8
+    ],
+    [
+     -50.5,
+     -21.6
+    ],
+    [
+     29.3,
+     -21.2
+    ]
+   ]
+  },
+  {
+   "id": "grave_lamp_01",
+   "biomes": [
+    "grave",
+    "site",
+    "office"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_lamp_01.png",
+   "w": 22,
+   "h": 52.7,
+   "anchor": [
+    0.484,
+    0.8463
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -52.7
+     ],
+     "r": 115,
+     "color": "ffc070"
+    }
+   ],
+   "tags": [
+    "light",
+    "lamp"
+   ],
+   "foot": [],
+   "base": [
+    [
+     0.5,
+     5.4
+    ],
+    [
+     -1.9,
+     4.9
+    ],
+    [
+     -2.8,
+     3.8
+    ],
+    [
+     -2.0,
+     -2.4
+    ],
+    [
+     -1.5,
+     -6.0
+    ],
+    [
+     1.5,
+     -6.0
+    ],
+    [
+     2.0,
+     -2.4
+    ],
+    [
+     2.8,
+     3.8
+    ]
+   ]
+  },
+  {
+   "id": "grave_bench_01",
+   "biomes": [
+    "grave",
+    "office"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_bench_01.png",
+   "w": 60,
+   "h": 37.3,
+   "anchor": [
+    0.4949,
+    0.6807
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [],
+   "base": [
+    [
+     27.6,
+     1.8
+    ],
+    [
+     21.8,
+     10.4
+    ],
+    [
+     -23.2,
+     9.8
+    ],
+    [
+     -27.7,
+     1.2
+    ],
+    [
+     -24.5,
+     -10.0
+    ],
+    [
+     24.5,
+     -10.0
+    ]
+   ]
+  },
+  {
+   "id": "grave_bones_01",
+   "biomes": [
+    "grave",
+    "ash"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_bones_01.png",
+   "w": 40,
+   "h": 23.3,
+   "anchor": [
+    0.4853,
+    0.6532
+   ],
+   "fx": [],
+   "tags": [
+    "glue"
+   ],
+   "foot": [],
+   "base": [
+    [
+     18.0,
+     -4.1
+    ],
+    [
+     8.3,
+     6.2
+    ],
+    [
+     -10.9,
+     5.2
+    ],
+    [
+     -17.4,
+     -1.7
+    ],
+    [
+     -16.1,
+     -3.5
+    ],
+    [
+     -8.4,
+     -4.9
+    ],
+    [
+     16.7,
+     -5.3
+    ]
+   ]
+  },
+  {
+   "id": "ash_rock_l_01",
+   "biomes": [
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_rock_l_01.png",
+   "w": 120,
+   "h": 120.0,
+   "anchor": [
+    0.5336,
+    0.5932
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     44.3,
+     -30.7
+    ],
+    [
+     52.8,
+     19.5
+    ],
+    [
+     16.0,
+     45.6
+    ],
+    [
+     -39.9,
+     34.8
+    ],
+    [
+     -61.5,
+     20.2
+    ],
+    [
+     -37.1,
+     -28.0
+    ],
+    [
+     -8.3,
+     -45.9
+    ],
+    [
+     27.0,
+     -46.1
+    ]
+   ]
+  },
+  {
+   "id": "ash_cliff_xl_01",
+   "biomes": [
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "XL",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_cliff_xl_01.png",
+   "w": 220,
+   "h": 143.3,
+   "anchor": [
+    0.5024,
+    0.5211
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     105.7,
+     -52.5
+    ],
+    [
+     84.3,
+     38.5
+    ],
+    [
+     58.0,
+     56.6
+    ],
+    [
+     -18.0,
+     65.4
+    ],
+    [
+     -82.1,
+     41.7
+    ],
+    [
+     -108.0,
+     -39.3
+    ],
+    [
+     -82.8,
+     -52.3
+    ]
+   ]
+  },
+  {
+   "id": "ash_stones_s_01",
+   "biomes": [
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_stones_s_01.png",
+   "w": 50,
+   "h": 37.3,
+   "anchor": [
+    0.4766,
+    0.5246
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     23.5,
+     4.7
+    ],
+    [
+     21.0,
+     8.3
+    ],
+    [
+     2.5,
+     15.1
+    ],
+    [
+     -19.2,
+     5.8
+    ],
+    [
+     -21.8,
+     1.6
+    ],
+    [
+     -15.0,
+     -12.3
+    ],
+    [
+     -11.3,
+     -14.7
+    ],
+    [
+     1.9,
+     -14.3
+    ],
+    [
+     19.5,
+     -2.6
+    ]
+   ]
+  },
+  {
+   "id": "ash_monolith_01",
+   "biomes": [
+    "ash",
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_monolith_01.png",
+   "w": 48,
+   "h": 88.7,
+   "anchor": [
+    0.5005,
+    0.683
+   ],
+   "fx": [],
+   "tags": [
+    "stone",
+    "coffin"
+   ],
+   "foot": [
+    [
+     19.9,
+     -19.8
+    ],
+    [
+     15.4,
+     18.6
+    ],
+    [
+     -3.7,
+     24.8
+    ],
+    [
+     -14.2,
+     19.2
+    ],
+    [
+     -20.6,
+     -19.8
+    ]
+   ]
+  },
+  {
+   "id": "ash_tree_01",
+   "biomes": [
+    "ash"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_tree_01.png",
+   "w": 90,
+   "h": 126.7,
+   "anchor": [
+    0.5283,
+    0.8128
+   ],
+   "fx": [],
+   "tags": [
+    "tree"
+   ],
+   "foot": [],
+   "base": [
+    [
+     -6.3,
+     20.5
+    ],
+    [
+     -20.6,
+     15.2
+    ],
+    [
+     -1.4,
+     -25.0
+    ],
+    [
+     11.0,
+     -25.1
+    ],
+    [
+     15.0,
+     14.3
+    ]
+   ]
+  },
+  {
+   "id": "ash_bones_01",
+   "biomes": [
+    "ash",
+    "grave"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_bones_01.png",
+   "w": 44,
+   "h": 27.3,
+   "anchor": [
+    0.4837,
+    0.6136
+   ],
+   "fx": [],
+   "tags": [
+    "glue"
+   ],
+   "foot": [],
+   "base": [
+    [
+     20.1,
+     -3.7
+    ],
+    [
+     18.7,
+     2.3
+    ],
+    [
+     9.8,
+     7.4
+    ],
+    [
+     -13.0,
+     8.8
+    ],
+    [
+     -19.3,
+     -0.7
+    ],
+    [
+     -16.1,
+     -7.3
+    ],
+    [
+     13.6,
+     -7.8
+    ]
+   ]
+  },
+  {
+   "id": "office_cabinet_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/office_cabinet_01.png",
+   "w": 56,
+   "h": 90.7,
+   "anchor": [
+    0.494,
+    0.7306
+   ],
+   "fx": [],
+   "tags": [
+    "furniture"
+   ],
+   "foot": [
+    [
+     24.1,
+     -19.6
+    ],
+    [
+     17.7,
+     21.6
+    ],
+    [
+     -17.7,
+     21.6
+    ],
+    [
+     -24.1,
+     -19.6
+    ]
+   ]
+  },
+  {
+   "id": "office_desk_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/office_desk_01.png",
+   "w": 96,
+   "h": 64.7,
+   "anchor": [
+    0.4977,
+    0.6076
+   ],
+   "fx": [],
+   "tags": [
+    "furniture"
+   ],
+   "foot": [
+    [
+     36.5,
+     23.0
+    ],
+    [
+     -36.1,
+     23.6
+    ],
+    [
+     -45.1,
+     2.0
+    ],
+    [
+     -42.7,
+     -22.4
+    ],
+    [
+     42.4,
+     -22.4
+    ],
+    [
+     45.6,
+     1.3
+    ]
+   ]
+  },
+  {
+   "id": "office_cooler_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/office_cooler_01.png",
+   "w": 34,
+   "h": 75.3,
+   "anchor": [
+    0.4888,
+    0.7735
+   ],
+   "fx": [],
+   "tags": [
+    "furniture"
+   ],
+   "foot": [
+    [
+     14.5,
+     -12.3
+    ],
+    [
+     11.3,
+     11.6
+    ],
+    [
+     4.1,
+     13.8
+    ],
+    [
+     -3.5,
+     13.8
+    ],
+    [
+     -11.8,
+     10.4
+    ],
+    [
+     -14.4,
+     -12.3
+    ]
+   ]
+  },
+  {
+   "id": "office_boxes_01",
+   "biomes": [
+    "office",
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/office_boxes_01.png",
+   "w": 64,
+   "h": 77.3,
+   "anchor": [
+    0.4958,
+    0.6113
+   ],
+   "fx": [],
+   "tags": [
+    "crate"
+   ],
+   "foot": [
+    [
+     25.6,
+     27.3
+    ],
+    [
+     -25.7,
+     26.6
+    ],
+    [
+     -29.1,
+     -0.6
+    ],
+    [
+     -27.0,
+     -26.5
+    ],
+    [
+     26.8,
+     -26.5
+    ],
+    [
+     28.9,
+     0.1
+    ]
+   ]
+  },
+  {
+   "id": "office_papers_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/office_papers_01.png",
+   "w": 60,
+   "h": 40.0,
+   "anchor": [
+    0.5103,
+    0.5296
+   ],
+   "fx": [],
+   "tags": [
+    "glue",
+    "paper"
+   ],
+   "foot": [],
+   "base": [
+    [
+     26.8,
+     5.7
+    ],
+    [
+     17.3,
+     16.1
+    ],
+    [
+     8.5,
+     16.4
+    ],
+    [
+     -12.1,
+     15.9
+    ],
+    [
+     -28.0,
+     8.3
+    ],
+    [
+     -20.2,
+     -11.5
+    ],
+    [
+     -10.8,
+     -16.2
+    ],
+    [
+     4.3,
+     -19.2
+    ],
+    [
+     18.5,
+     -14.0
+    ]
+   ]
+  },
+  {
+   "id": "office_chair_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/office_chair_01.png",
+   "w": 32,
+   "h": 51.3,
+   "anchor": [
+    0.4902,
+    0.7028
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [],
+   "base": [
+    [
+     11.2,
+     5.7
+    ],
+    [
+     0.3,
+     12.6
+    ],
+    [
+     -11.2,
+     5.7
+    ],
+    [
+     -12.4,
+     2.2
+    ],
+    [
+     -11.5,
+     -9.5
+    ],
+    [
+     11.4,
+     -9.5
+    ],
+    [
+     12.3,
+     -1.2
+    ]
+   ]
+  },
+  {
+   "id": "office_stamp_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/office_stamp_01.png",
+   "w": 34,
+   "h": 28.7,
+   "anchor": [
+    0.4546,
+    0.581
+   ],
+   "fx": [],
+   "tags": [
+    "glue"
+   ],
+   "foot": [],
+   "base": [
+    [
+     15.5,
+     9.0
+    ],
+    [
+     5.0,
+     9.6
+    ],
+    [
+     -12.4,
+     7.6
+    ],
+    [
+     -13.6,
+     5.9
+    ],
+    [
+     -13.2,
+     -10.1
+    ],
+    [
+     4.4,
+     -9.5
+    ],
+    [
+     12.1,
+     -5.8
+    ]
+   ]
+  },
+  {
+   "id": "office_plant_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/office_plant_01.png",
+   "w": 34,
+   "h": 42.0,
+   "anchor": [
+    0.4929,
+    0.6984
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [],
+   "base": [
+    [
+     7.1,
+     6.6
+    ],
+    [
+     1.6,
+     10.0
+    ],
+    [
+     -5.6,
+     8.3
+    ],
+    [
+     -12.4,
+     -7.6
+    ],
+    [
+     11.6,
+     -7.6
+    ]
+   ]
+  },
+  {
+   "id": "office_candles_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/office_candles_01.png",
+   "w": 36,
+   "h": 35.3,
+   "anchor": [
+    0.4913,
+    0.7889
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -24.7
+     ],
+     "r": 60,
+     "color": "ffb060"
+    }
+   ],
+   "tags": [
+    "light",
+    "candle"
+   ],
+   "foot": [],
+   "base": [
+    [
+     5.8,
+     2.1
+    ],
+    [
+     2.6,
+     4.4
+    ],
+    [
+     -1.2,
+     4.9
+    ],
+    [
+     -3.7,
+     4.0
+    ],
+    [
+     -5.2,
+     2.6
+    ],
+    [
+     -5.7,
+     -0.9
+    ],
+    [
+     -1.7,
+     -5.3
+    ],
+    [
+     1.7,
+     -5.3
+    ],
+    [
+     5.1,
+     -1.9
+    ]
+   ]
+  },
+  {
+   "id": "office_coatrack_01",
+   "biomes": [
+    "office"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/office_coatrack_01.png",
+   "w": 30,
+   "h": 62.7,
+   "anchor": [
+    0.5,
+    0.8936
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [],
+   "base": [
+    [
+     1.6,
+     4.1
+    ],
+    [
+     -1.6,
+     4.1
+    ],
+    [
+     -1.6,
+     -4.1
+    ],
+    [
+     1.6,
+     -4.1
+    ]
+   ]
+  },
+  {
+   "id": "swamp_rock_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/swamp_rock_01.png",
+   "w": 90,
+   "h": 67.3,
+   "anchor": [
+    0.5041,
+    0.5528
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     41.3,
+     9.0
+    ],
+    [
+     23.8,
+     22.1
+    ],
+    [
+     -6.2,
+     26.8
+    ],
+    [
+     -35.6,
+     18.5
+    ],
+    [
+     -42.7,
+     5.8
+    ],
+    [
+     -36.1,
+     -10.7
+    ],
+    [
+     -16.9,
+     -25.6
+    ],
+    [
+     27.2,
+     -25.8
+    ],
+    [
+     38.7,
+     -5.6
+    ]
+   ]
+  },
+  {
+   "id": "swamp_stump_01",
+   "biomes": [
+    "swamp",
+    "grave"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/swamp_stump_01.png",
+   "w": 60,
+   "h": 52.0,
+   "anchor": [
+    0.4955,
+    0.6109
+   ],
+   "fx": [],
+   "tags": [
+    "wood"
+   ],
+   "foot": [
+    [
+     27.0,
+     5.2
+    ],
+    [
+     18.1,
+     15.0
+    ],
+    [
+     -10.1,
+     17.8
+    ],
+    [
+     -27.2,
+     8.9
+    ],
+    [
+     -16.4,
+     -17.6
+    ],
+    [
+     16.2,
+     -17.6
+    ]
+   ]
+  },
+  {
+   "id": "swamp_shrine_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/swamp_shrine_01.png",
+   "w": 80,
+   "h": 110.7,
+   "anchor": [
+    0.4949,
+    0.7064
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      22.1
+     ],
+     "r": 26,
+     "color": "7fffd8"
+    }
+   ],
+   "tags": [
+    "stone",
+    "crypt"
+   ],
+   "foot": [
+    [
+     34.8,
+     -27.0
+    ],
+    [
+     37.2,
+     -12.9
+    ],
+    [
+     32.2,
+     28.5
+    ],
+    [
+     -32.7,
+     27.9
+    ],
+    [
+     -37.0,
+     -12.9
+    ],
+    [
+     -34.0,
+     -27.6
+    ]
+   ]
+  },
+  {
+   "id": "swamp_tree_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_tree_01.png",
+   "w": 130,
+   "h": 133.3,
+   "anchor": [
+    0.5134,
+    0.7714
+   ],
+   "fx": [],
+   "tags": [
+    "tree"
+   ],
+   "foot": [],
+   "base": [
+    [
+     45.3,
+     -4.0
+    ],
+    [
+     21.3,
+     26.3
+    ],
+    [
+     -26.0,
+     27.7
+    ],
+    [
+     -49.6,
+     -22.0
+    ],
+    [
+     46.1,
+     -22.0
+    ]
+   ]
+  },
+  {
+   "id": "swamp_reeds_l_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_reeds_l_01.png",
+   "w": 70,
+   "h": 65.3,
+   "anchor": [
+    0.4907,
+    0.7061
+   ],
+   "fx": [],
+   "tags": [
+    "reed",
+    "shore"
+   ],
+   "foot": [],
+   "base": [
+    [
+     30.3,
+     -4.5
+    ],
+    [
+     27.0,
+     2.4
+    ],
+    [
+     14.2,
+     13.8
+    ],
+    [
+     0.3,
+     16.5
+    ],
+    [
+     -11.1,
+     14.3
+    ],
+    [
+     -25.1,
+     6.1
+    ],
+    [
+     -31.2,
+     -12.7
+    ],
+    [
+     27.8,
+     -12.6
+    ]
+   ]
+  },
+  {
+   "id": "swamp_reeds_s_01",
+   "biomes": [
+    "swamp",
+    "grave"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_reeds_s_01.png",
+   "w": 44,
+   "h": 43.3,
+   "anchor": [
+    0.5077,
+    0.7122
+   ],
+   "fx": [],
+   "tags": [
+    "reed",
+    "shore"
+   ],
+   "foot": [],
+   "base": [
+    [
+     19.0,
+     4.1
+    ],
+    [
+     9.6,
+     9.7
+    ],
+    [
+     -5.9,
+     9.4
+    ],
+    [
+     -19.7,
+     2.9
+    ],
+    [
+     -19.2,
+     -8.7
+    ],
+    [
+     14.6,
+     -8.5
+    ],
+    [
+     18.5,
+     -6.8
+    ]
+   ]
+  },
+  {
+   "id": "swamp_lily_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_lily_01.png",
+   "w": 56,
+   "h": 38.7,
+   "anchor": [
+    0.5158,
+    0.4927
+   ],
+   "fx": [],
+   "tags": [
+    "water_only"
+   ],
+   "foot": [],
+   "base": [
+    [
+     24.4,
+     -0.4
+    ],
+    [
+     17.5,
+     12.5
+    ],
+    [
+     -3.8,
+     17.0
+    ],
+    [
+     -7.4,
+     16.5
+    ],
+    [
+     -26.9,
+     0.9
+    ],
+    [
+     -16.6,
+     -11.3
+    ],
+    [
+     -2.0,
+     -17.1
+    ],
+    [
+     16.2,
+     -12.5
+    ]
+   ]
+  },
+  {
+   "id": "swamp_slab_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_slab_01.png",
+   "w": 70,
+   "h": 58.7,
+   "anchor": [
+    0.5268,
+    0.5135
+   ],
+   "fx": [],
+   "tags": [
+    "water_only"
+   ],
+   "foot": [],
+   "base": [
+    [
+     29.3,
+     -14.6
+    ],
+    [
+     28.5,
+     5.5
+    ],
+    [
+     14.5,
+     18.3
+    ],
+    [
+     -4.5,
+     25.9
+    ],
+    [
+     -17.6,
+     20.4
+    ],
+    [
+     -34.9,
+     5.6
+    ],
+    [
+     -32.9,
+     0.5
+    ],
+    [
+     -0.2,
+     -28.1
+    ]
+   ]
+  },
+  {
+   "id": "swamp_lantern_01",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_lantern_01.png",
+   "w": 30,
+   "h": 48.7,
+   "anchor": [
+    0.3663,
+    0.8657
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      4.5,
+      -26.8
+     ],
+     "r": 90,
+     "color": "ffc070"
+    }
+   ],
+   "tags": [
+    "light",
+    "lamp"
+   ],
+   "foot": [],
+   "base": [
+    [
+     9.8,
+     2.7
+    ],
+    [
+     5.5,
+     4.6
+    ],
+    [
+     -0.2,
+     3.9
+    ],
+    [
+     -9.1,
+     2.6
+    ],
+    [
+     -2.8,
+     -6.3
+    ],
+    [
+     0.3,
+     -6.1
+    ]
+   ]
+  },
+  {
+   "id": "swamp_ledger_01",
+   "biomes": [
+    "swamp",
+    "office"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_ledger_01.png",
+   "w": 40,
+   "h": 28.7,
+   "anchor": [
+    0.4816,
+    0.5133
+   ],
+   "fx": [],
+   "tags": [
+    "glue",
+    "paper"
+   ],
+   "foot": [],
+   "base": [
+    [
+     18.2,
+     6.6
+    ],
+    [
+     9.5,
+     11.7
+    ],
+    [
+     -13.7,
+     10.1
+    ],
+    [
+     -17.3,
+     3.0
+    ],
+    [
+     -15.5,
+     -7.2
+    ],
+    [
+     -11.7,
+     -10.1
+    ],
+    [
+     10.8,
+     -13.2
+    ]
+   ]
+  },
+  {
+   "id": "site_trailer_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "XL",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/site_trailer_01.png",
+   "w": 190,
+   "h": 154.0,
+   "anchor": [
+    0.4978,
+    0.6076
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      38.0,
+      38.5
+     ],
+     "r": 40,
+     "color": "ffc070"
+    }
+   ],
+   "tags": [
+    "building"
+   ],
+   "foot": [
+    [
+     92.1,
+     -7.4
+    ],
+    [
+     73.0,
+     42.8
+    ],
+    [
+     -18.6,
+     56.5
+    ],
+    [
+     -74.2,
+     40.8
+    ],
+    [
+     -91.9,
+     -8.1
+    ],
+    [
+     -90.8,
+     -45.3
+    ],
+    [
+     91.0,
+     -46.7
+    ]
+   ]
+  },
+  {
+   "id": "site_planks_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/site_planks_01.png",
+   "w": 110,
+   "h": 66.0,
+   "anchor": [
+    0.493,
+    0.5592
+   ],
+   "fx": [],
+   "tags": [
+    "wood"
+   ],
+   "foot": [
+    [
+     47.4,
+     26.1
+    ],
+    [
+     -47.8,
+     26.8
+    ],
+    [
+     -51.6,
+     12.0
+    ],
+    [
+     -47.8,
+     -26.6
+    ],
+    [
+     47.4,
+     -26.6
+    ],
+    [
+     52.4,
+     -0.9
+    ]
+   ]
+  },
+  {
+   "id": "site_crates_01",
+   "biomes": [
+    "site",
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/site_crates_01.png",
+   "w": 90,
+   "h": 79.3,
+   "anchor": [
+    0.4934,
+    0.5696
+   ],
+   "fx": [],
+   "tags": [
+    "crate"
+   ],
+   "foot": [
+    [
+     40.5,
+     21.2
+    ],
+    [
+     14.1,
+     31.0
+    ],
+    [
+     -25.0,
+     26.7
+    ],
+    [
+     -38.6,
+     19.9
+    ],
+    [
+     -41.8,
+     -14.5
+    ],
+    [
+     -32.9,
+     -28.5
+    ],
+    [
+     32.8,
+     -28.5
+    ],
+    [
+     42.3,
+     5.2
+    ]
+   ]
+  },
+  {
+   "id": "site_junk_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/site_junk_01.png",
+   "w": 130,
+   "h": 100.0,
+   "anchor": [
+    0.4872,
+    0.575
+   ],
+   "fx": [],
+   "tags": [
+    "junk",
+    "coffin"
+   ],
+   "foot": [
+    [
+     63.4,
+     -9.2
+    ],
+    [
+     58.1,
+     21.8
+    ],
+    [
+     39.2,
+     35.8
+    ],
+    [
+     -23.0,
+     39.4
+    ],
+    [
+     -51.6,
+     28.9
+    ],
+    [
+     -60.7,
+     14.1
+    ],
+    [
+     -57.5,
+     -20.8
+    ],
+    [
+     -47.8,
+     -36.9
+    ],
+    [
+     43.1,
+     -36.9
+    ]
+   ]
+  },
+  {
+   "id": "site_blocks_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/site_blocks_01.png",
+   "w": 90,
+   "h": 80.0,
+   "anchor": [
+    0.5081,
+    0.5564
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     40.7,
+     31.6
+    ],
+    [
+     11.0,
+     32.3
+    ],
+    [
+     -41.3,
+     24.5
+    ],
+    [
+     -42.5,
+     -15.2
+    ],
+    [
+     -32.9,
+     -31.1
+    ],
+    [
+     28.9,
+     -31.0
+    ],
+    [
+     38.6,
+     -24.8
+    ]
+   ]
+  },
+  {
+   "id": "site_bags_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/site_bags_01.png",
+   "w": 64,
+   "h": 54.7,
+   "anchor": [
+    0.5046,
+    0.5533
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [
+    [
+     29.3,
+     14.8
+    ],
+    [
+     14.6,
+     22.1
+    ],
+    [
+     -13.8,
+     19.5
+    ],
+    [
+     -29.1,
+     9.2
+    ],
+    [
+     -29.1,
+     -12.8
+    ],
+    [
+     -17.7,
+     -20.7
+    ],
+    [
+     13.3,
+     -20.6
+    ],
+    [
+     22.1,
+     -17.0
+    ],
+    [
+     25.9,
+     -12.1
+    ]
+   ]
+  },
+  {
+   "id": "site_lamp_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_lamp_01.png",
+   "w": 24,
+   "h": 64.7,
+   "anchor": [
+    0.496,
+    0.8616
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -55.0
+     ],
+     "r": 120,
+     "color": "ffd080"
+    }
+   ],
+   "tags": [
+    "light",
+    "lamp"
+   ],
+   "foot": [],
+   "base": [
+    [
+     0.1,
+     6.3
+    ],
+    [
+     -2.8,
+     4.6
+    ],
+    [
+     -1.0,
+     -9.1
+    ],
+    [
+     0.6,
+     -9.1
+    ],
+    [
+     2.9,
+     4.0
+    ],
+    [
+     1.6,
+     5.7
+    ]
+   ]
+  },
+  {
+   "id": "site_cones_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_cones_01.png",
+   "w": 46,
+   "h": 42.0,
+   "anchor": [
+    0.5056,
+    0.5701
+   ],
+   "fx": [],
+   "tags": [
+    "glue"
+   ],
+   "foot": [],
+   "base": [
+    [
+     20.1,
+     0.1
+    ],
+    [
+     10.1,
+     11.9
+    ],
+    [
+     3.6,
+     15.4
+    ],
+    [
+     -15.4,
+     5.4
+    ],
+    [
+     -21.3,
+     -5.4
+    ],
+    [
+     -16.9,
+     -10.9
+    ],
+    [
+     14.5,
+     -10.8
+    ]
+   ]
+  },
+  {
+   "id": "site_barrow_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_barrow_01.png",
+   "w": 44,
+   "h": 62.7,
+   "anchor": [
+    0.4609,
+    0.5849
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [],
+   "base": [
+    [
+     17.6,
+     -16.6
+    ],
+    [
+     14.0,
+     7.7
+    ],
+    [
+     1.0,
+     22.7
+    ],
+    [
+     -3.9,
+     22.0
+    ],
+    [
+     -8.1,
+     18.2
+    ],
+    [
+     -18.3,
+     -3.6
+    ],
+    [
+     -11.8,
+     -16.4
+    ]
+   ]
+  },
+  {
+   "id": "site_rebar_01",
+   "biomes": [
+    "site"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_rebar_01.png",
+   "w": 90,
+   "h": 65.3,
+   "anchor": [
+    0.4739,
+    0.5116
+   ],
+   "fx": [],
+   "tags": [
+    "glue"
+   ],
+   "foot": [],
+   "base": [
+    [
+     43.6,
+     -23.8
+    ],
+    [
+     43.5,
+     -17.4
+    ],
+    [
+     -19.5,
+     28.3
+    ],
+    [
+     -40.2,
+     20.3
+    ],
+    [
+     -33.3,
+     6.2
+    ],
+    [
+     20.8,
+     -25.9
+    ]
+   ]
+  },
+  {
+   "id": "boiler_tank_01",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "XL",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_tank_01.png",
+   "w": 190,
+   "h": 130.7,
+   "anchor": [
+    0.4999,
+    0.6173
+   ],
+   "fx": [],
+   "tags": [
+    "metal"
+   ],
+   "foot": [
+    [
+     91.7,
+     -17.6
+    ],
+    [
+     79.1,
+     17.6
+    ],
+    [
+     52.2,
+     47.3
+    ],
+    [
+     -52.2,
+     47.3
+    ],
+    [
+     -77.7,
+     20.2
+    ],
+    [
+     -92.4,
+     -24.8
+    ],
+    [
+     -87.2,
+     -41.1
+    ],
+    [
+     86.5,
+     -41.1
+    ]
+   ]
+  },
+  {
+   "id": "boiler_coal_01",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_coal_01.png",
+   "w": 100,
+   "h": 68.7,
+   "anchor": [
+    0.5023,
+    0.5703
+   ],
+   "fx": [],
+   "tags": [],
+   "foot": [
+    [
+     46.4,
+     4.0
+    ],
+    [
+     30.9,
+     24.3
+    ],
+    [
+     5.4,
+     26.2
+    ],
+    [
+     -37.2,
+     21.8
+    ],
+    [
+     -47.6,
+     2.7
+    ],
+    [
+     -26.2,
+     -26.4
+    ],
+    [
+     19.9,
+     -27.5
+    ],
+    [
+     41.8,
+     -10.7
+    ]
+   ]
+  },
+  {
+   "id": "boiler_furnace_01",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_furnace_01.png",
+   "w": 90,
+   "h": 100.7,
+   "anchor": [
+    0.4891,
+    0.6829
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      30.2
+     ],
+     "r": 70,
+     "color": "ff8a30"
+    },
+    {
+     "kind": "ember",
+     "at": [
+      0.0,
+      30.2
+     ],
+     "r": 20,
+     "color": "ff7a30"
+    }
+   ],
+   "tags": [
+    "metal",
+    "fire"
+   ],
+   "foot": [
+    [
+     43.0,
+     -27.7
+    ],
+    [
+     36.4,
+     29.3
+    ],
+    [
+     -38.4,
+     28.1
+    ],
+    [
+     -41.7,
+     -27.6
+    ]
+   ]
+  },
+  {
+   "id": "boiler_barrels_01",
+   "biomes": [
+    "boiler",
+    "site"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_barrels_01.png",
+   "w": 70,
+   "h": 73.3,
+   "anchor": [
+    0.497,
+    0.5865
+   ],
+   "fx": [],
+   "tags": [
+    "metal"
+   ],
+   "foot": [
+    [
+     31.2,
+     5.3
+    ],
+    [
+     11.1,
+     24.5
+    ],
+    [
+     -7.6,
+     26.4
+    ],
+    [
+     -30.8,
+     6.6
+    ],
+    [
+     -32.4,
+     -20.0
+    ],
+    [
+     32.2,
+     -20.0
+    ]
+   ]
+  },
+  {
+   "id": "boiler_crates_01",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_crates_01.png",
+   "w": 110,
+   "h": 88.7,
+   "anchor": [
+    0.453,
+    0.5556
+   ],
+   "fx": [],
+   "tags": [
+    "metal",
+    "crate"
+   ],
+   "foot": [
+    [
+     56.8,
+     4.6
+    ],
+    [
+     -18.9,
+     36.3
+    ],
+    [
+     -46.7,
+     19.9
+    ],
+    [
+     -47.3,
+     -16.6
+    ],
+    [
+     -23.2,
+     -25.8
+    ],
+    [
+     39.8,
+     -26.2
+    ],
+    [
+     54.3,
+     -16.0
+    ]
+   ]
+  },
+  {
+   "id": "boiler_valve_01",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_valve_01.png",
+   "w": 50,
+   "h": 46.7,
+   "anchor": [
+    0.4939,
+    0.5962
+   ],
+   "fx": [],
+   "tags": [
+    "metal"
+   ],
+   "foot": [
+    [
+     22.7,
+     -3.5
+    ],
+    [
+     17.4,
+     6.8
+    ],
+    [
+     10.7,
+     12.6
+    ],
+    [
+     -0.6,
+     16.2
+    ],
+    [
+     -8.9,
+     13.8
+    ],
+    [
+     -15.6,
+     8.5
+    ],
+    [
+     -21.4,
+     0.8
+    ],
+    [
+     -22.8,
+     -5.4
+    ],
+    [
+     -16.4,
+     -12.6
+    ],
+    [
+     16.4,
+     -12.6
+    ],
+    [
+     21.4,
+     -8.4
+    ]
+   ]
+  },
+  {
+   "id": "boiler_gauges_01",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/boiler_gauges_01.png",
+   "w": 50,
+   "h": 58.0,
+   "anchor": [
+    0.5282,
+    0.6258
+   ],
+   "fx": [],
+   "tags": [
+    "metal"
+   ],
+   "foot": [
+    [
+     20.5,
+     10.1
+    ],
+    [
+     3.8,
+     18.4
+    ],
+    [
+     -24.4,
+     1.0
+    ],
+    [
+     -24.6,
+     -12.7
+    ],
+    [
+     20.6,
+     -12.6
+    ]
+   ]
+  },
+  {
+   "id": "ash_spire_01",
+   "biomes": [
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_spire_01.png",
+   "w": 36,
+   "h": 95.3,
+   "anchor": [
+    0.491,
+    0.8036
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     15.2,
+     6.6
+    ],
+    [
+     10.3,
+     11.2
+    ],
+    [
+     0.3,
+     14.7
+    ],
+    [
+     -7.4,
+     14.3
+    ],
+    [
+     -15.2,
+     7.2
+    ],
+    [
+     -11.7,
+     -13.8
+    ],
+    [
+     12.3,
+     -13.8
+    ]
+   ]
+  },
+  {
+   "id": "ash_stump_01",
+   "biomes": [
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_stump_01.png",
+   "w": 60,
+   "h": 58.0,
+   "anchor": [
+    0.4971,
+    0.6335
+   ],
+   "fx": [],
+   "tags": [
+    "wood"
+   ],
+   "foot": [
+    [
+     26.9,
+     6.1
+    ],
+    [
+     19.3,
+     16.0
+    ],
+    [
+     -9.6,
+     18.8
+    ],
+    [
+     -25.3,
+     10.5
+    ],
+    [
+     -20.3,
+     -18.1
+    ],
+    [
+     17.4,
+     -18.0
+    ]
+   ]
+  },
+  {
+   "id": "ash_slab_01",
+   "biomes": [
+    "ash",
+    "grave"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_slab_01.png",
+   "w": 70,
+   "h": 40.7,
+   "anchor": [
+    0.485,
+    0.4905
+   ],
+   "fx": [],
+   "tags": [
+    "glue",
+    "stone"
+   ],
+   "foot": [],
+   "base": [
+    [
+     33.4,
+     -6.9
+    ],
+    [
+     30.7,
+     -1.2
+    ],
+    [
+     -9.1,
+     18.3
+    ],
+    [
+     -30.0,
+     8.8
+    ],
+    [
+     -32.0,
+     4.4
+    ],
+    [
+     -30.0,
+     0.1
+    ],
+    [
+     10.4,
+     -18.2
+    ]
+   ]
+  },
+  {
+   "id": "ash_crystals_01",
+   "biomes": [
+    "ash",
+    "hell"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/ash_crystals_01.png",
+   "w": 44,
+   "h": 56.0,
+   "anchor": [
+    0.4977,
+    0.6597
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -11.2
+     ],
+     "r": 40,
+     "color": "b890ff"
+    }
+   ],
+   "tags": [
+    "stone",
+    "light"
+   ],
+   "foot": [
+    [
+     18.3,
+     7.6
+    ],
+    [
+     10.9,
+     14.1
+    ],
+    [
+     -1.7,
+     16.4
+    ],
+    [
+     -19.4,
+     7.7
+    ],
+    [
+     -18.3,
+     -13.7
+    ],
+    [
+     15.9,
+     -13.6
+    ],
+    [
+     19.0,
+     -8.8
+    ]
+   ]
+  },
+  {
+   "id": "hell_desk_01",
+   "biomes": [
+    "hell"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_desk_01.png",
+   "w": 150,
+   "h": 105.3,
+   "anchor": [
+    0.4541,
+    0.5498
+   ],
+   "fx": [],
+   "tags": [
+    "furniture"
+   ],
+   "foot": [
+    [
+     75.4,
+     -31.1
+    ],
+    [
+     73.2,
+     2.0
+    ],
+    [
+     -35.5,
+     44.5
+    ],
+    [
+     -62.9,
+     26.6
+    ],
+    [
+     -64.2,
+     -12.8
+    ],
+    [
+     -16.5,
+     -30.2
+    ]
+   ]
+  },
+  {
+   "id": "hell_chairs_h",
+   "biomes": [
+    "hell"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_chairs_h.png",
+   "w": 120,
+   "h": 92.7,
+   "anchor": [
+    0.4479,
+    0.5807
+   ],
+   "fx": [],
+   "tags": [
+    "furniture"
+   ],
+   "foot": [
+    [
+     61.7,
+     -21.2
+    ],
+    [
+     62.3,
+     2.1
+    ],
+    [
+     -31.8,
+     36.0
+    ],
+    [
+     -51.3,
+     22.7
+    ],
+    [
+     -49.2,
+     -15.2
+    ],
+    [
+     -42.0,
+     -21.6
+    ],
+    [
+     56.4,
+     -25.6
+    ]
+   ]
+  },
+  {
+   "id": "hell_rope_h2",
+   "biomes": [
+    "hell"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_rope_h2.png",
+   "w": 90,
+   "h": 60.7,
+   "anchor": [
+    0.4954,
+    0.8157
+   ],
+   "fx": [],
+   "tags": [
+    "barrier"
+   ],
+   "foot": [
+    [
+     42.1,
+     6.9
+    ],
+    [
+     37.5,
+     9.4
+    ],
+    [
+     -37.3,
+     9.4
+    ],
+    [
+     -41.9,
+     2.4
+    ],
+    [
+     -36.0,
+     -9.6
+    ],
+    [
+     36.1,
+     -9.6
+    ]
+   ]
+  },
+  {
+   "id": "hell_cabinet_01",
+   "biomes": [
+    "hell"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_cabinet_01.png",
+   "w": 56,
+   "h": 78.7,
+   "anchor": [
+    0.468,
+    0.7054
+   ],
+   "fx": [
+    {
+     "kind": "ember",
+     "at": [
+      0.0,
+      15.7
+     ],
+     "r": 16,
+     "color": "ff7a30"
+    }
+   ],
+   "tags": [
+    "furniture",
+    "fire"
+   ],
+   "foot": [
+    [
+     26.5,
+     6.7
+    ],
+    [
+     -9.4,
+     20.7
+    ],
+    [
+     -23.7,
+     11.6
+    ],
+    [
+     -23.8,
+     -15.1
+    ],
+    [
+     26.7,
+     -15.2
+    ]
+   ]
+  },
+  {
+   "id": "hell_rock_01",
+   "biomes": [
+    "hell",
+    "ash"
+   ],
+   "role": "obstacle",
+   "size": "M",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_rock_01.png",
+   "w": 90,
+   "h": 98.7,
+   "anchor": [
+    0.5077,
+    0.5617
+   ],
+   "fx": [
+    {
+     "kind": "ember",
+     "at": [
+      0.0,
+      0.0
+     ],
+     "r": 30,
+     "color": "ff6a20"
+    }
+   ],
+   "tags": [
+    "stone",
+    "fire"
+   ],
+   "foot": [
+    [
+     41.0,
+     11.4
+    ],
+    [
+     30.2,
+     27.9
+    ],
+    [
+     -3.5,
+     39.9
+    ],
+    [
+     -31.5,
+     27.3
+    ],
+    [
+     -43.1,
+     8.8
+    ],
+    [
+     -18.8,
+     -39.0
+    ],
+    [
+     16.8,
+     -38.9
+    ],
+    [
+     28.2,
+     -28.7
+    ]
+   ]
+  },
+  {
+   "id": "hell_bones_col_01",
+   "biomes": [
+    "hell"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_bones_col_01.png",
+   "w": 40,
+   "h": 92.7,
+   "anchor": [
+    0.4778,
+    0.7855
+   ],
+   "fx": [],
+   "tags": [
+    "bone"
+   ],
+   "foot": [
+    [
+     14.1,
+     12.5
+    ],
+    [
+     2.0,
+     16.6
+    ],
+    [
+     -12.5,
+     14.4
+    ],
+    [
+     -16.6,
+     7.1
+    ],
+    [
+     -15.0,
+     -14.1
+    ],
+    [
+     -13.2,
+     -15.9
+    ],
+    [
+     14.2,
+     -14.7
+    ],
+    [
+     17.7,
+     5.9
+    ]
+   ]
+  },
+  {
+   "id": "hell_brazier_01",
+   "biomes": [
+    "hell",
+    "boiler"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_brazier_01.png",
+   "w": 50,
+   "h": 48.0,
+   "anchor": [
+    0.4944,
+    0.6364
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -14.4
+     ],
+     "r": 100,
+     "color": "ff8a30"
+    },
+    {
+     "kind": "ember",
+     "at": [
+      0.0,
+      -14.4
+     ],
+     "r": 14,
+     "color": "ff7a30"
+    }
+   ],
+   "tags": [
+    "light",
+    "fire"
+   ],
+   "foot": [
+    [
+     22.7,
+     -4.8
+    ],
+    [
+     18.7,
+     3.7
+    ],
+    [
+     10.6,
+     11.3
+    ],
+    [
+     -1.2,
+     14.8
+    ],
+    [
+     -8.9,
+     12.5
+    ],
+    [
+     -18.8,
+     3.7
+    ],
+    [
+     -22.8,
+     -7.3
+    ],
+    [
+     -20.9,
+     -11.0
+    ],
+    [
+     20.8,
+     -11.0
+    ]
+   ]
+  },
+  {
+   "id": "hell_contracts_01",
+   "biomes": [
+    "hell",
+    "office"
+   ],
+   "role": "obstacle",
+   "size": "S",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/hell_contracts_01.png",
+   "w": 50,
+   "h": 53.3,
+   "anchor": [
+    0.5158,
+    0.5331
+   ],
+   "fx": [],
+   "tags": [
+    "paper"
+   ],
+   "foot": [
+    [
+     20.6,
+     13.8
+    ],
+    [
+     5.1,
+     22.3
+    ],
+    [
+     -22.5,
+     5.1
+    ],
+    [
+     -23.4,
+     -14.1
+    ],
+    [
+     -15.8,
+     -17.0
+    ],
+    [
+     20.0,
+     -15.2
+    ]
+   ]
+  },
+  {
+   "id": "winter_sarc_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/winter_sarc_01.png",
+   "w": 130,
+   "h": 101.3,
+   "anchor": [
+    0.4957,
+    0.5779
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     59.9,
+     -37.5
+    ],
+    [
+     58.5,
+     35.1
+    ],
+    [
+     -29.9,
+     39.8
+    ],
+    [
+     -59.4,
+     33.1
+    ],
+    [
+     -58.1,
+     -37.5
+    ]
+   ]
+  },
+  {
+   "id": "winter_crypt_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/winter_crypt_01.png",
+   "w": 100,
+   "h": 165.3,
+   "anchor": [
+    0.496,
+    0.7034
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      33.1
+     ],
+     "r": 26,
+     "color": "ffb060"
+    }
+   ],
+   "tags": [
+    "stone",
+    "crypt"
+   ],
+   "foot": [
+    [
+     41.0,
+     -40.9
+    ],
+    [
+     47.2,
+     -16.9
+    ],
+    [
+     37.1,
+     42.9
+    ],
+    [
+     -37.0,
+     43.5
+    ],
+    [
+     -47.1,
+     -16.9
+    ],
+    [
+     -40.9,
+     -40.9
+    ]
+   ]
+  },
+  {
+   "id": "winter_rock_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "obstacle",
+   "size": "L",
+   "pass": "C",
+   "tex": "res://assets/legion/procgen/items/winter_rock_01.png",
+   "w": 100,
+   "h": 92.0,
+   "anchor": [
+    0.5058,
+    0.5577
+   ],
+   "fx": [],
+   "tags": [
+    "stone"
+   ],
+   "foot": [
+    [
+     46.1,
+     4.5
+    ],
+    [
+     34.6,
+     32.0
+    ],
+    [
+     27.5,
+     36.4
+    ],
+    [
+     -25.4,
+     33.8
+    ],
+    [
+     -48.0,
+     14.1
+    ],
+    [
+     -45.9,
+     -6.4
+    ],
+    [
+     -26.1,
+     -36.4
+    ],
+    [
+     27.5,
+     -36.4
+    ],
+    [
+     40.9,
+     -16.6
+    ]
+   ]
+  },
+  {
+   "id": "winter_tomb_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_tomb_01.png",
+   "w": 30,
+   "h": 36.7,
+   "anchor": [
+    0.4947,
+    0.7419
+   ],
+   "fx": [],
+   "tags": [
+    "tomb"
+   ],
+   "foot": [],
+   "base": [
+    [
+     12.1,
+     7.7
+    ],
+    [
+     -11.8,
+     7.7
+    ],
+    [
+     -12.9,
+     3.0
+    ],
+    [
+     -10.6,
+     -8.0
+    ],
+    [
+     10.9,
+     -8.0
+    ],
+    [
+     12.5,
+     2.4
+    ]
+   ]
+  },
+  {
+   "id": "winter_tomb_02",
+   "biomes": [
+    "winter"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_tomb_02.png",
+   "w": 30,
+   "h": 40.7,
+   "anchor": [
+    0.4716,
+    0.7014
+   ],
+   "fx": [],
+   "tags": [
+    "tomb"
+   ],
+   "foot": [],
+   "base": [
+    [
+     11.5,
+     -7.4
+    ],
+    [
+     7.7,
+     6.8
+    ],
+    [
+     3.8,
+     9.6
+    ],
+    [
+     -12.2,
+     3.6
+    ],
+    [
+     -8.6,
+     -7.2
+    ]
+   ]
+  },
+  {
+   "id": "winter_cross_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "decor",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_cross_01.png",
+   "w": 24,
+   "h": 36.0,
+   "anchor": [
+    0.4815,
+    0.7642
+   ],
+   "fx": [],
+   "tags": [
+    "tomb"
+   ],
+   "foot": [],
+   "base": [
+    [
+     7.5,
+     5.9
+    ],
+    [
+     -7.3,
+     5.9
+    ],
+    [
+     -6.9,
+     -0.7
+    ],
+    [
+     -2.3,
+     -7.6
+    ],
+    [
+     1.9,
+     -7.6
+    ],
+    [
+     6.5,
+     -1.7
+    ]
+   ]
+  },
+  {
+   "id": "winter_candles_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_candles_01.png",
+   "w": 24,
+   "h": 35.3,
+   "anchor": [
+    0.4926,
+    0.7057
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -21.2
+     ],
+     "r": 55,
+     "color": "ffb060"
+    }
+   ],
+   "tags": [
+    "light",
+    "candle"
+   ],
+   "foot": [],
+   "base": [
+    [
+     9.8,
+     -6.5
+    ],
+    [
+     9.0,
+     3.1
+    ],
+    [
+     2.8,
+     7.2
+    ],
+    [
+     -0.4,
+     7.7
+    ],
+    [
+     -9.9,
+     3.7
+    ],
+    [
+     -8.8,
+     -5.2
+    ],
+    [
+     -7.6,
+     -6.3
+    ]
+   ]
+  },
+  {
+   "id": "winter_tree_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "decor",
+   "size": "M",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_tree_01.png",
+   "w": 120,
+   "h": 101.3,
+   "anchor": [
+    0.5053,
+    0.7209
+   ],
+   "fx": [],
+   "tags": [
+    "tree"
+   ],
+   "foot": [],
+   "base": [
+    [
+     56.1,
+     -12.6
+    ],
+    [
+     41.5,
+     17.5
+    ],
+    [
+     -17.5,
+     25.3
+    ],
+    [
+     -40.1,
+     16.8
+    ],
+    [
+     -56.1,
+     -18.4
+    ],
+    [
+     29.1,
+     -21.2
+    ]
+   ]
+  },
+  {
+   "id": "winter_lamp_01",
+   "biomes": [
+    "winter"
+   ],
+   "role": "light",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_lamp_01.png",
+   "w": 22,
+   "h": 53.3,
+   "anchor": [
+    0.4856,
+    0.8492
+   ],
+   "fx": [
+    {
+     "kind": "glow",
+     "at": [
+      0.0,
+      -53.3
+     ],
+     "r": 115,
+     "color": "ffc070"
+    }
+   ],
+   "tags": [
+    "light",
+    "lamp"
+   ],
+   "foot": [],
+   "base": [
+    [
+     1.0,
+     5.4
+    ],
+    [
+     -1.9,
+     4.9
+    ],
+    [
+     -2.8,
+     3.8
+    ],
+    [
+     -1.9,
+     -1.9
+    ],
+    [
+     -1.5,
+     -6.0
+    ],
+    [
+     1.5,
+     -6.0
+    ],
+    [
+     2.0,
+     -2.4
+    ],
+    [
+     2.8,
+     3.8
+    ]
+   ]
+  },
+  {
+   "id": "grave_wall_stone",
+   "biomes": [
+    "grave",
+    "swamp"
+   ],
+   "role": "wall",
+   "wall_kind": "stone",
+   "pass": "C",
+   "w": 24,
+   "tex": "res://assets/legion/procgen/items/grave_wall_stone_h.png",
+   "seg_h": 157.2,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/grave_wall_stone_v.png",
+   "seg_v": 93.9
+  },
+  {
+   "id": "grave_fence",
+   "biomes": [
+    "grave",
+    "office"
+   ],
+   "role": "wall",
+   "wall_kind": "fence",
+   "pass": "C",
+   "w": 18,
+   "tex": "res://assets/legion/procgen/items/grave_fence_h.png",
+   "seg_h": 89.2,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/grave_fence_v.png",
+   "seg_v": 161.5
+  },
+  {
+   "id": "office_shelf",
+   "biomes": [
+    "office"
+   ],
+   "role": "wall",
+   "wall_kind": "shelf",
+   "pass": "C",
+   "w": 54,
+   "tex": "res://assets/legion/procgen/items/office_shelf_h.png",
+   "seg_h": 231.5,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/office_shelf_v.png",
+   "seg_v": 155.7
+  },
+  {
+   "id": "site_hoard",
+   "biomes": [
+    "site"
+   ],
+   "role": "wall",
+   "wall_kind": "fence",
+   "pass": "C",
+   "w": 20,
+   "tex": "res://assets/legion/procgen/items/site_hoard_h.png",
+   "seg_h": 70.4,
+   "tags": []
+  },
+  {
+   "id": "boiler_pipe",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "wall",
+   "wall_kind": "stone",
+   "pass": "C",
+   "w": 30,
+   "tex": "res://assets/legion/procgen/items/boiler_pipe_h.png",
+   "seg_h": 151.7,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/boiler_pipe_v.png",
+   "seg_v": 80.6
+  },
+  {
+   "id": "boiler_wall_brick",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "wall",
+   "wall_kind": "stone",
+   "pass": "C",
+   "w": 26,
+   "tex": "res://assets/legion/procgen/items/boiler_wall_brick_h.png",
+   "seg_h": 156.6,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/boiler_wall_brick_v.png",
+   "seg_v": 84.9
+  },
+  {
+   "id": "ash_ridge",
+   "biomes": [
+    "ash"
+   ],
+   "role": "wall",
+   "wall_kind": "stone",
+   "pass": "C",
+   "w": 34,
+   "tex": "res://assets/legion/procgen/items/ash_ridge_h.png",
+   "seg_h": 157.4,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/ash_ridge_v.png",
+   "seg_v": 108.5
+  },
+  {
+   "id": "hell_wall",
+   "biomes": [
+    "hell"
+   ],
+   "role": "wall",
+   "wall_kind": "stone",
+   "pass": "C",
+   "w": 26,
+   "tex": "res://assets/legion/procgen/items/hell_wall_h.png",
+   "seg_h": 171.8,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/hell_wall_v.png",
+   "seg_v": 102.4
+  },
+  {
+   "id": "winter_wall_stone",
+   "biomes": [
+    "winter"
+   ],
+   "role": "wall",
+   "wall_kind": "stone",
+   "pass": "C",
+   "w": 24,
+   "tex": "res://assets/legion/procgen/items/winter_wall_stone_h.png",
+   "seg_h": 152.4,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/winter_wall_stone_v.png",
+   "seg_v": 95.9
+  },
+  {
+   "id": "winter_fence",
+   "biomes": [
+    "winter"
+   ],
+   "role": "wall",
+   "wall_kind": "fence",
+   "pass": "C",
+   "w": 18,
+   "tex": "res://assets/legion/procgen/items/winter_fence_h.png",
+   "seg_h": 86.7,
+   "tags": [],
+   "tex_v": "res://assets/legion/procgen/items/winter_fence_v.png",
+   "seg_v": 161.9
+  },
+  {
+   "id": "swamp_bridge",
+   "biomes": [
+    "swamp",
+    "grave"
+   ],
+   "role": "bridge",
+   "pass": "D",
+   "w": 96,
+   "tex": "res://assets/legion/procgen/items/swamp_bridge_h.png",
+   "tex_v": "res://assets/legion/procgen/items/swamp_bridge_v.png",
+   "tags": []
+  },
+  {
+   "id": "grave_dec_grass",
+   "biomes": [
+    "grave"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_dec_grass.png",
+   "w": 48,
+   "h": 33.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "grave_dec_leaves",
+   "biomes": [
+    "grave"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_dec_leaves.png",
+   "w": 48,
+   "h": 25.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "grave_dec_pebbles",
+   "biomes": [
+    "grave"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_dec_pebbles.png",
+   "w": 48,
+   "h": 27.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "grave_dec_mushrooms",
+   "biomes": [
+    "grave"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_dec_mushrooms.png",
+   "w": 48,
+   "h": 34.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "grave_dec_wreath",
+   "biomes": [
+    "grave"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_dec_wreath.png",
+   "w": 48,
+   "h": 38.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "grave_dec_slab",
+   "biomes": [
+    "grave"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/grave_dec_slab.png",
+   "w": 64,
+   "h": 44.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "winter_dec_grass",
+   "biomes": [
+    "winter"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_dec_grass.png",
+   "w": 48,
+   "h": 36.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "winter_dec_leaves",
+   "biomes": [
+    "winter"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_dec_leaves.png",
+   "w": 48,
+   "h": 26.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "winter_dec_pebbles",
+   "biomes": [
+    "winter"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_dec_pebbles.png",
+   "w": 48,
+   "h": 26.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "winter_dec_mushrooms",
+   "biomes": [
+    "winter"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_dec_mushrooms.png",
+   "w": 48,
+   "h": 36.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "winter_dec_wreath",
+   "biomes": [
+    "winter"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_dec_wreath.png",
+   "w": 48,
+   "h": 38.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "winter_dec_slab",
+   "biomes": [
+    "winter"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/winter_dec_slab.png",
+   "w": 64,
+   "h": 44.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "ash_dec_embercrack",
+   "biomes": [
+    "ash"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_dec_embercrack.png",
+   "w": 48,
+   "h": 27.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "ash_dec_pebbles",
+   "biomes": [
+    "ash"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_dec_pebbles.png",
+   "w": 48,
+   "h": 24.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "ash_dec_grass",
+   "biomes": [
+    "ash"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_dec_grass.png",
+   "w": 48,
+   "h": 34.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "ash_dec_burn",
+   "biomes": [
+    "ash"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_dec_burn.png",
+   "w": 48,
+   "h": 29.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "ash_dec_chain",
+   "biomes": [
+    "ash"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_dec_chain.png",
+   "w": 48,
+   "h": 30.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "ash_dec_crystalslab",
+   "biomes": [
+    "ash"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/ash_dec_crystalslab.png",
+   "w": 64,
+   "h": 45.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "swamp_dec_grass",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_dec_grass.png",
+   "w": 48,
+   "h": 32.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "swamp_dec_puddle",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_dec_puddle.png",
+   "w": 64,
+   "h": 31.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "swamp_dec_moss",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_dec_moss.png",
+   "w": 48,
+   "h": 26.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "swamp_dec_mushrooms",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_dec_mushrooms.png",
+   "w": 48,
+   "h": 36.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "swamp_dec_log",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_dec_log.png",
+   "w": 64,
+   "h": 42.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "swamp_dec_slab",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/swamp_dec_slab.png",
+   "w": 64,
+   "h": 44.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "site_dec_bricks",
+   "biomes": [
+    "site"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_dec_bricks.png",
+   "w": 48,
+   "h": 26.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "site_dec_cement",
+   "biomes": [
+    "site"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_dec_cement.png",
+   "w": 64,
+   "h": 34.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "site_dec_nails",
+   "biomes": [
+    "site"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_dec_nails.png",
+   "w": 48,
+   "h": 24.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "site_dec_tape",
+   "biomes": [
+    "site"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_dec_tape.png",
+   "w": 48,
+   "h": 33.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "site_dec_sawdust",
+   "biomes": [
+    "site"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_dec_sawdust.png",
+   "w": 48,
+   "h": 36.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "site_dec_tray",
+   "biomes": [
+    "site"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/site_dec_tray.png",
+   "w": 64,
+   "h": 45.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "under_dec_oil",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/under_dec_oil.png",
+   "w": 48,
+   "h": 27.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "under_dec_coal",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/under_dec_coal.png",
+   "w": 48,
+   "h": 26.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "under_dec_bolts",
+   "biomes": [
+    "boiler"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/under_dec_bolts.png",
+   "w": 48,
+   "h": 26.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "under_dec_rivets",
+   "biomes": [
+    "hell",
+    "boiler"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/under_dec_rivets.png",
+   "w": 48,
+   "h": 36.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "under_dec_contracts",
+   "biomes": [
+    "hell",
+    "office"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/under_dec_contracts.png",
+   "w": 48,
+   "h": 38.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "under_dec_rug",
+   "biomes": [
+    "hell",
+    "office"
+   ],
+   "role": "scatter",
+   "size": "S",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/under_dec_rug.png",
+   "w": 64,
+   "h": 42.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "base_grave",
+   "biomes": [
+    "grave",
+    "winter"
+   ],
+   "role": "cauldron_base",
+   "size": "L",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/base_grave.png",
+   "w": 118,
+   "h": 104.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "base_ash",
+   "biomes": [
+    "ash"
+   ],
+   "role": "cauldron_base",
+   "size": "L",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/base_ash.png",
+   "w": 118,
+   "h": 104.0,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "base_office",
+   "biomes": [
+    "office"
+   ],
+   "role": "cauldron_base",
+   "size": "L",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/base_office.png",
+   "w": 118,
+   "h": 102.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "base_swamp",
+   "biomes": [
+    "swamp"
+   ],
+   "role": "cauldron_base",
+   "size": "L",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/base_swamp.png",
+   "w": 118,
+   "h": 102.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "base_site",
+   "biomes": [
+    "site",
+    "boiler"
+   ],
+   "role": "cauldron_base",
+   "size": "L",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/base_site.png",
+   "w": 118,
+   "h": 103.3,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  },
+  {
+   "id": "base_hell",
+   "biomes": [
+    "hell"
+   ],
+   "role": "cauldron_base",
+   "size": "L",
+   "pass": "D",
+   "tex": "res://assets/legion/procgen/items/base_hell.png",
+   "w": 118,
+   "h": 102.7,
+   "anchor": [
+    0.5,
+    0.5
+   ],
+   "fx": [],
+   "tags": [
+    "flat"
+   ],
+   "foot": []
+  }
+ ]
+}

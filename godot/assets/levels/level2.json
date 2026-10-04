@@ -1,0 +1,41 @@
+{
+  "id": "level2",
+  "name": "Офис преисподней",
+  "bg": "assets/img/bg_office.png",
+  "mask": "assets/levels/level2_mask.png",
+  "cauldron": { "x": 640, "y": 360 },
+  "gates": {
+    "0": [
+      { "x": 170, "y": 0, "dx": 0.1, "dy": 1 },
+      { "x": 950, "y": 0, "dx": -0.05, "dy": 1 }
+    ],
+    "1": [
+      { "x": 1280, "y": 655, "dx": -1, "dy": -0.1 }
+    ],
+    "2": [
+      { "x": 110, "y": 720, "dx": 0.35, "dy": -1 },
+      { "x": 1100, "y": 720, "dx": -0.3, "dy": -1 }
+    ],
+    "3": [
+      { "x": 0, "y": 620, "dx": 1, "dy": -0.05 }
+    ]
+  },
+  "spawnForbidden": [
+    { "x": 0, "y": 0, "w": 1280, "h": 268 },
+    { "x": 0, "y": 428, "w": 1280, "h": 292 },
+    { "x": 0, "y": 0, "w": 336, "h": 720 },
+    { "x": 872, "y": 0, "w": 408, "h": 720 },
+    { "x": 540, "y": 260, "w": 200, "h": 200 }
+  ],
+  "spawnFallback": { "x": 420, "y": 350 },
+  "wavePatterns": {
+    "rules": [
+      { "waves": [1, 2], "pattern": "all" },
+      { "waves": [3, 99], "cycle": ["assault", "pincer", "all", "pincer", "assault"] }
+    ]
+  },
+  "cameo": [
+    { "wave": 2, "type": "ghost", "count": 1 },
+    { "wave": 2, "type": "beetle", "count": 1 }
+  ]
+}

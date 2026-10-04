@@ -1,0 +1,1083 @@
+{
+  "id": "archive",
+  "order": 2.5,
+  "title": "Архив Конторы",
+  "subtitle": "Проверка ищет «ту самую папку» — призракам стеллажи не помеха",
+  "theme": "office",
+  "cauldron": [
+    170,
+    360
+  ],
+  "cauldron_art": [9, 0],
+  "start_army": 24,
+  "army_cap": 130,
+  "cauldron_hp": 200,
+  "hint": "Призраки летят к Котлу напрямик сквозь стеллажи: поставьте счетовода поперёк последней прямой у лестницы.",
+  "unlocks": [
+    "shape_unlocked_eight",
+    "kind_unlocked_clerk",
+    "loot_unlocked_items"
+  ],
+  "lessons": [
+    {
+      "id": "eight",
+      "voice": "lg_tut_eight",
+      "when": "start",
+      "hold": 25,
+      "done": "figure_made:eight",
+      "mark": {
+        "at": [
+          380,
+          360
+        ],
+        "r": 110
+      },
+      "text": "«Двойная смена»: начертите восьмёрку одним штрихом — строй бьёт чаще, выпуск идёт крест-накрест."
+    },
+    {
+      "id": "clerk",
+      "voice": "lg_tut_clerk",
+      "when": "first_foe:ghost",
+      "done": "building_built:clerk",
+      "mark": {
+        "plot": "p1"
+      },
+      "text": "Призраки летят сквозь стеллажи — их видит счетовод. Постройте Бухгалтерию (его линия — 3)."
+    },
+    {
+      "id": "item",
+      "voice": "lg_tut_item",
+      "when": "first_elite",
+      "done": "item_gained",
+      "text": "Учебный элитный оставит артефакт. В бою ищите голубой портфель. Эффект — до конца кампании или забега."
+    }
+  ],
+  "rocks": [
+    [
+      [
+        430,
+        -4
+      ],
+      [
+        735,
+        -4
+      ],
+      [
+        735,
+        62
+      ],
+      [
+        430,
+        62
+      ]
+    ],
+    [
+      [
+        820,
+        -4
+      ],
+      [
+        1050,
+        -4
+      ],
+      [
+        1050,
+        62
+      ],
+      [
+        820,
+        62
+      ]
+    ],
+    [
+      [
+        430,
+        695
+      ],
+      [
+        735,
+        695
+      ],
+      [
+        735,
+        724
+      ],
+      [
+        430,
+        724
+      ]
+    ],
+    [
+      [
+        820,
+        695
+      ],
+      [
+        1050,
+        695
+      ],
+      [
+        1050,
+        724
+      ],
+      [
+        820,
+        724
+      ]
+    ],
+    [
+      [
+        1249,
+        -4
+      ],
+      [
+        1284,
+        -4
+      ],
+      [
+        1284,
+        290
+      ],
+      [
+        1249,
+        290
+      ]
+    ],
+    [
+      [
+        1249,
+        480
+      ],
+      [
+        1284,
+        480
+      ],
+      [
+        1284,
+        724
+      ],
+      [
+        1249,
+        724
+      ]
+    ],
+    [
+      [
+        -4,
+        -4
+      ],
+      [
+        330,
+        -4
+      ],
+      [
+        330,
+        51
+      ],
+      [
+        -4,
+        51
+      ]
+    ],
+    [
+      [
+        -4,
+        255
+      ],
+      [
+        51,
+        255
+      ],
+      [
+        51,
+        470
+      ],
+      [
+        -4,
+        470
+      ]
+    ]
+  ],
+  "walls": [
+    {
+      "path": [
+        [
+          772,
+          -4
+        ],
+        [
+          772,
+          190
+        ]
+      ],
+      "w": 76,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          545,
+          145
+        ],
+        [
+          545,
+          575
+        ]
+      ],
+      "w": 58,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          1016,
+          150
+        ],
+        [
+          1016,
+          570
+        ]
+      ],
+      "w": 58,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          771,
+          724
+        ],
+        [
+          771,
+          530
+        ]
+      ],
+      "w": 78,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          470,
+          360
+        ],
+        [
+          575,
+          360
+        ]
+      ],
+      "w": 30,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          575,
+          373
+        ],
+        [
+          740,
+          373
+        ]
+      ],
+      "w": 118,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          820,
+          373
+        ],
+        [
+          1045,
+          373
+        ]
+      ],
+      "w": 118,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          1045,
+          345
+        ],
+        [
+          1284,
+          345
+        ]
+      ],
+      "w": 60,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          1058,
+          428
+        ],
+        [
+          1250,
+          428
+        ]
+      ],
+      "w": 106,
+      "kind": "shelf"
+    },
+    {
+      "path": [
+        [
+          -4,
+          158
+        ],
+        [
+          330,
+          158
+        ]
+      ],
+      "w": 58,
+      "kind": "cabinet"
+    },
+    {
+      "path": [
+        [
+          -4,
+          215
+        ],
+        [
+          222,
+          215
+        ]
+      ],
+      "w": 60,
+      "kind": "cabinet"
+    },
+    {
+      "path": [
+        [
+          -4,
+          540
+        ],
+        [
+          330,
+          540
+        ]
+      ],
+      "w": 52,
+      "kind": "cabinet"
+    },
+    {
+      "path": [
+        [
+          -4,
+          595
+        ],
+        [
+          330,
+          595
+        ]
+      ],
+      "w": 60,
+      "kind": "cabinet"
+    }
+  ],
+  "roads": [
+    {
+      "id": "north",
+      "path": [
+        [
+          1160,
+          -80
+        ],
+        [
+          1160,
+          100
+        ],
+        [
+          900,
+          100
+        ],
+        [
+          900,
+          260
+        ],
+        [
+          640,
+          260
+        ],
+        [
+          640,
+          100
+        ],
+        [
+          420,
+          100
+        ],
+        [
+          420,
+          300
+        ],
+        [
+          320,
+          300
+        ],
+        [
+          170,
+          360
+        ]
+      ]
+    },
+    {
+      "id": "south",
+      "path": [
+        [
+          1160,
+          800
+        ],
+        [
+          1160,
+          620
+        ],
+        [
+          900,
+          620
+        ],
+        [
+          900,
+          460
+        ],
+        [
+          640,
+          460
+        ],
+        [
+          640,
+          620
+        ],
+        [
+          420,
+          620
+        ],
+        [
+          420,
+          420
+        ],
+        [
+          320,
+          420
+        ],
+        [
+          170,
+          360
+        ]
+      ]
+    }
+  ],
+  "flights": [
+    {
+      "id": "north_air",
+      "path": [
+        [
+          1160,
+          -80
+        ],
+        [
+          340,
+          360
+        ],
+        [
+          170,
+          360
+        ]
+      ]
+    },
+    {
+      "id": "south_air",
+      "path": [
+        [
+          1160,
+          800
+        ],
+        [
+          340,
+          360
+        ],
+        [
+          170,
+          360
+        ]
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "p1",
+      "pos": [
+        250,
+        240
+      ],
+      "bot_priority": 7,
+      "serves_lines": [
+        "line_2",
+        "line_0"
+      ],
+      "preferred_kinds": [
+        "clerk",
+        "guard"
+      ]
+    },
+    {
+      "id": "p2",
+      "pos": [
+        250,
+        480
+      ],
+      "bot_priority": 6,
+      "serves_lines": [
+        "line_2",
+        "line_1"
+      ],
+      "preferred_kinds": [
+        "guard",
+        "clerk"
+      ]
+    },
+    {
+      "id": "p3",
+      "pos": [
+        475,
+        215
+      ],
+      "bot_priority": 5,
+      "serves_lines": [
+        "line_0",
+        "line_2"
+      ],
+      "preferred_kinds": [
+        "laborer",
+        "guard"
+      ]
+    },
+    {
+      "id": "p4",
+      "pos": [
+        475,
+        505
+      ],
+      "bot_priority": 4,
+      "serves_lines": [
+        "line_1",
+        "line_2"
+      ],
+      "preferred_kinds": [
+        "laborer",
+        "guard"
+      ]
+    },
+    {
+      "id": "p5",
+      "pos": [
+        700,
+        150
+      ],
+      "bot_priority": 3,
+      "serves_lines": [
+        "line_0",
+        "line_1"
+      ],
+      "preferred_kinds": [
+        "clerk",
+        "laborer"
+      ]
+    },
+    {
+      "id": "p6",
+      "pos": [
+        700,
+        570
+      ],
+      "bot_priority": 2,
+      "serves_lines": [
+        "line_1",
+        "line_0"
+      ],
+      "preferred_kinds": [
+        "clerk",
+        "laborer"
+      ]
+    },
+    {
+      "id": "p7",
+      "pos": [
+        1095,
+        230
+      ],
+      "bot_priority": 1,
+      "serves_lines": [
+        "line_0",
+        "line_1"
+      ],
+      "preferred_kinds": [
+        "guard",
+        "laborer"
+      ]
+    }
+  ],
+  "bot_lines": [
+    {
+      "road": "north",
+      "a": [
+        380,
+        190
+      ],
+      "b": [
+        465,
+        190
+      ],
+      "release": 1,
+      "kind": "guard",
+      "id": "line_0",
+      "role": "front",
+      "dir": [
+        0.0,
+        -1.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_1",
+        "line_2"
+      ],
+      "support_id": "line_1"
+    },
+    {
+      "road": "south",
+      "a": [
+        380,
+        530
+      ],
+      "b": [
+        465,
+        530
+      ],
+      "release": -1,
+      "kind": "guard",
+      "id": "line_1",
+      "role": "front",
+      "dir": [
+        0.0,
+        1.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_0",
+        "line_2"
+      ],
+      "support_id": "line_2"
+    },
+    {
+      "road": "north",
+      "a": [
+        280,
+        300
+      ],
+      "b": [
+        280,
+        420
+      ],
+      "release": 1,
+      "kind": "clerk",
+      "id": "line_2",
+      "role": "flank",
+      "dir": [
+        1.0,
+        0.0
+      ],
+      "min_units": 3,
+      "next_ids": [
+        "line_0",
+        "line_1"
+      ],
+      "support_id": "line_0"
+    }
+  ],
+  "water": [],
+  "bridges": [],
+  "swamp": [],
+  "crypts": [],
+  "sleepers": [],
+  "decor": [],
+  "waves": [
+    {
+      "pause": 3,
+      "next_in": 29,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.45,
+          "delay": 0.0
+        },
+        {
+          "road": "north_air",
+          "type": "ghost",
+          "count": 2,
+          "interval": 2.0,
+          "delay": 6.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 31,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 14,
+          "interval": 0.43,
+          "delay": 0.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 14,
+          "interval": 0.43,
+          "delay": 2.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 3,
+          "interval": 1.16,
+          "delay": 4.0
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 3,
+          "interval": 1.17,
+          "delay": 6.0
+        },
+        {
+          "road": "north_air",
+          "type": "ghost",
+          "count": 2,
+          "interval": 2.0,
+          "delay": 8.0
+        },
+        {
+          "road": "south_air",
+          "type": "ghost",
+          "count": 2,
+          "interval": 2.0,
+          "delay": 12.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 33,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 23,
+          "interval": 0.3,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 1,
+          "elite": 1,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 4,
+          "interval": 1.16,
+          "delay": 5.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 23,
+          "interval": 0.3,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 4,
+          "interval": 1.17,
+          "delay": 6.5
+        },
+        {
+          "road": "north_air",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 9.0
+        },
+        {
+          "road": "south_air",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 19.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 35,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 31,
+          "interval": 0.3,
+          "delay": 0.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 31,
+          "interval": 0.3,
+          "delay": 1.5
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 4.5
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 8.0
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.5,
+          "delay": 9.5
+        },
+        {
+          "road": "north_air",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 6.0
+        },
+        {
+          "road": "south_air",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 14.0
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 0.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 1.0,
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 37,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 39,
+          "interval": 0.3,
+          "delay": 0.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 39,
+          "interval": 0.3,
+          "delay": 1.5
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.16,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 6,
+          "interval": 1.17,
+          "delay": 4.5
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 6.75
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 1.5,
+          "delay": 10.0
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 1.5,
+          "delay": 11.5
+        },
+        {
+          "road": "north_air",
+          "type": "ghost",
+          "count": 5,
+          "interval": 1.5,
+          "delay": 4.0
+        },
+        {
+          "road": "south_air",
+          "type": "ghost",
+          "count": 5,
+          "interval": 1.5,
+          "delay": 10.0
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 0.9,
+          "delay": 0.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 3,
+          "interval": 0.9,
+          "delay": 1.0,
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 34,
+          "interval": 0.3,
+          "delay": 0.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 34,
+          "interval": 0.3,
+          "delay": 1.5
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.16,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 5,
+          "interval": 1.17,
+          "delay": 4.5
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 4,
+          "interval": 1.16,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 4,
+          "interval": 1.17,
+          "delay": 6.75
+        },
+        {
+          "road": "north_air",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 8.0
+        },
+        {
+          "road": "south_air",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.8,
+          "delay": 20.0
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 0.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 0.9,
+          "delay": 1.0,
+          "tier": 1
+        }
+      ]
+    }
+  ],
+  "bg": "res://assets/legion/maps/archive_bg.jpg"
+}

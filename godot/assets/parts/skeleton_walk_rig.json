@@ -1,0 +1,124 @@
+{
+  "source": "assets/img/skeleton.png",
+  "parts": {
+    "body": {
+      "file": "res://assets/parts/body.png",
+      "w": 356,
+      "h": 224,
+      "offset_from_center": [
+        -28.0,
+        -102.0
+      ],
+      "pivot_in_crop": [
+        206,
+        214
+      ],
+      "pivot_in_master": [
+        444,
+        612
+      ]
+    },
+    "head": {
+      "file": "res://assets/parts/head.png",
+      "w": 332,
+      "h": 312,
+      "offset_from_center": [
+        -7.0,
+        -144.0
+      ],
+      "pivot_in_crop": [
+        173,
+        300
+      ],
+      "pivot_in_master": [
+        438,
+        418
+      ]
+    },
+    "tool": {
+      "file": "res://assets/parts/tool.png",
+      "w": 98,
+      "h": 40,
+      "offset_from_center": [
+        -157.0,
+        22.0
+      ],
+      "pivot_in_crop": [
+        206,
+        -2
+      ],
+      "pivot_in_master": [
+        444,
+        612
+      ]
+    },
+    "leg_near_upper": {
+      "file": "res://assets/parts/leg_near_upper.png",
+      "w": 154,
+      "h": 38,
+      "offset_from_center": [
+        32.0,
+        17.0
+      ],
+      "pivot_in_crop": [
+        45.0,
+        2.0
+      ],
+      "pivot_in_master": [
+        481.0,
+        608.0
+      ]
+    },
+    "leg_near_foot": {
+      "file": "res://assets/parts/leg_near_foot.png",
+      "w": 154,
+      "h": 73,
+      "offset_from_center": [
+        -8.5,
+        36.5
+      ],
+      "pivot_in_crop": [
+        85.5,
+        0.0
+      ],
+      "pivot_in_master": [
+        521.5,
+        639.0
+      ]
+    },
+    "leg_far_upper": {
+      "file": "res://assets/parts/leg_far_upper.png",
+      "w": 136,
+      "h": 33,
+      "offset_from_center": [
+        0.5,
+        14.5
+      ],
+      "pivot_in_crop": [
+        67.5,
+        2.0
+      ],
+      "pivot_in_master": [
+        377.5,
+        608.0
+      ]
+    },
+    "leg_far_foot": {
+      "file": "res://assets/parts/leg_far_foot.png",
+      "w": 136,
+      "h": 78,
+      "offset_from_center": [
+        12.0,
+        39.0
+      ],
+      "pivot_in_crop": [
+        56.0,
+        0.0
+      ],
+      "pivot_in_master": [
+        366.0,
+        634.0
+      ]
+    }
+  }
+}

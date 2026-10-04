@@ -1,0 +1,92 @@
+{
+  "e": {
+    "source_name": "2026-10-04_qwen-image-3.0-pro_2b795f9357_1.png",
+    "source_bbox": [
+      269,
+      74,
+      799,
+      936
+    ],
+    "scale": 0.22273781902552203,
+    "paste": [
+      71,
+      32
+    ],
+    "pivot_px": [
+      128,
+      224
+    ]
+  },
+  "se": {
+    "source_name": "2026-10-04_qwen-image-3.0-pro_32e6f24531_1.png",
+    "source_bbox": [
+      290,
+      71,
+      796,
+      931
+    ],
+    "scale": 0.22325581395348837,
+    "paste": [
+      75,
+      32
+    ],
+    "pivot_px": [
+      128,
+      224
+    ]
+  },
+  "s": {
+    "source_name": "2026-10-04_qwen-image-3.0-pro_ef2045d247_1.png",
+    "source_bbox": [
+      275,
+      67,
+      839,
+      935
+    ],
+    "scale": 0.22119815668202766,
+    "paste": [
+      75,
+      32
+    ],
+    "pivot_px": [
+      128,
+      224
+    ]
+  },
+  "n": {
+    "source_name": "2026-10-04_qwen-image-edit-max_0847b80267_1.png",
+    "source_bbox": [
+      259,
+      93,
+      787,
+      923
+    ],
+    "scale": 0.23132530120481928,
+    "paste": [
+      70,
+      32
+    ],
+    "pivot_px": [
+      128,
+      224
+    ]
+  },
+  "ne": {
+    "source_name": "2026-10-04_qwen-image-edit-max_902380e4cb_1.png",
+    "source_bbox": [
+      263,
+      94,
+      788,
+      923
+    ],
+    "scale": 0.2316043425814234,
+    "paste": [
+      67,
+      32
+    ],
+    "pivot_px": [
+      128,
+      224
+    ]
+  }
+}

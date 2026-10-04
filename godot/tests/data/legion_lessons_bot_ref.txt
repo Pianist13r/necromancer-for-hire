@@ -1,0 +1,3 @@
+gatehouse 1 4800 5def95d5ade3d812c57470ecb9c402d1
+archive 2 4800 b3b9dfac90bc0f4cd9dc849114570fde
+wasteland 3 4800 5bf8e0abea399294d1f6b45cfb11af91

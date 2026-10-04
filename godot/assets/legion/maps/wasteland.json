@@ -1,0 +1,514 @@
+{
+  "id": "wasteland",
+  "order": 1,
+  "title": "Пустырь",
+  "subtitle": "Первый договор — на повороте",
+  "theme": "ash",
+  "cauldron": [200, 400],
+  "start_army": 20,
+  "army_cap": 100,
+  "rocks": [
+    [
+      [186.7, 180],
+      [228.3, 180],
+      [240, 208.0],
+      [231.55, 280],
+      [183.45, 280],
+      [175, 235.0]
+    ],
+    [
+      [151, 232],
+      [170, 232],
+      [172, 285],
+      [151, 285]
+    ],
+    [
+      [439.4, 315],
+      [490.6, 315],
+      [505, 357.0],
+      [494.6, 465],
+      [435.4, 465],
+      [425, 397.5]
+    ],
+    [
+      [947, 147],
+      [953, 169],
+      [919, 225],
+      [881, 269],
+      [881, 312],
+      [875, 362],
+      [866, 406],
+      [844, 416],
+      [775, 416],
+      [750, 400],
+      [741, 350],
+      [756, 300],
+      [775, 241],
+      [825, 222],
+      [875, 181],
+      [906, 156]
+    ],
+    [
+      [334, 470],
+      [380, 445],
+      [424, 468],
+      [470, 478],
+      [525, 500],
+      [560, 558],
+      [600, 620],
+      [616, 724],
+      [382, 724],
+      [390, 650],
+      [398, 592],
+      [362, 562],
+      [332, 542]
+    ],
+    [
+      [612, 660],
+      [660, 640],
+      [700, 622],
+      [800, 628],
+      [848, 621],
+      [872, 620],
+      [908, 636],
+      [920, 660],
+      [940, 690],
+      [1000, 724],
+      [612, 724]
+    ],
+    [
+      [742, 596],
+      [795, 596],
+      [797, 625],
+      [742, 625]
+    ],
+    [
+      [-4, -4],
+      [250, -4],
+      [240, 20],
+      [190, 60],
+      [150, 80],
+      [110, 120],
+      [80, 150],
+      [40, 165],
+      [-4, 170]
+    ],
+    [
+      [622, -4],
+      [965, -4],
+      [955, 30],
+      [930, 60],
+      [880, 85],
+      [860, 110],
+      [850, 140],
+      [820, 158],
+      [770, 160],
+      [745, 150],
+      [720, 110],
+      [690, 85],
+      [660, 70],
+      [630, 40]
+    ],
+    [
+      [-4, 140],
+      [30, 150],
+      [45, 200],
+      [40, 260],
+      [30, 330],
+      [25, 420],
+      [35, 500],
+      [20, 560],
+      [-4, 570]
+    ],
+    [
+      [1284, 260],
+      [1255, 290],
+      [1235, 340],
+      [1215, 420],
+      [1190, 480],
+      [1175, 560],
+      [1150, 640],
+      [1140, 724],
+      [1284, 724]
+    ],
+    [
+      [1232, 112],
+      [1262, 112],
+      [1262, 150],
+      [1232, 150]
+    ],
+    [
+      [1236, 206],
+      [1270, 206],
+      [1270, 242],
+      [1236, 242]
+    ],
+    [
+      [-4, 566],
+      [20, 568],
+      [48, 578],
+      [62, 600],
+      [66, 640],
+      [60, 680],
+      [80, 686],
+      [130, 698],
+      [185, 693],
+      [215, 705],
+      [228, 724],
+      [-4, 724]
+    ]
+  ],
+  "walls": [],
+  "roads": [
+    {
+      "id": "east",
+      "path": [
+        [1360, 180],
+        [1080, 180],
+        [1000, 240],
+        [1000, 480],
+        [920, 540],
+        [700, 540],
+        [620, 460],
+        [620, 240],
+        [540, 180],
+        [400, 180],
+        [320, 260],
+        [320, 400],
+        [200, 400]
+      ]
+    }
+  ],
+  "breaches": [
+    {
+      "id": "crack",
+      "road": "east",
+      "at": 1380
+    }
+  ],
+  "bot_lines": [
+    {
+      "road": "east",
+      "a": [570, 340],
+      "b": [690, 340],
+      "release": -1,
+      "kind": "guard",
+      "id": "line_0",
+      "role": "front",
+      "dir": [-0.0, 1.0],
+      "min_units": 3,
+      "next_ids": ["line_1"],
+      "support_id": "line_1"
+    },
+    {
+      "road": "east",
+      "a": [280, 335],
+      "b": [385, 335],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_1",
+      "role": "flank",
+      "dir": [0.0, -1.0],
+      "min_units": 3,
+      "next_ids": ["line_0", "line_rear"],
+      "support_id": "line_0"
+    },
+    {
+      "road": "east",
+      "a": [265, 290],
+      "b": [375, 290],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_rear",
+      "role": "rear",
+      "dir": [0.0, -1.0],
+      "min_units": 3,
+      "next_ids": ["line_1", "line_0"],
+      "support_id": "line_1"
+    }
+  ],
+  "hint": "Поставьте договор поперёк поворота: здесь удобно держать строй и выпускать натиск. На повороте у площадки дрожит трещина — оставьте резерв у Котла.",
+  "unlocks": [
+    "ability_unlocked_q"
+  ],
+  "lessons_outro": "Обучение пройдено — держите Котёл!",
+  "lessons": [
+    {
+      "id": "draw",
+      "when": "start",
+      "hold": true,
+      "done": "contract_created",
+      "voice": "lg_tut_1",
+      "mark": {
+        "line": [
+          [
+            234,
+            290
+          ],
+          [
+            342,
+            290
+          ]
+        ]
+      },
+      "text": "Проведите договор по светящейся линии: зажмите ЛКМ и ведите."
+    },
+    {
+      "id": "refresh",
+      "when": "start",
+      "hold": true,
+      "done": "contract_refreshed",
+      "text": "Проведите ЛКМ вдоль своей линии ещё раз — срок договора продлится."
+    },
+    {
+      "id": "release",
+      "when": "start",
+      "hold": true,
+      "done": "segment_released",
+      "voice": "lg_tut_2",
+      "text": "ПКМ по линии или строю: оттяните назад и отпустите — отряд сорвётся вперёд."
+    },
+    {
+      "id": "perfect",
+      "voice": "lg_tut_perfect_w",
+      "when": "start",
+      "hold": true,
+      "done": "perfect",
+      "text": "Дайте врагу подойти к строю: оттяните ПКМ — зона удара станет золотой; отпустите — «Точно!»."
+    },
+    {
+      "id": "build",
+      "when": "start",
+      "hold": true,
+      "done": "building_built",
+      "voice": "lg_tut_3",
+      "mark": {
+        "plot": "p2"
+      },
+      "text": "Нажмите на отмеченную площадку и постройте Бытовку."
+    },
+    {
+      "id": "hero_q",
+      "when": "start",
+      "hold": true,
+      "done": "hero_cast:Q",
+      "voice": "lg_tut_4",
+      "text": "Зажмите Ку (Q) у врага — видно, кого ударит; отпустите — молния по цепи оглушит их."
+    }
+  ],
+  "water": [],
+  "bridges": [],
+  "swamp": [],
+  "crypts": [],
+  "sleepers": [],
+  "cauldron_hp": 200,
+  "decor": [
+    {
+      "kind": "tree",
+      "pos": [95, 155]
+    },
+    {
+      "kind": "grave",
+      "pos": [129, 167]
+    },
+    {
+      "kind": "candle",
+      "pos": [114, 183]
+    },
+    {
+      "kind": "tree",
+      "pos": [465, 90]
+    },
+    {
+      "kind": "grave",
+      "pos": [499, 102]
+    },
+    {
+      "kind": "candle",
+      "pos": [484, 118]
+    },
+    {
+      "kind": "tree",
+      "pos": [825, 630]
+    },
+    {
+      "kind": "grave",
+      "pos": [859, 642]
+    },
+    {
+      "kind": "candle",
+      "pos": [844, 658]
+    },
+    {
+      "kind": "tree",
+      "pos": [1160, 520]
+    },
+    {
+      "kind": "grave",
+      "pos": [1194, 532]
+    },
+    {
+      "kind": "candle",
+      "pos": [1179, 548]
+    }
+  ],
+  "waves": [
+    {
+      "pause": 3,
+      "next_in": 32,
+      "groups": [
+        {
+          "road": "east",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.5,
+          "delay": 0.0,
+          "at": 850
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 38,
+      "groups": [
+        {
+          "road": "east",
+          "type": "zombie",
+          "count": 14,
+          "interval": 0.5,
+          "delay": 0.0
+        },
+        {
+          "road": "east",
+          "type": "beetle",
+          "count": 4,
+          "interval": 0.9,
+          "delay": 18.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 42,
+      "groups": [
+        {
+          "road": "east",
+          "type": "zombie",
+          "count": 20,
+          "interval": 0.5,
+          "delay": 0.0
+        },
+        {
+          "road": "east",
+          "type": "signer",
+          "count": 3,
+          "interval": 1.5,
+          "delay": 5.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "climax": true,
+      "next_in": 48,
+      "groups": [
+        {
+          "road": "east",
+          "type": "zombie",
+          "count": 18,
+          "interval": 0.5,
+          "delay": 0.0
+        },
+        {
+          "road": "east",
+          "breach": "crack",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.5,
+          "delay": 12.0
+        },
+        {
+          "road": "east",
+          "breach": "crack",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.9,
+          "delay": 12.0
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "groups": [
+        {
+          "road": "east",
+          "type": "zombie",
+          "count": 28,
+          "interval": 0.5,
+          "delay": 0.0
+        },
+        {
+          "road": "east",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.9,
+          "delay": 18.0
+        },
+        {
+          "road": "east",
+          "type": "signer",
+          "count": 4,
+          "interval": 1.5,
+          "delay": 5.0
+        },
+        {
+          "road": "east",
+          "breach": "crack",
+          "type": "zombie",
+          "count": 6,
+          "interval": 0.5,
+          "delay": 24.0
+        },
+        {
+          "road": "east",
+          "breach": "crack",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.9,
+          "delay": 24.0
+        }
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "p1",
+      "pos": [380, 330],
+      "bot_priority": 4,
+      "serves_lines": ["line_1", "line_0", "line_rear"],
+      "preferred_kinds": ["guard", "laborer"]
+    },
+    {
+      "id": "p2",
+      "pos": [525, 260],
+      "bot_priority": 3,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["clerk", "laborer"]
+    },
+    {
+      "id": "p3",
+      "pos": [710, 450],
+      "bot_priority": 2,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["laborer", "laborer"]
+    },
+    {
+      "id": "p4",
+      "pos": [920, 400],
+      "bot_priority": 1,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["guard", "laborer"]
+    }
+  ],
+  "bg": "res://assets/legion/maps/wasteland_bg.jpg"
+}

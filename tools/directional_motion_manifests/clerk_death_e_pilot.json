@@ -1,0 +1,144 @@
+{
+  "character": "clerk",
+  "state": "death",
+  "direction": "e",
+  "source_video": "raw-video/2026-10-04_wan2.7-i2v_91ec09495414c5bc04615eee5e607464_1.mp4",
+  "source_sha256": "bcd1773d1b589055f85016a935d3d0b9b789babc329c286daa50edb0abb5f402",
+  "source_fps": 30,
+  "fps": 15,
+  "total_seconds": 0.4,
+  "contact_frame": -1,
+  "normalization": {
+    "standing_height_px": 192,
+    "canvas_sizes": [
+      256,
+      320,
+      384
+    ],
+    "padding_px": 8
+  },
+  "samples": [
+    {
+      "frame": 17,
+      "seconds": 0.5666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 20,
+      "seconds": 0.6666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 23,
+      "seconds": 0.7666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 26,
+      "seconds": 0.8666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 29,
+      "seconds": 0.9666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 32,
+      "seconds": 1.0666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 35,
+      "seconds": 1.1666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 38,
+      "seconds": 1.2666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 41,
+      "seconds": 1.3666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 44,
+      "seconds": 1.4666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 47,
+      "seconds": 1.5666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 50,
+      "seconds": 1.6666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 53,
+      "seconds": 1.7666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 56,
+      "seconds": 1.8666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 59,
+      "seconds": 1.9666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 62,
+      "seconds": 2.066666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 65,
+      "seconds": 2.1666666666666665,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 68,
+      "seconds": 2.2666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 71,
+      "seconds": 2.3666666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 74,
+      "seconds": 2.466666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 77,
+      "seconds": 2.566666666666667,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 80,
+      "seconds": 2.6666666666666665,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 83,
+      "seconds": 2.7666666666666666,
+      "duration_weight": 0.25
+    },
+    {
+      "frame": 86,
+      "seconds": 2.8666666666666667,
+      "duration_weight": 0.25
+    }
+  ],
+  "collapse_exact_duplicates": true,
+  "approval": "Root reviewed/accepted source motion; delivery selected source contact and samples; compact runtime preview pending"
+}

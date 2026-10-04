@@ -1,0 +1,968 @@
+class_name Campaign
+extends RefCounted
+##
+## Прогресс кампании «По истечении договора»: карты, звёзды, открытые поправки к договору.
+## Хранение — `user://legion.cfg` (ConfigFile), паттерн повторяет `scripts/game/records.gd`.
+## Список карт читает `res://assets/legion/maps/*.json` (владелец файлов — пакет MAPS, его
+## тут нет и может не быть ещё несколько сессий) — при пустом каталоге подставляет 6 заглушек
+## из CONCEPT.md, чтобы экраны кампании были играбельны сами по себе.
+##
+
+const PATH := "user://legion.cfg"
+## Сохранение прогонов мира без кампании (гейт, бот, demo.bat, --bench/--shot): туда, а не
+## в прогресс владельца, пишутся разовые подсказки и прочее (LegionWorld.use_standalone_save).
+const STANDALONE_PATH := "user://legion_standalone.cfg"
+const MAPS_DIR := "res://assets/legion/maps/"
+## mode: секции забегов ХРАНЯТСЯ РАЗДЕЛЬНО (verifier 27.09: общая секция стирала прогресс
+## другого) — номер объекта, сид, стаж/души и, в scope, ключи "meta".
+const ENDLESS_SECTION := "endless_run"
+const DAILY_SECTION := "daily_run"
+## Рекорды по стажу/душам — отдельно от самих забегов, переживают endless_start()/endless_end_run().
+const ENDLESS_RECORDS_SECTION := "endless_records"
+## D-0927-162: песочница переигровки из коллекции — чистит reset_replay_scratch() перед разом.
+const REPLAY_SECTION := "collection_replay"
+## D-0927-162: коллекция сохранённых карт — список Dictionary под ключом "entries".
+const COLLECTION_SECTION := "collection"
+
+## Заглушки на случай пустого/отсутствующего каталога карт (docs/CONCEPT.md, раздел «Карты»).
+## Каждая — минимальный набор полей, которые читают экраны этого пакета (briefing, map_select).
+const FALLBACK_MAPS: Array[Dictionary] = [
+	{
+		"id": "wasteland", "order": 0, "title": "Пустырь",
+		"subtitle": "Первый заказ — не облажайся", "theme": "ash",
+		"hint": "Одна дорога. Поставь строй, дай натиску сделать остальное.",
+		"waves": [{"groups": [{"type": "zombie"}]}],
+	},
+	{
+		"id": "fork", "order": 1, "title": "Развилка",
+		"subtitle": "Две дороги — один Котёл", "theme": "grave",
+		"hint": "Держи фланг, который тише, отпускай тот, что громче.",
+		"waves": [{"groups": [{"type": "zombie"}, {"type": "beetle"}]}],
+	},
+	{
+		"id": "bridge", "order": 2, "title": "Мост через Стикс",
+		"subtitle": "Нотариусы заверяют всё, что видят", "theme": "swamp",
+		"hint": "Строй держит мост. Отпусти крыло на нотариусов.",
+		"waves": [{"groups": [{"type": "zombie"}, {"type": "signer"}]}],
+	},
+	{
+		"id": "graveyard_maze", "order": 3, "title": "Кладбищенский лабиринт",
+		"subtitle": "Призраки проходят сквозь любой договор", "theme": "grave",
+		"hint": "Три подхода. Свободные бойцы ловят призраков, строй — нет.",
+		"waves": [{"groups": [{"type": "ghost"}, {"type": "zombie"}]}],
+	},
+	{
+		"id": "swamp_reports", "order": 4, "title": "Болото отчётности",
+		"subtitle": "Надгробия спят, пока рядом тихо", "theme": "swamp",
+		"hint": "Возьми склепы — они сами подкидывают людей. Не буди мимиков зря.",
+		"waves": [{"groups": [{"type": "mimic"}, {"type": "beetle"}]}],
+	},
+	{
+		"id": "foreman", "order": 5, "title": "Прораб",
+		"subtitle": "Финальная сдача объекта", "theme": "office",
+		"hint": "Босс таранит строй. Держи резерв на натиск позади разрыва.",
+		"waves": [{"groups": [{"type": "boss"}]}],
+	},
+]
+
+## Что открылось и ещё не показано игроку — для плашки «Новое: …» на брифинге (задание meta
+## п.4). gdlint (class-definitions-order) требует все const класса ДО var и ДО методов —
+## объявление здесь, а не рядом с pending_unlock_labels()/mark_unlocks_seen(), которые его
+## используют.
+const _UNLOCK_LABELS := {
+	"kind_guard": ["kind_unlocked_guard", "Новый вид бойца: Вахтёр"],
+	"kind_clerk": ["kind_unlocked_clerk", "Новый вид бойца: Счетовод"],
+	"aim": ["control_unlocked_aim", "Стрелка отряда: Пробел или зажатое колесо"],
+	"rally": ["control_unlocked_rally", "«Сбор»: Эр (R)"],
+	"ring": ["shape_unlocked_ring", "Фигура «Оцепление»: кольцо"],
+	"hero_w": ["ability_unlocked_w", "Навык Дубль-вэ: трупы встают за тебя"],
+	"hero_e": ["ability_unlocked_e", "Навык Е «Аврал»: строй держит давку"],
+	"eight": ["shape_unlocked_eight", "Фигура «Двойная смена»: восьмёрка"],
+	"items": ["loot_unlocked_items", "Элитные проверяющие и предметы"],
+	# D-1002-03: звезду сменил треугольник. Старый id "star" в meta/unlocks_seen просто не читается
+	# (его нет в таблице) — игрок, видевший звезду, узнает про треугольник плашкой «Новое»
+	"triangle": ["shape_unlocked_triangle", "Фигура «Обряд»: треугольник"],
+	"square": ["shape_unlocked_square", "Фигура «Каре»: квадрат"],
+}
+## Сохранение старше v20 (D-0927-50): эти открытия игрок уже имел до лестницы v20 — плашка
+## «Новое» о них не выскакивает пачкой при первом входе (они и так в руках). Новое для всех —
+## восьмёрка, треугольник, квадрат, предметы — объявляется как обычно.
+const _PRE_V20_KNOWN := ["kind_guard", "kind_clerk", "hero_w", "hero_e", "aim", "rally", "ring"]
+
+static var _cfg: ConfigFile = null
+static var _path := PATH
+## meta: кэш _all_mods() — статические переменные класса должны идти одним блоком до методов
+## (gdlint), поэтому объявление здесь, а не рядом со stat().
+static var _mods_cache: Dictionary = {}
+static var _mods_cache_valid := false
+## mode: "campaign"/"endless"/"daily" — bounty()/shop_*/upgrades()/pending_reward() читают и
+## пишут "meta"/ENDLESS_SECTION/DAILY_SECTION (поправки и «Контора» — В ЗАБЕГЕ). Каждый бой ставит
+## scope СЕБЕ САМ при старте, не наследует от предыдущего (verifier 27.09). Герой/открытия —
+## секции "hero"/"progress", scope не знают.
+static var _scope := "campaign"
+static var _update_depth := 0
+static var _update_before := ""
+static var _update_dirty := false
+static var _maps_cache: Array[Dictionary] = []
+static var _maps_by_id: Dictionary = {}
+
+
+## Тест меняет путь на временный файл (не трогать реальный прогресс владельца). Сбрасывает
+## закэшированный ConfigFile, чтобы следующее чтение открыло новый путь.
+static func set_save_path(path: String) -> void:
+	_path = path
+	_cfg = null
+	_mods_cache_valid = false
+	_update_depth = 0
+	_update_dirty = false
+
+
+## true — путь указывает на настоящее сохранение владельца при любом написании (регистр, «./»,
+## абсолютный путь к тому же файлу): --dev save не должен сбрасывать его (verifier 180f1168).
+static func is_real_save_path(path: String) -> bool:
+	var a := ProjectSettings.globalize_path(path.strip_edges()).simplify_path().to_lower()
+	var b := ProjectSettings.globalize_path(PATH).simplify_path().to_lower()
+	return a == b
+
+
+## true — путь годится для --dev save: только простое имя в user:// (буквы, цифры, _ и -) с .cfg,
+## не legion, не settings, не legion_standalone и не net. Белый список, а не сравнение с
+## настоящим путём: NTFS-потоки («::$DATA»), префикс «\\?\», короткие имена 8.3 и точки
+## соединения обходили сравнение строк
+## и стирали настоящее сохранение (verifier 180f1168, второй круг).
+static func is_safe_dev_save(path: String) -> bool:
+	var p := path.strip_edges()
+	if not p.begins_with("user://"):
+		return false
+	var name := p.trim_prefix("user://")
+	var re := RegEx.create_from_string("^[A-Za-z0-9_-]+\\.cfg$")
+	if re.search(name) == null:
+		return false
+	# Настоящие файлы игры (прогресс, настройки, бой без кампании, адрес «Схватки» по сети) —
+	# Campaign.reset() стёр бы любой из них (B-386 (4), verifier 5513a16c).
+	var base := name.get_basename().to_lower()
+	for real: String in [PATH, STANDALONE_PATH, Settings.PATH, NetLobby.CFG]:
+		if base == real.trim_prefix("user://").get_basename().to_lower():
+			return false
+	return true
+
+
+## true — пишем в настоящий прогресс владельца (путь не подменён тестом или прогоном без кампании).
+static func uses_real_save() -> bool:
+	return _path == PATH
+
+
+# ── mode: переключатель раздела «поправки/Контора/премия/ожидающая награда» ──────────────────
+static func use_campaign_scope() -> void:
+	_scope = "campaign"
+	_mods_cache_valid = false
+
+
+static func use_endless_scope() -> void:
+	_scope = "endless"
+	_mods_cache_valid = false
+
+
+static func use_daily_scope() -> void:
+	_scope = "daily"
+	_mods_cache_valid = false
+
+
+## D-0927-162: переигровка из коллекции — вне забега/дня, поправки/«Контора» не копятся
+## (REPLAY_SECTION чистит reset_replay_scratch() перед КАЖДЫМ разом).
+static func use_replay_scope() -> void:
+	_scope = "replay"
+	_mods_cache_valid = false
+
+
+## true — «Бесконечный подряд» или «Вызов дня» (не кампания, не переигровка из коллекции).
+static func is_endless_scope() -> bool:
+	return _scope == "endless" or _scope == "daily"
+
+
+static func is_daily_scope() -> bool:
+	return _scope == "daily"
+
+
+static func _run_section() -> String:
+	match _scope:
+		"endless":
+			return ENDLESS_SECTION
+		"daily":
+			return DAILY_SECTION
+		"replay":
+			return REPLAY_SECTION
+		_:
+			return "meta"
+
+
+static func _meta_section() -> String:
+	return _run_section()
+
+
+## Секция конкретного забега для чтения БЕЗ переключения scope (LegionMenu — метки обеих кнопок).
+static func _run_section_for(daily: bool) -> String:
+	return DAILY_SECTION if daily else ENDLESS_SECTION
+
+
+static func _file() -> ConfigFile:
+	if _cfg == null:
+		_cfg = SafeConfig.load_file(_path)
+	return _cfg
+
+
+static func _save() -> Error:
+	_mods_cache_valid = false
+	if _update_depth > 0:
+		_update_dirty = true
+		return OK
+	var err := SafeConfig.save_file(_file(), _path)
+	if err != OK:
+		push_warning("Campaign: не удалось сохранить %s (%d)" % [_path, err])
+	return err
+
+
+## Связанные изменения (покупка, награды за бой) попадают на диск одним целым.
+static func begin_update() -> void:
+	if _update_depth == 0:
+		_update_before = _file().encode_to_text()
+		_update_dirty = false
+	_update_depth += 1
+
+
+static func end_update(rollback_on_error := false) -> bool:
+	assert(_update_depth > 0)
+	_update_depth -= 1
+	if _update_depth > 0 or not _update_dirty:
+		return true
+	_update_dirty = false
+	var ok := _save() == OK
+	if not ok and rollback_on_error:
+		_cfg = ConfigFile.new()
+		_cfg.parse(_update_before)
+		_mods_cache_valid = false
+	return ok
+
+
+## Все карты кампании, отсортированные по order. Читает JSON-каталог, при пустом/битом —
+## заглушки. DirAccess по res:// в экспортированной игре видит только файлы, включённые
+## в экспорт (docs/legion/SLICE_SPEC.md не оговаривает это явно — грабля отмечена в задании
+## пакета UI), поэтому заглушки — не только dev-фолбэк, но и рабочий путь для release-сборки
+## без ресурсов MAPS.
+static func maps() -> Array[Dictionary]:
+	return _catalog().duplicate(true)
+
+
+## Карты в res:// неизменны в сборке. Кэш хранит оригиналы, публичный API выдаёт копии.
+static func _catalog() -> Array[Dictionary]:
+	if not _maps_cache.is_empty():
+		return _maps_cache
+	var out: Array[Dictionary] = []
+	var dir := DirAccess.open(MAPS_DIR)
+	if dir != null:
+		dir.list_dir_begin()
+		var name := dir.get_next()
+		while name != "":
+			if not dir.current_is_dir() and name.ends_with(".json") and not name.begins_with("_"):
+				var data := _load_map_json(MAPS_DIR + name)
+				if not data.is_empty():
+					out.append(data)
+			name = dir.get_next()
+		dir.list_dir_end()
+	if out.is_empty():
+		out = FALLBACK_MAPS.duplicate(true)
+	# order дробный: новая карта встаёт между соседями (2.5 — между 2 и 3), не перенумеровывая их
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("order", 0)) < float(b.get("order", 0)))
+	_maps_cache = out
+	for entry: Dictionary in out:
+		_maps_by_id[String(entry.get("id", ""))] = entry
+	return out
+
+
+static func _load_map_json(path: String) -> Dictionary:
+	var text := FileAccess.get_file_as_string(path)
+	if text.is_empty():
+		return {}
+	var parsed: Variant = JSON.parse_string(text)
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+
+## Одна карта по id, или пустой словарь, если такой нет.
+static func map(id: String) -> Dictionary:
+	_catalog()
+	return (_maps_by_id.get(id, {}) as Dictionary).duplicate(true)
+
+
+## Явная перезагрузка нужна редактору/тестам; сохранение прогресса каталог не инвалидирует.
+static func clear_map_cache() -> void:
+	_maps_cache = []
+	_maps_by_id = {}
+
+
+## Первая карта по порядку открыта всегда; дальше — по записи "progress/unlocked".
+## Лестница монотонна (D-0927-50): карта открыта и тогда, когда открыта или пройдена любая карта
+## ПОЗЖЕ её по order. Так новая карта, вставленная между уже пройденными (v20: «Проходная» 1.5,
+## «Архив» 2.5), в старом сохранении открыта сразу, а вместе с ней — её открытия (_unlock_mods).
+## Вычисляется, а не переписывается в сохранение: откат на старую сборку ничего не ломает.
+static func is_unlocked(id: String) -> bool:
+	var all := _catalog()
+	if all.is_empty():
+		return false
+	if String(all[0].get("id", "")) == id:
+		return true
+	var unlocked: Array = _file().get_value("progress", "unlocked", [])
+	var later := false
+	for m in all:
+		var mid := String(m.get("id", ""))
+		if mid == id:
+			later = true
+		if later and (unlocked.has(mid) or stars(mid) > 0):
+			return true
+	return false
+
+
+## Лучший результат по карте (0 — ещё не пройдена).
+static func stars(id: String) -> int:
+	return int(_file().get_value("progress", "%s_stars" % id, 0))
+
+
+## Итог боя: сохраняет лучший результат, при победе открывает следующую карту по порядку.
+## cauldron_ratio — доля HP Котла 0..1 на конец боя. Возвращает звёзды, заработанные ЭТИМ
+## прогоном (0 при поражении — карта не считается пройденной).
+static func record_result(id: String, victory: bool, cauldron_ratio: float) -> int:
+	if not victory:
+		return 0
+	var earned := LegionMetaCfg.stars_for_ratio(clampf(cauldron_ratio, 0.0, 1.0))
+	var best := stars(id)
+	if earned > best:
+		_file().set_value("progress", "%s_stars" % id, earned)
+	var all := maps()
+	var idx := -1
+	for i in all.size():
+		if String(all[i].get("id", "")) == id:
+			idx = i
+			break
+	if idx >= 0 and idx + 1 < all.size():
+		var next_id := String(all[idx + 1].get("id", ""))
+		var unlocked: Array = _file().get_value("progress", "unlocked", [])
+		if not unlocked.has(next_id):
+			unlocked.append(next_id)
+			_file().set_value("progress", "unlocked", unlocked)
+	_save()
+	return earned
+
+
+## Открыть все карты сразу (сервис для QA/дев-прогонов, не завязан на --dev флаг: вызывающий
+## решает сам, когда это уместно).
+static func unlock_all() -> void:
+	var ids: Array = []
+	for m in maps():
+		ids.append(String(m.get("id", "")))
+	_file().set_value("progress", "unlocked", ids)
+	_save()
+
+
+## Взятые поправки к договору, в порядке взятия.
+static func upgrades() -> Array[StringName]:
+	var raw: Array = _file().get_value(_meta_section(), "upgrades", [])
+	var out: Array[StringName] = []
+	for id in raw:
+		out.append(StringName(id))
+	return out
+
+
+static func add_upgrade(id: StringName) -> void:
+	var raw: Array = _file().get_value(_meta_section(), "upgrades", [])
+	if raw.has(String(id)):
+		return
+	raw.append(String(id))
+	_file().set_value(_meta_section(), "upgrades", raw)
+	_save()
+
+
+## Артефакты забега (D-0927-163) — раздел ТЕКУЩЕГО scope ("meta" кампании или секция забега).
+## Пишет мир ПОБЕДОЙ (LegionWorld._end при carry_items); сброс и endless_start их чистят
+## (в стеке mode сброс — LegionRunStore._reset_run_meta).
+static func run_items() -> Array[StringName]:
+	var out: Array[StringName] = []
+	for id in _file().get_value(_meta_section(), CfgItems.SAVE_KEY, []):
+		if not LegionItemDb.item(StringName(String(id))).is_empty():
+			out.append(StringName(String(id)))
+	return out
+
+
+static func set_run_items(ids: Array[StringName]) -> void:
+	_file().set_value(_meta_section(), CfgItems.SAVE_KEY, ids.map(func(i: StringName) -> String:
+		return String(i)))
+	_save()
+
+
+## Три случайные ещё не взятые поправки (меньше, если пул почти выбран целиком). Поправка про
+## то, что кампания ещё не открыла (needs — ключ открытия), не предлагается (B-096).
+static func offer_upgrades(rng: RandomNumberGenerator) -> Array[StringName]:
+	var taken := upgrades()
+	var opened := _unlock_mods()
+	var pool: Array[StringName] = []
+	for id in LegionMetaCfg.UPGRADE_ORDER:
+		var sid := StringName(id)
+		var needs := String((LegionMetaCfg.UPGRADE_POOL.get(id, {}) as Dictionary).get("needs", ""))
+		if needs != "" and float(opened.get(needs, 0.0)) < 0.5:
+			continue
+		if not taken.has(sid):
+			pool.append(sid)
+	_shuffle(pool, rng)
+	var count := mini(3, pool.size())
+	return pool.slice(0, count)
+
+
+static func _shuffle(arr: Array, rng: RandomNumberGenerator) -> void:
+	for i in range(arr.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp: Variant = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
+
+
+## Сумма эффектов всех взятых поправок, по ключу effect.key (LegionMetaCfg.UPGRADE_POOL).
+static func active_mods() -> Dictionary:
+	var out := {}
+	for id in upgrades():
+		var data: Dictionary = LegionMetaCfg.UPGRADE_POOL.get(String(id), {})
+		var eff: Dictionary = data.get("effect", {})
+		if eff.is_empty():
+			continue
+		var key := String(eff["key"])
+		out[key] = float(out.get(key, 0.0)) + float(eff["value"])
+	return out
+
+
+## v15 (DESIGN_V15 §7, §11; пакет f0 — нейтральная заготовка, наполняет пакет meta): итоговое
+## значение параметра боя с поправками (позже — покупками «Конторы» и перками героя). Бой читает
+## только его и сам покупки не разбирает. Звать при старте карты, не в кадре (читает сохранение).
+##
+## Правило нейтрального значения — по имени ключа:
+##   * МНОЖИТЕЛЬ — ключ оканчивается на `_mult` или содержит `_mult_` (cap_mult_<kind>,
+##     respawn_mult_<kind>, charge_dmg_mult, charge_speed_mult, production_mult): нейтрально 1.0;
+##   * всё остальное — ПРИБАВКА к базовому числу LegionCfg: нейтрально 0.0 (recruit_r_<kind> —
+##     прибавка к радиусу набора, seg_ttl_bonus_<kind>, mana_max_bonus, mana_regen_bonus,
+##     start_souls, ability_rank_q|w|e — ранги сверх базового, perk_<id> — 0/1, army_cap_bonus…).
+## Нынешние поправки к договору хранят и множители как прибавку (0.25 = +25 %), поэтому для
+## ключа-множителя их сумма возвращается как 1 + сумма (как их применяет LegionWorld.mod_mult).
+##
+## v15 (пакет meta, DESIGN_V15 §7, §11, §12 п.8–9): источник суммы — не только поправки к
+## договору (active_mods), но и покупки «Конторы», ранги/перки героя и открытия кампанией —
+## все они складываются в один плоский набор «ключ → прибавка» (_all_mods, закэширован,
+## сбрасывается любой записью в сохранение — _save()). Порядок «база → ранг → перк → мета»
+## (§12 п.8) для способностей — дело пакета hero (он читает ability_rank_q|w|e и perk_<id>
+## отдельно и сам решает порядок применения); здесь все источники равноправно суммируются
+## по ключу, это и есть «мета» на конце цепочки.
+static func stat(key: StringName) -> float:
+	var add := float(_all_mods().get(String(key), 0.0))
+	return 1.0 + add if is_mult_key(key) else add
+
+
+static func _all_mods() -> Dictionary:
+	if not _mods_cache_valid:
+		var out := {}
+		_merge_mods(out, active_mods())
+		_merge_mods(out, _legacy_army_mods())
+		_merge_mods(out, _shop_mods())
+		_merge_mods(out, _hero_mods())
+		_merge_mods(out, _unlock_mods())
+		_mods_cache = out
+		_mods_cache_valid = true
+	return _mods_cache
+
+
+static func _merge_mods(into: Dictionary, from: Dictionary) -> void:
+	for k in from:
+		into[k] = float(into.get(k, 0.0)) + float(from[k])
+
+
+## Согласование с координатором v15 (2026-09-25): мир больше не читает поправки
+## `production_mult`/`army_cap_bonus`/`start_army_bonus` напрямую из mods — штат и возрождение
+## построек считает пакет staff через Campaign.stat по видам, Котёл — постройка вида laborer,
+## поэтому обе поправки ложатся на cap_mult_laborer/respawn_mult_laborer. active_mods() сам эти
+## три ключа не убираем (не ломаем то, что их ещё читает — напр. legion_campaign_test.gd), но
+## сюда добавляем их ПЕРЕВОД в новые ключи, иначе поправки молча перестанут работать.
+static func _legacy_army_mods() -> Dictionary:
+	var raw := active_mods()
+	var out := {}
+
+	var production := float(raw.get("production_mult", 0.0))
+	if production != 0.0:
+		# production_mult как множитель (правило is_mult_key) = 1 + production; возрождение
+		# быстрее в ту же пропорцию раз — итоговый respawn_mult_laborer (тоже 1+add) должен
+		# стать 1 / (1 + production), отсюда нужная ПРИБАВКА = это значение минус 1.
+		out["respawn_mult_laborer"] = (1.0 / (1.0 + production)) - 1.0
+
+	# army_cap_bonus/start_army_bonus были плоской прибавкой к лимиту армии (не по видам) —
+	# точного пересчёта в проценты штата постройки нет (координатор: «допустимо и проще»).
+	# Берём согласованные +0,15/+0,10 cap_mult_laborer, но не жёстко константой, а
+	# пропорционально взятому значению относительно ЕДИНСТВЕННОГО значения в пуле сейчас
+	# (outstaff_partner=20, signing_bonus=15) — если пул когда-нибудь станет стекаться,
+	# перевод останется соразмерным, а не даст один и тот же +0,15 за любую величину.
+	var cap_bonus := float(raw.get("army_cap_bonus", 0.0))
+	if cap_bonus != 0.0:
+		out["cap_mult_laborer"] = float(out.get("cap_mult_laborer", 0.0)) + cap_bonus / 20.0 * 0.15
+	var start_bonus := float(raw.get("start_army_bonus", 0.0))
+	if start_bonus != 0.0:
+		out["cap_mult_laborer"] = float(out.get("cap_mult_laborer", 0.0)) + start_bonus / 15.0 * 0.10
+
+	return out
+
+
+## Ключ-множитель по правилу имени (докстринг stat()).
+static func is_mult_key(key: StringName) -> bool:
+	var k := String(key)
+	return k.ends_with("_mult") or k.contains("_mult_")
+
+
+## Награда (поправка к договору) за победу, ещё не забранная игроком — id карты, куда вести
+## после выбора (ревью 2026-09-24 п.4: раньше хранилась только в памяти LegionMain и терялась,
+## если игрок уходил в «Меню», не нажав «Дальше»). "" — нет ожидающей награды.
+static func pending_reward() -> String:
+	return String(_file().get_value(_meta_section(), "pending_reward", ""))
+
+
+## Не перетирает уже стоящую ожидающую награду — повторная победа на уже пройденной карте не
+## должна плодить вторую поправку поверх той, что игрок ещё не забрал.
+static func set_pending_reward(next_map_id: String) -> void:
+	if pending_reward() != "":
+		return
+	_file().set_value(_meta_section(), "pending_reward", next_map_id)
+	_file().set_value(_meta_section(), "reward_claimed", false)
+	_save()
+
+
+static func clear_pending_reward() -> void:
+	_file().set_value(_meta_section(), "pending_reward", "")
+	_file().set_value(_meta_section(), "reward_claimed", false)
+	_save()
+
+
+## Незавершённый переход в Контору и незабранная поправка — разные стадии.
+static func reward_claimed() -> bool:
+	return bool(_file().get_value(_meta_section(), "reward_claimed", false))
+
+
+static func claim_reward(id: StringName = &"") -> bool:
+	if pending_reward() == "" or reward_claimed():
+		return false
+	if id != &"" and (not LegionMetaCfg.UPGRADE_POOL.has(String(id)) or upgrades().has(id)):
+		return false
+	begin_update()
+	if id != &"":
+		add_upgrade(id)
+	_file().set_value(_meta_section(), "reward_claimed", true)
+	_save()
+	return end_update(true)
+
+
+## Баг мастера (verifier 27.09, п.5): свежий запуск с незабранной наградой шёл в
+## offer_upgrades(world.rng), а `world` ещё null — Nil.rng валил игру. RNG детерминирован от
+## ТЕКУЩЕГО сохранения, не Time-based randomize() — тот же принцип без мира.
+static func pending_reward_rng() -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|%d" % [pending_reward(), bounty(), hero_xp()])
+	return rng
+
+
+## Пакет tutorial: прошёл или пропустил обучение — при следующем запуске кампании (или прямом
+## старте wasteland) оно не предлагается само, только по кнопке «Обучение» (docs/legion/
+## TUTORIAL_SPEC.md).
+static func tutorial_done() -> bool:
+	return bool(_file().get_value("tutorial", "done", false))
+
+
+static func set_tutorial_done() -> void:
+	_file().set_value("tutorial", "done", true)
+	_save()
+
+
+## Пакет tutorial: подсказки новых механик карт 2-6 (LegionMapHints) — одна плашка в бою на
+## id, не повторяется. Тот же паттерн, что tutorial_done()/set_tutorial_done() выше.
+static func hint_seen(id: StringName) -> bool:
+	return bool(_file().get_value("tutorial", "hint_%s" % String(id), false))
+
+
+static func mark_hint_seen(id: StringName) -> void:
+	_file().set_value("tutorial", "hint_%s" % String(id), true)
+	_save()
+
+
+# ── v15 meta: премия, покупки «Конторы», герой (DESIGN_V15 §6–§7, §12 п.8–9) ──────────────────
+
+## Премия — мета-валюта за бои, сохраняется, никогда не уходит в минус.
+static func bounty() -> int:
+	return int(_file().get_value(_meta_section(), "bounty", 0))
+
+
+static func _add_bounty(amount: int) -> void:
+	if amount == 0:
+		return
+	_file().set_value(_meta_section(), "bounty", maxi(0, bounty() + amount))
+	_save()
+
+
+## Публичная обёртка — _add_bounty остаётся приватной по имени ради существующих тестов
+## (legion_tree_test.gd/legion_ui_preview.gd зовут Campaign._add_bounty() напрямую).
+static func add_bounty(amount: int) -> void:
+	_add_bounty(amount)
+
+
+## Итог боя вне звёзд/открытия карты (те делает record_result выше): премия и опыт героя.
+## kills — kills_rewardable статистики боя (пакет staff кладёт её в LegionWorld.match_ended;
+## нет ключа — задание meta п.1/п.3 велит брать обычный kills, подставляет вызывающий).
+## stars — уже посчитанные record_result (0 на поражении сам по себе даёт верную формулу).
+## Возвращает {"bounty": int, "xp": int, "leveled_up": bool, "level": int} — для экрана итога.
+static func record_rewards(victory: bool, stars: int, kills: int) -> Dictionary:
+	var bounty_earned := LegionMetaCfg.bounty_for_result(victory, stars, kills)
+	var xp_earned := LegionMetaCfg.hero_xp_for_result(victory, stars, kills)
+	var level_before := hero_level()
+	begin_update()
+	add_bounty(bounty_earned)
+	_add_hero_xp(xp_earned)
+	end_update()
+	var level_after := hero_level()
+	return {
+		"bounty": bounty_earned, "xp": xp_earned,
+		"leveled_up": level_after > level_before, "level": level_after,
+	}
+
+
+## mode (verifier 27.09 п.4): премия за объект — формула bounty_for_result(), БЕЗ опыта героя.
+## ratio — доля HP Котла (звёзды формулы). Пишет в СЕКЦИЮ ТЕКУЩЕГО scope.
+static func grant_endless_bounty(victory: bool, kills: int, ratio: float) -> int:
+	var stars := LegionMetaCfg.stars_for_ratio(clampf(ratio, 0.0, 1.0)) if victory else 0
+	var earned := LegionMetaCfg.bounty_for_result(victory, stars, kills)
+	add_bounty(earned)
+	return earned
+
+
+# ── «Контора»: покупки по LegionMetaCfg.OFFICE_SHOP ────────────────────────────────────────────
+
+static func _shop_save_key(id: String, kind: String) -> String:
+	return "shop_%s" % id if kind == "" else "shop_%s_%s" % [id, kind]
+
+
+## Текущий уровень покупки (0 — не куплена). kind — только для per_kind покупок.
+static func shop_level(id: String, kind: String = "") -> int:
+	return int(_file().get_value(_meta_section(), _shop_save_key(id, kind), 0))
+
+
+static func shop_max_level(id: String) -> int:
+	var data: Dictionary = LegionMetaCfg.OFFICE_SHOP.get(id, {})
+	return Array(data.get("costs", [])).size()
+
+
+## Премия за СЛЕДУЮЩИЙ уровень, -1 — уровень уже максимальный (кнопка покупки скрывается).
+static func shop_cost(id: String, kind: String = "") -> int:
+	var data: Dictionary = LegionMetaCfg.OFFICE_SHOP.get(id, {})
+	var costs: Array = data.get("costs", [])
+	var lvl := shop_level(id, kind)
+	if lvl >= costs.size():
+		return -1
+	return int(costs[lvl])
+
+
+static func shop_buy(id: String, kind: String = "") -> bool:
+	var cost := shop_cost(id, kind)
+	if cost < 0 or bounty() < cost:
+		return false
+	begin_update()
+	_add_bounty(-cost)
+	_file().set_value(_meta_section(), _shop_save_key(id, kind), shop_level(id, kind) + 1)
+	_save()
+	return end_update(true)
+
+
+## Прибавки покупок «Конторы» в ключи Campaign.stat() (recruit_r_<kind>, cap_mult_<kind>, …) —
+## per_kind покупки разносятся по КАЖДОМУ виду из LegionCfg.KIND_ORDER отдельным ключом.
+static func _shop_mods() -> Dictionary:
+	var out := {}
+	for id in LegionMetaCfg.OFFICE_SHOP_ORDER:
+		var data: Dictionary = LegionMetaCfg.OFFICE_SHOP[id]
+		var stat_keys: Array = data.get("stat_keys", [])
+		var per_level: Array = data.get("per_level", [])
+		if bool(data.get("per_kind", false)):
+			for kind in LegionCfg.KIND_ORDER:
+				var lvl := shop_level(id, String(kind))
+				if lvl <= 0:
+					continue
+				for i in stat_keys.size():
+					var key := String(stat_keys[i]) % String(kind)
+					out[key] = float(out.get(key, 0.0)) + float(per_level[i]) * lvl
+		else:
+			var lvl2 := shop_level(id)
+			if lvl2 <= 0:
+				continue
+			for i in stat_keys.size():
+				var key2 := String(stat_keys[i])
+				out[key2] = float(out.get(key2, 0.0)) + float(per_level[i]) * lvl2
+	return out
+
+
+# ── Герой: опыт, уровень, ранги способностей, перки ────────────────────────────────────────────
+
+static func hero_xp() -> int:
+	return int(_file().get_value("hero", "xp", 0))
+
+
+static func _add_hero_xp(amount: int) -> void:
+	if amount <= 0:
+		return
+	_file().set_value("hero", "xp", hero_xp() + amount)
+	_save()
+
+
+## Уровень по накопленному опыту (HERO_LEVEL_THRESHOLDS — кумулятивные пороги), потолок 10.
+static func hero_level() -> int:
+	var xp := hero_xp()
+	var lvl := 1
+	for threshold in LegionMetaCfg.HERO_LEVEL_THRESHOLDS:
+		if xp >= int(threshold):
+			lvl += 1
+	return mini(lvl, LegionMetaCfg.HERO_MAX_LEVEL)
+
+
+## Для полоски опыта на экране героя: опыт внутри текущего уровня и сколько нужно до следующего.
+static func hero_xp_progress() -> Dictionary:
+	var lvl := hero_level()
+	if lvl >= LegionMetaCfg.HERO_MAX_LEVEL:
+		return {"level": lvl, "cur": 0, "need": 0, "maxed": true}
+	var prev_th := 0 if lvl <= 1 else int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[lvl - 2])
+	var next_th := int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[lvl - 1])
+	return {"level": lvl, "cur": hero_xp() - prev_th, "need": next_th - prev_th, "maxed": false}
+
+
+## 1 очко героя за уровень (уровень 1 — 0 очков).
+static func hero_points_earned() -> int:
+	return hero_level() - 1
+
+
+static func hero_points_spent() -> int:
+	var spent := hero_perks().size()
+	for a in LegionMetaCfg.HERO_ABILITIES:
+		spent += hero_rank(a)
+	return spent
+
+
+static func hero_points_available() -> int:
+	return maxi(0, hero_points_earned() - hero_points_spent())
+
+
+static func hero_rank(ability: StringName) -> int:
+	return int(_file().get_value("hero", "rank_%s" % String(ability), 0))
+
+
+## Списывает 1 очко героя на ранг способности; false — нет очков или ранг уже потолком.
+static func hero_rank_up(ability: StringName) -> bool:
+	if hero_points_available() <= 0:
+		return false
+	var cur := hero_rank(ability)
+	if cur >= LegionMetaCfg.HERO_ABILITY_MAX_RANK:
+		return false
+	_file().set_value("hero", "rank_%s" % String(ability), cur + 1)
+	_save()
+	return true
+
+
+static func hero_perks() -> Array[StringName]:
+	var raw: Array = _file().get_value("hero", "perks", [])
+	var out: Array[StringName] = []
+	for id in raw:
+		out.append(StringName(id))
+	return out
+
+
+static func hero_has_perk(id: StringName) -> bool:
+	return hero_perks().has(id)
+
+
+## false — нет очков, перк уже взят или требуемый перк ветки ещё не взят (LegionMetaCfg.HERO_PERKS
+## "requires").
+static func hero_take_perk(id: StringName) -> bool:
+	if hero_has_perk(id) or hero_points_available() <= 0:
+		return false
+	var data: Dictionary = LegionMetaCfg.HERO_PERKS.get(String(id), {})
+	if data.is_empty():
+		return false
+	var req := String(data.get("requires", ""))
+	if req != "" and not hero_has_perk(StringName(req)):
+		return false
+	var raw: Array = []
+	for p in hero_perks():
+		raw.append(String(p))
+	raw.append(String(id))
+	_file().set_value("hero", "perks", raw)
+	_save()
+	return true
+
+
+## Сброс очков (бесплатная кнопка — «игра про эксперименты», задание meta п.3): ранги и перки
+## обнуляются, уровень и опыт остаются, очки становятся снова доступны к перераспределению.
+static func hero_reset() -> void:
+	for a in LegionMetaCfg.HERO_ABILITIES:
+		_file().set_value("hero", "rank_%s" % String(a), 0)
+	_file().set_value("hero", "perks", [])
+	_save()
+
+
+## Ключ stat() = сам id перка (LegionMetaCfg.HERO_PERKS уже хранит id с префиксом "perk_" —
+## "perk_fast_hire", не "fast_hire" — задание meta даёт готовый список perk_<id>, второй
+## префикс не добавляем, иначе получился бы нечитаемый perk_perk_fast_hire).
+static func _hero_mods() -> Dictionary:
+	var out := {}
+	for a in LegionMetaCfg.HERO_ABILITIES:
+		out["ability_rank_%s" % String(a)] = float(hero_rank(a))
+	for id in hero_perks():
+		out[String(id)] = 1.0
+	# integrate1: перки, чьё действие — это уже существующий ключ боя, переводим в него, чтобы
+	# бой не знал о перках (штат/договоры читают только cap_mult_/respawn_mult_/recruit_r_).
+	var perk_set := hero_perks()
+	for kind: StringName in LegionCfg.KIND_ORDER:
+		if perk_set.has(&"perk_fast_hire"):
+			_add_mod(out, "respawn_mult_" + kind, LegionMetaCfg.PERK_FAST_HIRE_RESPAWN)
+		if perk_set.has(&"perk_big_staff"):
+			_add_mod(out, "cap_mult_" + kind, LegionMetaCfg.PERK_BIG_STAFF_CAP)
+		if perk_set.has(&"perk_far_call"):
+			_add_mod(out, "recruit_r_" + kind, LegionMetaCfg.PERK_FAR_CALL_R)
+	if perk_set.has(&"perk_settlement_on_time"):
+		_add_mod(out, "settlement_mult", LegionMetaCfg.PERK_SETTLEMENT_ON_TIME)
+	# polish1: «Мелкий шрифт» был описан, но ничего не делал — не переводился ни в один ключ боя.
+	if perk_set.has(&"perk_fine_print"):
+		_add_mod(out, "mana_cost_mult", LegionMetaCfg.PERK_FINE_PRINT_MANA)
+	return out
+
+
+static func _add_mod(into: Dictionary, key: String, value: float) -> void:
+	into[key] = float(into.get(key, 0.0)) + value
+
+
+# ── Открытия кампанией: виды бойцов, способности героя (задание meta п.4) ──────────────────────
+## Кампания v20 (D-0926-46): открытия — данные карты, поле `unlocks` её JSON (ключи stat():
+## kind_unlocked_<вид>, ability_unlocked_q|w|e, shape_unlocked_ring|eight|triangle|square,
+## control_unlocked_aim|rally, loot_unlocked_items). Открыто всё, что дают уже открытые карты
+## (is_unlocked): на карте в первый раз — ровно то, чему она учит, и всё, что было раньше.
+## Подряд открыт всегда. Каталог без единого поля `unlocks` (заглушки FALLBACK_MAPS) — открыто
+## всё, как до v20: экраны без ресурсов карт не должны терять навыки.
+static func _unlock_mods() -> Dictionary:
+	var out := {"kind_unlocked_%s" % LegionCfg.KIND_LABORER: 1.0}
+	var any_data := false
+	for m in maps():
+		if not m.has("unlocks"):
+			continue
+		any_data = true
+		if is_unlocked(String(m.get("id", ""))):
+			for key: Variant in m["unlocks"]:
+				out[String(key)] = 1.0
+	if not any_data:
+		for id: String in _UNLOCK_LABELS:
+			out[String(_UNLOCK_LABELS[id][0])] = 1.0
+		out["ability_unlocked_q"] = 1.0
+	return out
+
+
+## Что открылось и ещё не показано игроку — для плашки «Новое: …» на брифинге (задание meta
+## п.4). Помечать показанным через mark_unlocks_seen() сразу после отображения.
+static func pending_unlock_labels() -> Array[String]:
+	var seen := _unlocks_seen()
+	var mods := _unlock_mods()
+	var out: Array[String] = []
+	for id in _UNLOCK_LABELS:
+		var entry: Array = _UNLOCK_LABELS[id]
+		if float(mods.get(String(entry[0]), 0.0)) > 0.5 and not seen.has(id):
+			out.append(String(entry[1]))
+	return out
+
+
+static func mark_unlocks_seen() -> void:
+	var stored: Array = _file().get_value("meta", "unlocks_seen", [])
+	var seen := _unlocks_seen()
+	var mods := _unlock_mods()
+	var changed := seen.size() != stored.size()
+	for id in _UNLOCK_LABELS:
+		var entry: Array = _UNLOCK_LABELS[id]
+		if float(mods.get(String(entry[0]), 0.0)) > 0.5 and not seen.has(id):
+			seen.append(id)
+			changed = true
+	if changed:
+		_file().set_value("meta", "unlocks_seen", seen)
+		_save()
+
+
+## Показанные открытия; у сохранения старше v20 к ним добавлены те, что игрок имел до лестницы
+## (_PRE_V20_KNOWN) — вычисляется при чтении, в файл попадает только с mark_unlocks_seen().
+static func _unlocks_seen() -> Array:
+	var seen: Array = (_file().get_value("meta", "unlocks_seen", []) as Array).duplicate()
+	if is_pre_v20():
+		for id: String in _PRE_V20_KNOWN:
+			if not seen.has(id):
+				seen.append(id)
+	return seen
+
+
+## Сохранение старше v20 — «дырка в лестнице»: какая-то карта не открыта и не пройдена, а более
+## поздняя по order — открыта или пройдена. Так бывает только у прогресса, записанного до того,
+## как между картами вставили новые («Проходная», «Архив»): победа v20 всегда открывает
+## следующую по порядку. Вычисляется при чтении, в сохранение не пишется.
+static func is_pre_v20() -> bool:
+	var unlocked: Array = _file().get_value("progress", "unlocked", [])
+	var all := maps()
+	var hole := false
+	for i in range(1, all.size()):
+		var id := String(all[i].get("id", ""))
+		var reached := unlocked.has(id) or stars(id) > 0
+		if reached and hole:
+			return true
+		hole = hole or not reached
+	return false
+
+
+## Пакет cuts: вступительная катсцена показана один раз за кампанию — при повторном заходе
+## в «Продолжить»/новый брифинг после первого показа её больше не выводим (docs/legion/
+## DESIGN_V15.md §9). Тот же паттерн, что tutorial_done()/set_tutorial_done() выше.
+static func intro_cutscene_seen() -> bool:
+	return bool(_file().get_value("cutscene", "intro_seen", false))
+
+
+static func set_intro_cutscene_seen() -> void:
+	_file().set_value("cutscene", "intro_seen", true)
+	_save()
+
+
+## Есть ли что продолжать: пройденная карта, начатое обучение или показанное вступление.
+## Меню по нему пишет «Начать кампанию» вместо «Продолжить» (после сброса и при первом запуске).
+static func has_progress() -> bool:
+	if tutorial_done() or intro_cutscene_seen():
+		return true
+	for m in maps():
+		if stars(String(m.get("id", ""))) > 0:
+			return true
+	return false
+
+
+## Сброс прогресса (кнопка «Сначала», если понадобится) — стирает файл, не только кэш.
+static func reset() -> void:
+	_cfg = ConfigFile.new()
+	_update_depth = 0
+	_update_dirty = false
+	var err := SafeConfig.save_file(_cfg, _path, true)
+	if err != OK:
+		push_warning("Campaign: не удалось сбросить %s (%d)" % [_path, err])
+	_mods_cache_valid = false
+
+
+## Мост для LegionRunStore/LegionCollection (свои файлы ради max-file-lines) — тот же кэш
+## ConfigFile, не второй независимый экземпляр (иначе несинхронный кэш перезаписал бы диск
+## устаревшим состоянием).
+static func raw_file() -> ConfigFile:
+	return _file()
+
+
+static func save_raw() -> void:
+	_save()

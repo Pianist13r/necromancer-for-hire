@@ -1,0 +1,756 @@
+{
+  "id": "boss",
+  "order": 6,
+  "title": "Прораб",
+  "subtitle": "Два фронта и последняя подпись",
+  "theme": "office",
+  "cauldron": [200, 360],
+  "start_army": 18,
+  "army_cap": 140,
+  "rocks": [
+    [
+      [232, 253],
+      [243, 189],
+      [271, 142],
+      [314, 103],
+      [371, 96],
+      [407, 90],
+      [493, 96],
+      [536, 139],
+      [550, 167],
+      [529, 214],
+      [486, 228],
+      [436, 235],
+      [393, 260],
+      [364, 289],
+      [343, 317],
+      [339, 396],
+      [307, 403],
+      [257, 403],
+      [239, 360],
+      [236, 296]
+    ],
+    [
+      [337, 615],
+      [373, 554],
+      [423, 508],
+      [444, 490],
+      [487, 492],
+      [573, 500],
+      [594, 519],
+      [601, 576],
+      [628, 628],
+      [616, 654],
+      [544, 647],
+      [516, 654],
+      [416, 654],
+      [387, 633]
+    ],
+    [
+      [259, 546],
+      [355, 546],
+      [359, 586],
+      [262, 586]
+    ],
+    [
+      [1004, 352],
+      [1024, 340],
+      [1120, 336],
+      [1146, 340],
+      [1152, 356],
+      [1146, 380],
+      [1100, 384],
+      [1030, 386],
+      [1004, 370]
+    ],
+    [
+      [945, 560],
+      [975, 530],
+      [1010, 532],
+      [1060, 532],
+      [1100, 510],
+      [1125, 520],
+      [1130, 560],
+      [1125, 610],
+      [1110, 645],
+      [1060, 660],
+      [1000, 655],
+      [950, 630],
+      [940, 600]
+    ],
+    [
+      [950, -4],
+      [1172, -4],
+      [1172, 82],
+      [950, 74]
+    ],
+    [
+      [1246, 288],
+      [1284, 288],
+      [1284, 385],
+      [1246, 385]
+    ],
+    [
+      [-4, -4],
+      [212, -4],
+      [210, 40],
+      [185, 90],
+      [150, 110],
+      [110, 120],
+      [100, 170],
+      [75, 220],
+      [40, 245],
+      [-4, 250]
+    ],
+    [
+      [-4, 590],
+      [40, 595],
+      [110, 620],
+      [120, 660],
+      [175, 670],
+      [180, 724],
+      [-4, 724]
+    ],
+    [
+      [1244, 400],
+      [1284, 400],
+      [1284, 486],
+      [1244, 486]
+    ]
+  ],
+  "walls": [],
+  "roads": [
+    {
+      "id": "north",
+      "path": [
+        [1360, 140],
+        [1160, 140],
+        [1160, 300],
+        [900, 300],
+        [900, 140],
+        [650, 140],
+        [650, 290],
+        [500, 290],
+        [500, 360],
+        [380, 360],
+        [380, 500],
+        [200, 500],
+        [200, 360]
+      ]
+    },
+    {
+      "id": "south",
+      "path": [
+        [1360, 580],
+        [1160, 580],
+        [1160, 420],
+        [900, 420],
+        [900, 580],
+        [650, 580],
+        [650, 430],
+        [500, 430],
+        [500, 360],
+        [380, 360],
+        [380, 500],
+        [200, 500],
+        [200, 360]
+      ]
+    }
+  ],
+  "bot_lines": [
+    {
+      "road": "north",
+      "a": [570, 225],
+      "b": [570, 335],
+      "release": 1,
+      "kind": "guard",
+      "id": "line_0",
+      "role": "front",
+      "dir": [1.0, 0.0],
+      "min_units": 3,
+      "next_ids": ["line_1", "line_2"],
+      "support_id": "line_1"
+    },
+    {
+      "road": "south",
+      "a": [570, 385],
+      "b": [570, 495],
+      "release": 1,
+      "kind": "guard",
+      "id": "line_1",
+      "role": "front",
+      "dir": [1.0, 0.0],
+      "min_units": 3,
+      "next_ids": ["line_0", "line_2"],
+      "support_id": "line_2"
+    },
+    {
+      "road": "north",
+      "a": [330, 440],
+      "b": [440, 440],
+      "release": 1,
+      "kind": "laborer",
+      "id": "line_2",
+      "role": "flank",
+      "dir": [0.0, -1.0],
+      "min_units": 3,
+      "next_ids": ["line_0", "line_1"],
+      "support_id": "line_0"
+    }
+  ],
+  "hint": "Постройте второй рубеж за слиянием: после тарана Прораба бой должен продолжаться.",
+  "water": [],
+  "bridges": [],
+  "swamp": [],
+  "crypts": [],
+  "sleepers": [],
+  "cauldron_hp": 200,
+  "decor": [
+    {
+      "kind": "tree",
+      "pos": [95, 145]
+    },
+    {
+      "kind": "grave",
+      "pos": [129, 157]
+    },
+    {
+      "kind": "candle",
+      "pos": [114, 173]
+    },
+    {
+      "kind": "tree",
+      "pos": [475, 145]
+    },
+    {
+      "kind": "grave",
+      "pos": [509, 157]
+    },
+    {
+      "kind": "candle",
+      "pos": [494, 173]
+    },
+    {
+      "kind": "tree",
+      "pos": [475, 620]
+    },
+    {
+      "kind": "grave",
+      "pos": [509, 632]
+    },
+    {
+      "kind": "candle",
+      "pos": [494, 648]
+    },
+    {
+      "kind": "tree",
+      "pos": [1220, 360]
+    },
+    {
+      "kind": "grave",
+      "pos": [1254, 372]
+    },
+    {
+      "kind": "candle",
+      "pos": [1239, 388]
+    }
+  ],
+  "waves": [
+    {
+      "pause": 3,
+      "next_in": 42,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.36,
+          "delay": 0.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.36,
+          "delay": 1.5
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 39,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 22,
+          "interval": 0.36,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 3,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 22,
+          "interval": 0.36,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 3,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 0.5,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 0.5,
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "next_in": 42,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 26,
+          "interval": 0.36,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 4,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 26,
+          "interval": 0.36,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 4,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.4,
+          "delay": 2
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.4,
+          "delay": 2
+        },
+        {
+          "road": "north",
+          "type": "lawyer",
+          "count": 1,
+          "interval": 3.0,
+          "delay": 12.0
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 12.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 2,
+          "interval": 1.2,
+          "delay": 12.0,
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "climax": true,
+      "next_in": 37,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 30,
+          "interval": 0.36,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 5,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 30,
+          "interval": 0.36,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 5,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.4,
+          "delay": 2
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.4,
+          "delay": 2
+        },
+        {
+          "road": "north",
+          "type": "lawyer",
+          "count": 1,
+          "interval": 3.0,
+          "delay": 12.0
+        },
+        {
+          "road": "south",
+          "type": "lawyer",
+          "count": 1,
+          "interval": 3.0,
+          "delay": 14.0
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 6,
+          "interval": 1.2,
+          "delay": 1.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 6,
+          "interval": 1.2,
+          "delay": 1.0,
+          "tier": 1
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 6,
+          "interval": 1.0,
+          "delay": 10.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 6,
+          "interval": 1.0,
+          "delay": 10.0,
+          "tier": 1
+        },
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.36,
+          "delay": 12.0,
+          "tier": 2
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 8,
+          "interval": 0.36,
+          "delay": 13.5,
+          "tier": 2
+        }
+      ]
+    },
+    {
+      "pause": 10,
+      "groups": [
+        {
+          "road": "north",
+          "type": "zombie",
+          "count": 52,
+          "interval": 0.36,
+          "delay": 0.0
+        },
+        {
+          "road": "north",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "north",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "boss",
+          "count": 1,
+          "interval": 0.98,
+          "delay": 6.0
+        },
+        {
+          "road": "south",
+          "type": "zombie",
+          "count": 52,
+          "interval": 0.36,
+          "delay": 1.5
+        },
+        {
+          "road": "south",
+          "type": "beetle",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 3.0
+        },
+        {
+          "road": "south",
+          "type": "signer",
+          "count": 6,
+          "interval": 0.98,
+          "delay": 5.25
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.4,
+          "delay": 2
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 3,
+          "interval": 1.2,
+          "delay": 9
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 2,
+          "interval": 1.4,
+          "delay": 2
+        },
+        {
+          "road": "north",
+          "type": "shield_inspector",
+          "count": 6,
+          "interval": 1.2,
+          "delay": 1.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "shield_inspector",
+          "count": 6,
+          "interval": 1.2,
+          "delay": 1.0,
+          "tier": 1
+        },
+        {
+          "road": "north",
+          "type": "ghost",
+          "count": 8,
+          "interval": 1.0,
+          "delay": 12.0,
+          "tier": 1
+        },
+        {
+          "road": "south",
+          "type": "ghost",
+          "count": 8,
+          "interval": 1.0,
+          "delay": 12.0,
+          "tier": 1
+        }
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "p1",
+      "pos": [285, 435],
+      "bot_priority": 8,
+      "serves_lines": ["line_2", "line_1"],
+      "preferred_kinds": ["guard", "laborer"]
+    },
+    {
+      "id": "p2",
+      "pos": [445, 435],
+      "bot_priority": 7,
+      "serves_lines": ["line_2", "line_1"],
+      "preferred_kinds": ["clerk", "laborer"]
+    },
+    {
+      "id": "p3",
+      "pos": [570, 360],
+      "bot_priority": 6,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["laborer", "laborer"]
+    },
+    {
+      "id": "p4",
+      "pos": [700, 260],
+      "bot_priority": 5,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["guard", "laborer"]
+    },
+    {
+      "id": "p5",
+      "pos": [700, 460],
+      "bot_priority": 4,
+      "serves_lines": ["line_1", "line_0"],
+      "preferred_kinds": ["clerk", "laborer"]
+    },
+    {
+      "id": "p6",
+      "pos": [1030, 220],
+      "bot_priority": 3,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["laborer", "laborer"]
+    },
+    {
+      "id": "p7",
+      "pos": [1030, 500],
+      "bot_priority": 2,
+      "serves_lines": ["line_1", "line_0"],
+      "preferred_kinds": ["guard", "laborer"]
+    },
+    {
+      "id": "p8",
+      "pos": [850, 360],
+      "bot_priority": 1,
+      "serves_lines": ["line_0", "line_1"],
+      "preferred_kinds": ["clerk", "laborer"]
+    }
+  ],
+  "bg": "res://assets/legion/maps/boss_bg.jpg",
+  "cauldron_respawn": 24.0
+}

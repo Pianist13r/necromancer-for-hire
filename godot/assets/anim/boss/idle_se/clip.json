@@ -1,0 +1,10 @@
+{
+  "frames": 1,
+  "fps": 1,
+  "loop": true,
+  "pivot_px": [
+    128.0,
+    224.0
+  ],
+  "figure_fill": 0.75
+}

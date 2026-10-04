@@ -1,0 +1,79 @@
+{
+ "src_frames": 8,
+ "factor": 2,
+ "loop": false,
+ "model": "rife-v4.6",
+ "src_index": [
+  0,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8
+ ],
+ "rejected": 6,
+ "report": [
+  {
+   "pair": 0,
+   "t": 0.5,
+   "semi": 1.82,
+   "edge": 1.05,
+   "rejected": false
+  },
+  {
+   "pair": 1,
+   "t": 0.5,
+   "semi": 2.56,
+   "edge": 1.08,
+   "rejected": true
+  },
+  {
+   "pair": 2,
+   "t": 0.5,
+   "semi": 3.03,
+   "edge": 1.1,
+   "rejected": true
+  },
+  {
+   "pair": 3,
+   "t": 0.5,
+   "semi": 2.82,
+   "edge": 1.08,
+   "rejected": true
+  },
+  {
+   "pair": 4,
+   "t": 0.5,
+   "semi": 2.59,
+   "edge": 1.09,
+   "rejected": true
+  },
+  {
+   "pair": 5,
+   "t": 0.5,
+   "semi": 4.03,
+   "edge": 1.21,
+   "rejected": true
+  },
+  {
+   "pair": 6,
+   "t": 0.5,
+   "semi": 2.79,
+   "edge": 1.1,
+   "rejected": true
+  }
+ ],
+ "durations": [
+  0.5,
+  0.5,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0,
+  1.0
+ ]
+}

@@ -1,0 +1,52 @@
+{
+ "grave": {
+  "tex": "res://assets/legion/procgen/road/road_grave.png",
+  "src": "fork/north#1",
+  "height_px": 78,
+  "period_px": 255,
+  "luma": 0.8066,
+  "tex_b": "res://assets/legion/procgen/road/road_grave_b.png",
+  "src_b": "fork/south#1",
+  "period_b_px": 315
+ },
+ "swamp": {
+  "tex": "res://assets/legion/procgen/road/road_swamp.png",
+  "src": "swamp/north#4",
+  "height_px": 84,
+  "period_px": 150,
+  "luma": 0.8955,
+  "tex_b": "res://assets/legion/procgen/road/road_swamp_b.png",
+  "src_b": "swamp/south#1",
+  "period_b_px": 242
+ },
+ "ash": {
+  "tex": "res://assets/legion/procgen/road/road_ash.png",
+  "src": "wasteland/east#1",
+  "height_px": 82,
+  "period_px": 150,
+  "luma": 0.7623,
+  "tex_b": "res://assets/legion/procgen/road/road_ash_b.png",
+  "src_b": "wasteland/east#2",
+  "period_b_px": 168
+ },
+ "office": {
+  "tex": "res://assets/legion/procgen/road/road_office.png",
+  "src": "archive/north#2",
+  "height_px": 80,
+  "period_px": 196,
+  "luma": 0.736,
+  "tex_b": "res://assets/legion/procgen/road/road_office_b.png",
+  "src_b": "archive/south#2",
+  "period_b_px": 214
+ },
+ "site": {
+  "tex": "res://assets/legion/procgen/road/road_site.png",
+  "src": "boss/north#4",
+  "height_px": 86,
+  "period_px": 200,
+  "luma": 0.7602,
+  "tex_b": "res://assets/legion/procgen/road/road_site_b.png",
+  "src_b": "boss/north#2",
+  "period_b_px": 202
+ }
+}
