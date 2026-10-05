@@ -105,10 +105,15 @@ func setup(w: LegionWorld, side := 0) -> LegionItems:
 			on(&"seg_released", [c, seg, n]))
 	w.unit_spawned.connect(func(u: Legionnaire) -> void:
 		if _owns(u.side):
-			on(&"unit_spawned", [u]))
+			on(&"unit_spawned", [u])
+			if u.home is LegionBuilding:
+				highlight(&"staff_schedule", u.position))
 	w.unit_died.connect(func(u: Legionnaire) -> void:
 		if _owns(u.side):
 			on(&"unit_died", [u]))
+	w.contract_created.connect(func(c: Contract) -> void:
+		if _owns(c.owner_side):
+			highlight(&"wholesale_ink", c.point_at(c.length * 0.5)))
 	return self
 
 
@@ -135,6 +140,26 @@ func reset() -> void:
 
 func count(id: StringName) -> int:
 	return int(counts.get(id, 0))
+
+
+## Только состоявшийся особый эффект. state уже входит в снимок, старый снимок даёт ноль.
+func activation_count(id: StringName) -> int:
+	return int((state.get(&"activations", {}) as Dictionary).get(id, 0))
+
+
+func record_activation(id: StringName, at: Vector2) -> void:
+	if count(id) == 0:
+		return
+	var uses: Dictionary = state.get(&"activations", {})
+	uses[id] = int(uses.get(id, 0)) + 1
+	state[&"activations"] = uses
+	highlight(id, at)
+
+
+## Пассивы не получают счётчик: это вид реально состоявшегося каста/найма/договора.
+func highlight(id: StringName, at: Vector2) -> void:
+	if count(id) > 0:
+		fx_event.emit(&"used", {"id": id, "pos": at, "side": owner_side})
 
 
 func total() -> int:
@@ -414,7 +439,14 @@ func _on_foe_killed(f: Foe, pos: Vector2) -> void:
 	on(&"foe_killed", [f, pos])
 
 
-func _on_hero_cast(slot: int, _at: Vector2) -> void:
+func _on_hero_cast(slot: int, at: Vector2) -> void:
+	var h := world.hero_of(owner_side)
+	if h == null:
+		return
+	if slot == LegionHero.SLOT_Q and not (h.last_cast.get("hits", []) as Array).is_empty():
+		highlight(&"clip_of_fate", at)
+	if slot == LegionHero.SLOT_E and int(h.last_cast.get("n", 0)) > 0:
+		highlight(&"overtime_sheet", at)
 	if slot != LegionHero.SLOT_W or world.hero_of(owner_side) == null:
 		return
 	var spots: Array[Vector2] = []

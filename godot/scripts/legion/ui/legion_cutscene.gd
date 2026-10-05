@@ -121,6 +121,13 @@ func _ready() -> void:
 	UiStyle.fill_rect(_fade)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fade)
+	var skip := ProgressionUi.button("Пропустить ▸▸", _skip_all)
+	add_child(skip)
+	skip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	skip.offset_left = -244
+	skip.offset_right = -24
+	skip.offset_top = 44
+	skip.offset_bottom = 96
 
 
 ## Публичный вход: список кадров и, если у вызывающего уже есть боевой узел озвучки (боссовая

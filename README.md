@@ -7,12 +7,35 @@
 Душ. Договор истекает участками, и отпущенные бойцы идут в натиск. Кампания на нарисованных
 картах, случайные поля, бесконечный подряд, вызов дня и «Схватка» — против бота или по сети.
 
-**Альфа-версия 0.1.1-alpha.** Игра на русском языке. Сделано на Godot 4.7.2.
+**Альфа-версия 0.2.0-alpha.** Игра на русском языке. Сделано на Godot 4.7.2.
 
 ![Натиск скелетов по договору на карте «Пустырь»](media/gameplay.png)
 
-[Игровой ролик — 1080p, 24 секунды](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/necromancer-gameplay-HQ-1080p.mp4).
+[Игровой ролик — 1080p, 24 секунды](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.0-alpha/necromancer-gameplay-HQ-1080p.mp4).
 Кадры сняты в самой игре с подготовленной расстановкой; музыка игры добавлена при монтаже.
+
+## Что нового в версии 0.2.0-alpha
+
+**Прокачка стала рогаликом.** Раньше опыт давал мелкие постоянные проценты, которые почти не меняли бой.
+Теперь за победу вы выбираете одну из трёх «поправок к договору» — сильных и разных: цена договора,
+поведение волн, души, натиск, — и они действуют до конца забега. Активны три поправки; четвёртая вытесняет
+одну из них по вашему выбору. Прогресс старой версии не теряется: за купленные уровни «Конторы» премия
+возвращена, а старые поправки, которым не нашлось аналога, лежат в архиве.
+
+**Фигуры.** Бойцы встают только на углы: «Обряд» — треугольник, трое; «Каре» — квадрат, четверо. Пока
+группа стоит, она держит позицию; 1,5 секунды непрерывного заполнения готовят удар — по ободу видно заряд.
+Сорвать заряженную фигуру — особый эффект (удар, защита, метка), сорвать раньше — обычный натиск. Рогатка
+теперь берёт **одну** фигуру-группу и направляет её по оттяжке, соседняя остаётся. Маленькая фигура — та же
+фигура, только меньше и дешевле. Две новые: «Комиссия по упокоению» (пятиугольник — щит участникам и метка
+цели) и «Неустойка» (полукруг — заряженный удар замедляет врагов). Уроки фигур обновлены и озвучены.
+
+**Навигация.** Все экраны проходятся мышью, тупиков нет: внизу — «← Назад» слева и главное действие справа.
+В бою появилась кнопка паузы (в «Схватке» она открывает меню матча), а действия, которые прерывают бой или
+забег, спрашивают подтверждение. После победы путь короче: итог → выбор поправки → сразу брифинг следующей
+карты; «Контора» — по желанию, кнопкой на брифинге.
+
+**Досье.** Из паузы открывается «Досье артефактов» — что у вас есть и как срабатывает; «Досье некроманта»
+показывает вашу колоду поправок. В разборе боя видно, откуда пришёл урон по Котлу.
 
 ## Скачать
 
@@ -21,10 +44,10 @@
 
 | Система | Файл | Как запустить |
 |---|---|---|
-| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
-| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
-| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
-| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.1.1-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
+| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.0-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
+| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.0-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
+| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.0-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
+| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.0-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
 
 Windows и Linux: x86_64, видеокарта и драйвер с поддержкой Vulkan.
 macOS: универсальная сборка для Intel и Apple Silicon, графика с поддержкой Metal.

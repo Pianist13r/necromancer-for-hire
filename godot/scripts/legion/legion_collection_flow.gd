@@ -72,7 +72,13 @@ static func start_battle(main: LegionMain, map_id: String) -> void:
 	Campaign.use_replay_scope()
 	LegionRunStore.reset_replay_scratch()
 	main.world.dev.erase("difficulty")
+	# E-1005: переигровка — ОДИНОЧНЫЙ бой с открытиями игрока (виды/способности/фигуры живут в
+	# разделе progress, от scope не зависят), поэтому in_campaign = true. Поправок при этом нет ПО
+	# ПОСТРОЕНИЮ: колода берётся из replay-скоупа, а его обнуляет reset_replay_scratch() выше —
+	# в отличие от забега, снимать in_campaign здесь нечего (иначе открытия стали бы «всё сразу»).
+	main.world.in_campaign = true
 	main.world.mods = Campaign.active_mods()
+	main.world.battle_preparation = {}   # переигровка вне забега — без подготовки «Конторы»
 	main.world.start_map(map_id)
 
 

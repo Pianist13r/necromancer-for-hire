@@ -37,6 +37,13 @@ var holding := false
 var ram_pos := Vector2.ZERO
 var ram_t := -1.0
 var seal_slow_t := 0.0
+## «Неустойка» заряженный выпуск: замедление от первого касания залпа (скорость × slow_mult,
+## пока slow_t > 0) и «Комиссия»: id группы, пометившей эту цель, — участники группы бьют её
+## сильнее. Оба поля переживают загрузку снимка (SnapUnits).
+var slow_t := 0.0
+var slow_mult := 1.0
+var mark_group_id := -1
+var mark_t := 0.0
 ## Юрист (v17 LAW): цель — участок договора и точка на нём; law_read_t ≥ 0 — идёт зачитка.
 var law_c: Contract = null
 var law_seg := -1
@@ -140,6 +147,11 @@ func tick(dt: float) -> void:
 func _tick_state(dt: float) -> void:
 	_atk_cd -= dt
 	seal_slow_t = maxf(0.0, seal_slow_t - dt)
+	slow_t = maxf(0.0, slow_t - dt)
+	if mark_t > 0.0:
+		mark_t = maxf(0.0, mark_t - dt)
+		if mark_t <= 0.0:
+			mark_group_id = -1
 	if type_id == "shield_inspector":
 		queue_redraw()
 	match state:
@@ -328,6 +340,8 @@ func _tick_move(dt: float) -> bool:
 	var sp := speed * (1.0 if ghost else world.terrain.speed_mult(position))
 	if seal_slow_t > 0.0:
 		sp *= LegionCfg.SEAL_SLOW_MULT
+	if slow_t > 0.0:
+		sp *= slow_mult   # «Неустойка»: просрочка тянет ход
 	var nxt := position + d * sp * dt
 	if not ghost:
 		var blocker := world.grid.posted_blocking(nxt, LegionCfg.BLOCK_R + radius - 8.0)
@@ -716,7 +730,7 @@ func _tick_siege() -> void:
 	_atk_cd = LegionCfg.BOSS_SIEGE_INTERVAL
 	_face(world.cauldron_of(goal_side) - position)
 	view.attack_impact()
-	world.damage_cauldron(LegionCfg.BOSS_SIEGE_DAMAGE, type_id, goal_side)
+	world.damage_cauldron(LegionCfg.BOSS_SIEGE_DAMAGE, type_id, goal_side, origin)
 
 
 func _tick_boss(dt: float) -> bool:

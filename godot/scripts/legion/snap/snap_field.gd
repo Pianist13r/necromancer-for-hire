@@ -42,6 +42,8 @@ const FIELD_SKIP: Array[String] = [
 	# вид и звук, счётчики отрисовки
 	"_rite_fx", "_cross_fx", "_ring_fx", "_popups", "_hits", "_vis", "_vis_frame", "_fading",
 	"_strokes", "_sfx", "_wall_fx", "_wall_ms", "drawn_lines", "drawn_flow", "wall_bumps",
+	# ContractRenderer (выделен из поля 05.10): только отрисовка, состояния боя не держит
+	"_renderer",
 	# рабочие буферы одного вызова (strike_clear, разбор полос)
 	"_lanes", "_lanes_a", "_lp_pos", "_lp_speed", "_lp_rad", "_lp_ghost", "_ls_a", "_ls_lat",
 	"_ls_r", "_ls_v", "_ls_sig",
@@ -54,10 +56,22 @@ const CONTRACT_PROPS: Array[String] = [
 	"ttl", "side", "owner_side", "kind", "mana_cost_mult", "dir", "ring", "center", "ring_out",
 	"figure", "lobes", "lobe_span", "tips", "id", "release_causes", "seg_polys",
 	"seg_press_box", "_seg_centers",
+	# D-1002: мини-размер (числа и места), заряд подготовки, «места только на углах» и флаг
+	# выданного пассива «Комиссии» — состояние боя, а не вид
+	"size_mini", "charge_t", "corners_only", "ult_armed",
 ]
 const CONTRACT_REFS: Array[String] = ["posts"]
-const CONTRACT_SKIP: Array[String] = []
+const CONTRACT_SKIP: Array[String] = [
+	# угол, вставший в воду или скалу: у ЗАКЛЮЧЁННОГО договора всегда пуст — фигура с таким
+	# углом не заключается вовсе (ContractField._create возвращает null)
+	"blocked_tips",
+]
 
+const FIG_PROPS: Array[String] = [
+	# счётчик id групп залпа: по нему «Комиссия» узнаёт СВОЮ метку на враге — id не должен
+	# повториться после загрузки снимка
+	"_ult_serial",
+]
 const FIG_REFS: Array[String] = ["_overtime", "_buffs"]
 const FIG_SKIP: Array[String] = [
 	"world",
@@ -71,7 +85,7 @@ static func coverage() -> Array:
 	return [
 		[ContractField, FIELD_PROPS + FIELD_REFS + FIELD_SKIP],
 		[Contract, CONTRACT_PROPS + CONTRACT_REFS + CONTRACT_SKIP],
-		[LegionFigures, FIG_REFS + FIG_SKIP],
+		[LegionFigures, FIG_PROPS + FIG_REFS + FIG_SKIP],
 	]
 
 
@@ -99,11 +113,14 @@ static func save(w: LegionWorld, reg: NetSnap.Reg) -> Dictionary:
 		"fields": fields,
 		"figures": {
 			"_overtime": reg.enc(fig._overtime), "_buffs": reg.enc(fig._buffs),
+			"_ult_serial": fig._ult_serial,
 		},
 	}
 
 
 static func build(w: LegionWorld, data: Dictionary, _reg: NetSnap.Reg) -> void:
+	var figd: Dictionary = data.get("figures", {})
+	w.figures._ult_serial = int(figd.get("_ult_serial", 0))
 	var fields: Array = data.get("fields", [])
 	for i in mini(fields.size(), w.sides.size()):
 		var f := w.sides[i].contracts

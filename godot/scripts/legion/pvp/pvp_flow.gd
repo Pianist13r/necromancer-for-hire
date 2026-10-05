@@ -60,6 +60,10 @@ static func start_net(main: LegionMain, seed_value: int, map_id: String, side: i
 	main._in_collection_battle = false
 	main._teardown_screen()
 	var w := main._ensure_world()
+	# E-1005: сетевой матч — вне кампании (как и «Схватка» с ботом): поправки забега в него не
+	# текут. start_net_match() ставит то же повторно — здесь явно, по правилу «каждый старт боя
+	# ставит режим себе сам», чтобы снятие строки там не оживило поправки в сети молча.
+	w.in_campaign = false
 	var session := net_session(main)
 	w.start_net_match(map_id, seed_value, side)
 	session.attach(w)
@@ -83,6 +87,7 @@ static func start(main: LegionMain, map_id: String) -> void:
 	w.mods = {}
 	w.in_campaign = false
 	w.carry_items = false
+	w.battle_preparation = {}   # «Схватка» без поправок забега и подготовки «Конторы»
 	w.start_map(map_id)
 
 

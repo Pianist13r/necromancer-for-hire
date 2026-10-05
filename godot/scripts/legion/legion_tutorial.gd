@@ -56,7 +56,13 @@ const _KINDS := {
 	"segment_released": &"release", "perfect": &"perfect", "spring_released": &"spring",
 	"rally_used": &"rally", "building_built": &"build", "figure_made": &"figure",
 	"item_gained": &"item", "stunned_charge": &"stun_hit", "tab_erased": &"erase",
+	# D-1002: фигура выпущена ЗАРЯЖЕННОЙ (урок кончается действием игрока, а не контуром),
+	# фигура выпущена рогаткой по одной группе, фигура мини-размера
+	"figure_ult": &"figure_ult", "figure_slung": &"figure_slung", "figure_mini": &"figure_mini",
 }
+## Уроки-фигуры: штрих шаблона, запас армии и зачёт (значение `done` головой вида).
+const FIGURE_KINDS: Array[StringName] = [&"figure", &"figure_ult", &"figure_mini",
+	&"figure_slung"]
 const _HERO_KINDS := {"Q": &"hero_q", "W": &"hero_w", "E": &"hero_e"}
 
 const TEXT_DONE := "Обучение пройдено — держите Котёл!"
@@ -81,6 +87,10 @@ const LINE_AGE_CAP := 0.5
 ## Свободных бойцов для «Сбора» не осталось (всё в строю и никто не бежит в натиск) — столько
 ## подрядчиков выходит у Котла. Штат Котла сам возрождает павших, это — только от тупика.
 const RALLY_SPARE := 3
+## Реплики, чей ТЕКСТ урока изменился в D-1002 (углы, подготовка, мини): старая запись говорит
+## прежнее правило и до переозвучки молчит — урок показывает только текст. Список ведёт
+## координатор: после записи новых файлов (tools/voice/lines.tsv, те же id) строки убираются.
+const STALE_VOICE: Array[StringName] = []
 ## Где кучнее всего свои (цель «Сбора» и «Аврала»): соседи в этой доле радиуса способности.
 const CLUSTER_FRAC := 0.5
 
@@ -119,6 +129,10 @@ var _build_gifts: Dictionary = {}
 var _cd_gifted: Dictionary = {}
 ## Уроки посреди боя, чья реплика уже звучала в этом бою: снова вставший урок молчит.
 var _voiced: Dictionary = {}
+## Следующая подсыпка свободных к пустым углам фигуры урока (_staff_figure), секунды боя.
+var _staff_t := 0.0
+## Сколько подрядчиков урок фигуры уже вывел у Котла из тупика (не больше порога заряда).
+var _staff_spawned := 0
 var _perfect_at := 0
 var _plot: Dictionary = {}
 var _foes: Array[Foe] = []
@@ -224,6 +238,8 @@ func setup(w: LegionWorld, list: Array[Dictionary] = []) -> void:
 	world.contracts.tap.connect(_on_tap)
 	world.contracts.aimed.connect(_on_aimed)
 	world.contracts.figure_made.connect(_on_figure_made)
+	world.figure_ult.connect(_on_figure_ult)
+	world.figure_slung.connect(_on_figure_slung)
 	_banner = LegionLessonBanner.new(world)
 	world.add_child(_banner)
 	_marks = LegionTutorialMarks.new(self)
@@ -255,7 +271,7 @@ func tick(dt: float) -> void:
 		# «Точно!» — любым выпуском: рогаткой, щелчком по золотому, кольцом или фигурой; не Табом
 		_complete()
 		return
-	if not _tick_material() and active and world.bot != null:
+	if not _tick_material(dt) and active and world.bot != null:
 		LegionLessonBot.act(self)
 
 
@@ -317,7 +333,7 @@ func passed(id: StringName) -> bool:
 
 ## Текст плашки урока с числами из LegionCfg (ранг способности — текущий).
 func step_text(i: int) -> String:
-	var text := String(lessons[i]["text"])
+	var text := Controls.text(String(lessons[i]["text"]))
 	if not text.contains("%d"):
 		return text
 	match lessons[i]["kind"]:
@@ -372,6 +388,7 @@ func _enter(i: int) -> void:
 	entered_at = world.now
 	_credit = false
 	bot_done = false
+	_staff_spawned = 0
 	_absent_t = 0.0
 	var l := lessons[i]
 	var again: bool = not l["start"] and _voiced.has(l["id"])
@@ -400,10 +417,10 @@ func _enter(i: int) -> void:
 				_build_gifts[l["id"]] = LegionStaff.build_price(_build_kind())
 			_plot = _pick_plot()
 	_set_hold(float(l["hold"]) > 0.0, float(l["hold"]))
-	if _hold_on and l["kind"] == &"figure" and l["arg"] == "triangle":
+	if _hold_on and FIGURE_KINDS.has(l["kind"]):
 		# Выбор вида переживает прошлую карту; учебный штат и шаблон — подрядчики.
 		world.contracts.set_kind(LegionCfg.KIND_LABORER)
-		_stock_rite_army()
+		_stock_figure_army()
 	var slot := _slot_of(l["kind"])
 	if slot >= 0 and world.hero != null and world.hero.is_unlocked(slot) \
 			and (l["start"] or not _cd_gifted.has(l["id"])):
@@ -420,7 +437,9 @@ func _enter(i: int) -> void:
 		_voiced[l["id"]] = true
 	if world.audio != null and not again:
 		var voice: StringName = l.get("voice", &"")
-		if voice != &"":
+		# Реплика, чей ТЕКСТ изменился (D-1002 §6), пока не переозвучена, молчит: старая запись
+		# говорит прежнее правило и спорит с плашкой. Список снимается после переозвучки.
+		if voice != &"" and not STALE_VOICE.has(voice):
 			# Сюжет (LegionAudio.voice()): реплика урока не обрывает брифинг или прошлый урок на
 			# полуслове — встаёт в очередь; более поздний урок заменяет в ней устаревший.
 			world.audio.voice(voice, LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
@@ -679,7 +698,8 @@ func _disconnect(keep_voice := false) -> void:
 			[world.contract_refreshed, _on_contract_refreshed], [world.rally_used, _on_rally_used],
 			[world.building_changed, _on_building_changed],
 			[world.spring_released, _on_spring_released],
-			[world.stunned_charge_hit, _on_stunned_hit]]:
+			[world.stunned_charge_hit, _on_stunned_hit],
+			[world.figure_ult, _on_figure_ult], [world.figure_slung, _on_figure_slung]]:
 		var sig: Signal = pair[0]
 		if sig.is_connected(pair[1]):
 			sig.disconnect(pair[1])
@@ -709,13 +729,18 @@ func _teardown_ui() -> void:
 ## бойцы, откат каждый кадр). Урок посреди боя (волна идёт) даром даёт только души постройки и
 ## откат своей способности ОДИН раз при входе (_enter): иначе весь бой шёл с полной маной,
 ## нетающими линиями и бесконечными кастами (проверяющий 27.09, зонд vv_melt).
-func _tick_material() -> bool:
+func _tick_material(dt: float) -> bool:
 	var hold := _hold_on
 	var moved := false
+	_staff_t -= dt
 	match step_kind():
-		&"draw", &"figure":
+		&"draw", &"figure", &"figure_ult", &"figure_mini", &"figure_slung":
 			if hold:
 				world.contracts.mana = world.contracts.mana_max
+			# фигура урока должна встать: свободных подсыпаем к её пустым углам по ходу боя
+			if FIGURE_KINDS.has(step_kind()) and _staff_t <= 0.0:
+				_staff_t = 0.5
+				_staff_figure()
 		&"aim", &"refresh", &"erase":
 			if hold:
 				moved = _tick_line()
@@ -752,35 +777,126 @@ func _tick_material() -> bool:
 	return moved
 
 
-## Учебный «Обряд» должен набрать половину мест без покупки здания. Размер берём из
-## шаблона, а подкрепление выдаём только пока волна ждёт: обычный бой не получает подарков.
-func _stock_rite_army() -> void:
-	var shape := Contract.new().build_figure(figure_points(), ContractShape.TRIANGLE,
-		world.terrain.walkable, LegionCfg.KIND_LABORER)
+## Фигура урока должна набрать строй без покупки здания. Размер берём из шаблона, а подкрепление
+## выдаём только пока волна ждёт: обычный бой не получает подарков.
+func _stock_figure_army() -> void:
+	var shape := _lesson_figure()
+	if shape == null or shape.figure == &"":
+		return
 	var have := 0
 	for u in world.units:
 		if u.alive and u.kind == LegionCfg.KIND_LABORER:
 			have += 1
 	for i in maxi(0, ContractField.fig_need(shape) - have):
 		world.spawn_unit(LegionCfg.KIND_LABORER, world._near_cauldron())
-	# Свободный берег дальше от Котла: дальние подрядчики подходят к учебному месту
-	# своим ходом. Радиус набора и размер подарка остаются обычными.
+	_staff_figure()
+
+
+## Фигура урока должна набрать порог заряда. Зовётся при входе в урок и дальше подсыпается по
+## ходу боя: бот мира чертит свои линии и уводит свободных на них, а фигура урока стоит не у
+## самого Котла — её дальние углы вне радиуса набора, и строй набирал двух бойцов из четырёх,
+## заряд не копился и урок стоял (находка прогона 05.10). Радиус набора и размер подарка
+## остаются обычными: свободного ведём к пустому углу своим ходом, на 0,5 радиуса в сторону Котла.
+func _staff_figure() -> void:
+	var c := _lesson_figure_live()
+	if c == null:
+		return
+	var need := maxi(1, c.charge_need())
+	if need > 0 and c.posted_posts() >= need:
+		return
 	var radius := float(world.contracts.recruit_r.get(LegionCfg.KIND_LABORER, LegionCfg.RECRUIT_R))
+	# Свободных не осталось (бот мира разобрал всех по своим линиям): пока волна ждёт, урок
+	# выходит у Котла ровно столько подрядчиков, сколько не хватает до порога, — не больше need
+	# за урок (иначе тупик: фигура не встанет, а бой идёт).
+	var free: Array[Legionnaire] = []
 	for u in world.units:
-		if not u.alive or u.kind != LegionCfg.KIND_LABORER or u.state != Legionnaire.State.FREE:
+		if u.alive and u.kind == LegionCfg.KIND_LABORER and u.state == Legionnaire.State.FREE:
+			free.append(u)
+	if free.is_empty() and _hold_on:
+		var lack := maxi(0, need - c.posted_posts() - _staff_spawned)
+		for i in lack:
+			world.spawn_unit(LegionCfg.KIND_LABORER, world._near_cauldron())
+		_staff_spawned += lack
+		for u in world.units:
+			if u.alive and u.kind == LegionCfg.KIND_LABORER \
+					and u.state == Legionnaire.State.FREE:
+				free.append(u)
+	var posts: Array = c.posts.duplicate()
+	posts.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return (a["pos"] as Vector2).distance_to(world.cauldron_pos) \
+			> (b["pos"] as Vector2).distance_to(world.cauldron_pos))
+	for post: Dictionary in posts:
+		if post["dead"] or post["unit"] != null or free.is_empty():
 			continue
-		var nearest := INF
-		for post: Dictionary in shape.posts:
-			nearest = minf(nearest, u.position.distance_to(post["pos"]))
-		# Близость самой линии не гарантирует, что в радиусе есть хотя бы одно место.
-		if shape.live_distance(u.position) <= radius and nearest <= radius:
+		var at: Vector2 = post["pos"]
+		# вести надо ПОЧТИ к самому углу: у 0,5 радиуса боец вставал ближе к линии бота мира,
+		# чем к углу, и раздача отдавала его чужой линии (находка прогона 05.10)
+		var spot := world.terrain.nearest_open(
+			at + (world.cauldron_pos - at).normalized() * maxf(24.0, radius * 0.15))
+		if spot == Vector2.INF:
 			continue
-		var target := world.terrain.nearest_open(u.position.lerp(shape.center, 0.5))
-		if target == Vector2.INF:
+		var pick := -1
+		var best := INF
+		for i in free.size():
+			var d := free[i].position.distance_to(spot)
+			if d < best:
+				best = d
+				pick = i
+		if pick < 0:
 			continue
-		var path := world.contracts.recruit_path(u.position, target)
+		var u: Legionnaire = free[pick]
+		if u.position.distance_to(at) <= radius:
+			continue   # уже в радиусе — раздача мест поставит его сама
+		var path := world.contracts.recruit_path(u.position, spot)
 		if not path.is_empty():
+			free.remove_at(pick)
 			u.rally_to(path)
+
+
+## Живая фигура ТЕКУЩЕГО урока (по его `arg`); нет своей — самая требовательная из живых.
+## Иначе на смене урока (тест/--dev lesson) бойцов подсыпали к прежней фигуре.
+func _lesson_figure_live() -> Contract:
+	var want := figure_kind_of(String(lesson().get("arg", "")))
+	var best: Contract = null
+	for k in world.contracts.contracts:
+		if k.figure == &"" or not k.alive():
+			continue
+		if want != &"" and k.figure == want:
+			return k
+		if best == null or k.charge_need() > best.charge_need():
+			best = k
+	return best
+
+
+## Фигура-шаблон урока по его `arg` (как её строит ContractField из штриха). null — вид не
+## опознан. «mini» — та же крыша, только размер шаблона задаёт mark.r.
+func _lesson_figure() -> Contract:
+	var fig := figure_kind_of(String(lesson().get("arg", "")))
+	var pts := figure_points()
+	if pts.size() < 2:
+		return null
+	if fig == ContractShape.RING:
+		return Contract.new().build_ring(pts, world.terrain.walkable, LegionCfg.KIND_LABORER)
+	return Contract.new().build_figure(pts, fig, world.terrain.walkable, LegionCfg.KIND_LABORER)
+
+
+## Вид фигуры по `arg` урока. «mini» — крыша (важен размер, а не вид); "ring" — кольцо (у него
+## нет Contract.figure).
+static func figure_kind_of(arg: String) -> StringName:
+	match arg:
+		"triangle", "mini":
+			return ContractShape.TRIANGLE
+		"square":
+			return ContractShape.SQUARE
+		"pentagon":
+			return ContractShape.PENTAGON
+		"d_shape":
+			return ContractShape.D_SHAPE
+		"eight":
+			return ContractShape.EIGHT
+		"ring":
+			return ContractShape.RING
+	return &""
 
 
 ## Урок постройки: души на цену (не больше одной постройки за урок), площадка отмечена. true —
@@ -972,8 +1088,10 @@ func ghost_points() -> PackedVector2Array:
 func figure_points() -> PackedVector2Array:
 	var m: Dictionary = lesson().get("mark", {})
 	var at: Array = m.get("at", [640, 360])
-	return LegionLessonBot.template(String(lesson().get("arg", "")),
-		Vector2(float(at[0]), float(at[1])),
+	var tpl := String(lesson().get("arg", ""))
+	if tpl == "mini":
+		tpl = "triangle"   # «mini» — та же крыша, только mark.r мал
+	return LegionLessonBot.template(tpl, Vector2(float(at[0]), float(at[1])),
 		float(m.get("r", 70.0)))
 
 
@@ -1253,10 +1371,36 @@ func _on_hero_cast(slot: int, _at: Vector2) -> void:
 
 
 func _on_figure_made(c: Contract) -> void:
-	if not active or step_kind() != &"figure":
+	if not active:
+		return
+	if step_kind() == &"figure_mini":
+		# урок мини-фигуры: зачёт по ЛЮБОЙ фигуре мини-размера — она та же фигура, но меньше
+		if c.size_mini:
+			_credit = true
+		return
+	if step_kind() != &"figure":
 		return
 	var fig := String(lesson()["arg"])
 	if (fig == "ring" and c.ring) or String(c.figure) == fig:
+		_credit = true
+
+
+## Урок фигуры кончается ДЕЙСТВИЕМ игрока (D-1002 §7 п.10): срыв ЗАРЯЖЕННОЙ фигуры, а не одно
+## появление контура. arg «mini» — годится любая фигура мини-размера.
+func _on_figure_ult(c: Contract) -> void:
+	if not active or step_kind() != &"figure_ult":
+		return
+	var want := String(lesson()["arg"])
+	if want == "mini":
+		if c.size_mini:
+			_credit = true
+	elif String(c.figure) == want:
+		_credit = true
+
+
+## Урок «выпусти ОДНУ группу»: рогатка сорвала фигуру по общей оси оттяжки (соседняя не ушла).
+func _on_figure_slung(_c: Contract) -> void:
+	if active and step_kind() == &"figure_slung":
 		_credit = true
 
 
@@ -1308,7 +1452,7 @@ func _hint(text: String) -> void:
 	if world.now - float(_hint_at.get(text, -INF)) < LegionCfg.TUTORIAL_HINT_GAP:
 		return
 	_hint_at[text] = world.now
-	world.toast(text, &"warn")
+	world.toast(Controls.text(text), &"warn")
 
 
 func _pick_plot() -> Dictionary:

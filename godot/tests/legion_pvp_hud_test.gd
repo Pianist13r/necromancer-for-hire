@@ -144,7 +144,7 @@ func _test_result() -> void:
 	var d := PvpResult.describe(w.pvp_stats())
 	_check(res.is_open() and d["title"] == "Победа" and d["reason"] == "Соперник сдался",
 		"сдача соперника: %s / %s" % [d["title"], d["reason"]])
-	_check(res.button("Ещё раз") != null and res.button("В меню") != null, "кнопки итога есть")
+	_check(res.button("Ещё раз") != null and res.button("В главное меню") != null, "кнопки итога есть")
 	res.button("Ещё раз").pressed.emit()
 	await _frames(3)
 	_check(not res.is_open() and w.phase == LegionWorld.Phase.BATTLE and w.now < 5.0
@@ -187,7 +187,7 @@ func _test_result() -> void:
 	var full := "Ваш Котёл: %d" % int(PvpRules.CAULDRON_HP)
 	_check((d["lines"] as Array).size() == 3 and String(d["lines"][0]).contains(full),
 		"строки итога: %s" % [d["lines"]])
-	res.button("В меню").pressed.emit()
+	res.button("В главное меню").pressed.emit()
 	await _frames(2)
 	_check(w.phase == LegionWorld.Phase.MENU, "«В меню»: мир в меню (фаза %d)" % w.phase)
 	# обоюдное разрушение и текст итога без данных — без падения

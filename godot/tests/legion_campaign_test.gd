@@ -75,16 +75,22 @@ func _run() -> void:
 	_check(not offer2.has(offer1[0]) and not offer2.has(offer1[1]),
 		"offer_upgrades не предлагает уже взятые поправки")
 
-	# active_mods суммирует эффекты взятых поправок по ключу.
+	# active_mods суммирует эффекты взятых поправок по ключу. Пул — карточки AmendmentDb: их
+	# действие лежит в mods (словарь ключ боя → прибавка), поля effect старого пула постоянных
+	# процентов больше нет, поэтому сумму сверяем по всем ключам обеих карточек.
 	var mods := Campaign.active_mods()
-	var expected_keys := 0
+	var want := {}
 	for id in [offer1[0], offer1[1]]:
-		var eff: Dictionary = LegionMetaCfg.UPGRADE_POOL[String(id)]["effect"]
-		expected_keys += 1 if mods.has(String(eff["key"])) else 0
-	_check(expected_keys == 2, "active_mods содержит ключи обеих взятых поправок")
+		var card_mods: Dictionary = AmendmentDb.card(id).get("mods", {})
+		for k: String in card_mods:
+			want[k] = float(want.get(k, 0.0)) + float(card_mods[k])
+	var sum_ok := not want.is_empty() and mods.size() == want.size()
+	for k: String in want:
+		sum_ok = sum_ok and is_equal_approx(float(mods.get(k, 0.0)), float(want[k]))
+	_check(sum_ok, "active_mods = сумма mods обеих взятых карточек")
 
 	# Повторное добавление той же поправки не задваивает эффект.
-	var key0 := String(LegionMetaCfg.UPGRADE_POOL[String(offer1[0])]["effect"]["key"])
+	var key0 := String(AmendmentDb.card(offer1[0]).get("mods", {}).keys()[0])
 	var mods_before := float(mods.get(key0, 0.0))
 	Campaign.add_upgrade(offer1[0])
 	var mods_after := Campaign.active_mods()

@@ -19,8 +19,9 @@ extends RefCounted
 ## Версия формата: меняется при любой несовместимой правке состава кусков или ключей.
 ## 2 — без ключей «Доноса» (D-1002-09); 3 — фаза PHASE_DECIDED (−1, «матч решён», SnapWorld):
 ## сборка с версией 2 прочла бы её как поражение, поэтому старый снимок и новый друг другу чужие
-## (B-377).
-const VERSION := 3
+## (B-377); 4 — угловые фигуры и их ульты: у договора мини-размер/заряд/углы, у бойца щит и метка,
+## у врага замедление и метка, у фигур счётчик id групп (SnapField/SnapUnits).
+const VERSION := 4
 ## Порядок кусков = порядок save, build, link и finish. Мир первым: он готовит свежий мир
 ## (start_map) и стороны, остальным есть куда класть своё. Поле — до армии (бойцы стоят на
 ## местах договоров), штат — до армии (у бойца есть дом), артефакты и потоки — последними
@@ -117,30 +118,43 @@ static func load_rng(r: RandomNumberGenerator, d: Dictionary) -> void:
 static func props_save(o: Object, names: Array) -> Dictionary:
 	var out := {}
 	for n: String in names:
-		var v: Variant = o.get(n)
-		if v is Array:
-			v = (v as Array).duplicate(true)
-		elif v is Dictionary:
-			v = (v as Dictionary).duplicate(true)
-		out[n] = v
+		out[n] = copy_data(o.get(n))
 	return out
+
+
+## duplicate(true) отделяет Array/Dictionary, но оставляет вложенные Packed*Array общими.
+## Снимок многократно загружается локально: копируем и упакованные буферы на обоих путях.
+static func copy_data(v: Variant) -> Variant:
+	if v is Array:
+		var out: Array = (v as Array).duplicate()
+		for i in out.size():
+			out[i] = copy_data(out[i])
+		return out
+	if v is Dictionary:
+		var out: Dictionary = (v as Dictionary).duplicate()
+		for k: Variant in out:
+			out[k] = copy_data(out[k])
+		return out
+	match typeof(v):
+		TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, \
+		TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY, \
+		TYPE_PACKED_VECTOR2_ARRAY, TYPE_PACKED_VECTOR3_ARRAY, TYPE_PACKED_VECTOR4_ARRAY, \
+		TYPE_PACKED_COLOR_ARRAY:
+			return v.duplicate()
+	return v
 
 
 ## Обратное к props_save. Типизированный массив (Array[Rect2], Array[Dictionary]…) заполняется
 ## новым массивом того же типа: снимок, прошедший сеть, может прийти нетипизированным.
 static func props_load(o: Object, d: Dictionary) -> void:
 	for n: String in d:
-		var v: Variant = d[n]
+		var v: Variant = copy_data(d[n])
 		var cur: Variant = o.get(n)
 		if cur is Array and (cur as Array).is_typed():
 			var a: Array = (cur as Array).duplicate()
 			a.clear()
 			a.assign(v)
 			o.set(n, a)
-		elif v is Array:
-			o.set(n, (v as Array).duplicate(true))
-		elif v is Dictionary:
-			o.set(n, (v as Dictionary).duplicate(true))
 		else:
 			o.set(n, v)
 
@@ -319,7 +333,7 @@ class Reg:
 				for x: Variant in v:
 					out.append(enc(x))
 				return out
-		return v
+		return NetSnap.copy_data(v)
 
 	## Обратное к enc (после build: объекты уже созданы, общие словари восстановлены).
 	func dec(v: Variant) -> Variant:
@@ -338,7 +352,7 @@ class Reg:
 			for x: Variant in v:
 				out.append(dec(x))
 			return out
-		return v
+		return NetSnap.copy_data(v)
 
 	func save_shared() -> Array:
 		var out := []

@@ -188,6 +188,9 @@ func _measure(id: String, grant: Array, recipient := 1) -> float:
 			return 500.0 - f.hp
 		"megaphone":
 			var f := _foe("zombie", Vector2(1060, 300), 500.0)
+			# E-1005: «Рупор» оглушает только за настоящий сбор — в радиусе нужен свой боец,
+			# иначе «Сбор» не позовёт никого и оглушения не будет.
+			w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(1000, 300), null, 1)
 			w.sides[1].rally_cd = 0.0
 			w.rally(Vector2(1000, 300), 1)
 			return f.stun_t

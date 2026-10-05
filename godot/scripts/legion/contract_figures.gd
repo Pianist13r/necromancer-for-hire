@@ -6,21 +6,35 @@ extends RefCounted
 ## какую-нибудь ульту делают»). Распознавание — ContractShape, геометрия договора — Contract,
 ## ввод и отрисовка — ContractField; здесь только бой.
 ##
+## Подготовка (D-1002 §1, Игорь 05.10.2026): ульта/специальный выпуск срабатывает, только если
+## строй держал нужную долю углов НЕПРЕРЫВНО FigureCfg.CHARGE_TIME секунд (Contract.charge_t
+## копит ContractField.tick). Ранний выпуск — обычный натиск, без ульты. Так лечится спам мелких
+## фигур «на двух скелетов»: у треугольника мест три, порог заряда — два (2/3).
+##
 ## Восьмёрка — «Двойная смена»:
 ##   · пока держится — строй бьёт чаще (Legionnaire._strike, FigureCfg.EIGHT_PERIOD_MULT);
 ##   · выпуск (щелчок, рогатка, таяние) — «крест-накрест»: бойцы каждой петли бегут к центру
 ##     другой петли, петли проходят сквозь перетяжку (charge_for);
 ##   · растаяла сама целиком, строй набран (≥ OVERTIME_FILL мест) — «Сверхурочные»: через
 ##     OVERTIME_DELAY каждый участник делает второй натиск обратно, к центру своей петли.
-## Треугольник — «Обряд» (D-1002-03: вместо звезды, условия мягче):
+##     Заряд восьмёрке не нужен: до самотаяния фигура и так стоит весь срок.
+## Треугольник — «Обряд»:
 ##   · строй треугольника НЕ бьёт — держит обряд (Legionnaire._tick_posted);
-##   · срыв любым способом — самотаяние, ПКМ, рогатка, Таб — натиск к центру; если в этот миг
-##     занято ≥ RITE_FILL мест — «Обряд!»: удар в центре (урон и оглушение), свежие трупы
-##     встают внештатниками, участники сильнее. Потери строя обряд не срывают — только
-##     убавляют долю мест.
-## Квадрат — «Каре» (D-1002-03): строй получает меньше урона (Legionnaire.take_damage), давка
-##   его не прогибает (LegionWorld._tick_press), фигура тает дольше (Contract.build_figure).
-##   Срыв — обычный натиск наружу, без награды.
+##   · заряженный выпуск — натиск к центру плюс удар в центре, оглушение, свежие трупы встают
+##     внештатниками и усиление участников ×RITE_BUFF_MULT.
+## Квадрат — «Каре»: строй получает меньше урона (Legionnaire.take_damage), давка его не
+##   прогибает (LegionWorld._tick_press), фигура тает дольше. Заряженный выпуск — защитный
+##   бафф участников (входящий урон ×SQUARE_GUARD_MULT на SQUARE_GUARD_T секунд).
+## Пятиугольник — «Комиссия по упокоению» (D-1002 §4): бойцы на четырёх углах из пяти.
+##   Пассив: каждый участник, дождавшийся заряда, получает одноразовый личный щит поля
+##   max_hp (подновление линии его не пополняет). Заряженный выпуск — первое касание залпа
+##   метит цель, и участники ЭТОЙ группы бьют её ×PENTA_MARK_MULT.
+## Полукруг «D» — «Неустойка» (D-1002 §4): два угла между прямой стороной и дугой. Заряженный
+##   выпуск — первое касание залпа замедляет врагов в D_SLOW_R px на D_SLOW_T секунд.
+##
+## Выпуск рогатки идёт по ОБЩЕЙ оси оттяжки (axis): у каждого участника своё начало траектории,
+## соседняя фигура не выпускается. Щелчок и таяние оси не дают — тогда у фигуры своя геометрия:
+## треугольник к центру, каре/комиссия/неустойка наружу, восьмёрка крест-накрест.
 ##
 ## Фигура тает ЦЕЛИКОМ: её участки подновляются и тают вместе (ContractField). Так «дождался
 ## конца» — одно событие с одним порогом, а не пять мелких, и у игрока один таймер на фигуру.
@@ -36,10 +50,13 @@ var last_rite: Dictionary = {}
 ## второй натиск, когда пауза прошла И его первый натиск кончился; ещё бегущий ждёт (не дольше
 ## OVERTIME_WAIT после паузы) — иначе дальние петли теряли половину второго натиска.
 var _overtime: Array[Dictionary] = []
-## Усиление участников обряда: {t, units: Array[Legionnaire]}.
+## Усиление участников фигуры: {t, units: Array[Legionnaire], kind}.
 var _buffs: Array[Dictionary] = []
 ## Треугольник, который сейчас срывается с обрядом: натиск его участников — к центру.
 var _rite: Contract = null
+## Номер группы залпа для меток «Комиссии» (цель помечается id группы, а не словарём: id
+## сериализуется снимком и переживает загрузку).
+var _ult_serial := 0
 
 
 func setup(w: LegionWorld) -> void:
@@ -48,15 +65,21 @@ func setup(w: LegionWorld) -> void:
 
 func reset() -> void:
 	for b in _buffs:
-		_unbuff(b["units"])
+		_unbuff(b["units"], b["kind"])
 	_buffs.clear()
 	_overtime.clear()
 	_rite = null
 	last_rite = {}
+	# счётчик групп залпа — с нуля: у клиентов сетевого боя разная история, а id группы
+	# сериализуется снимком (J11). Сброс здесь покрывает и start_map, и старт сетевого матча.
+	_ult_serial = 0
 
 
-## Куда бежит боец места p при выпуске фигуры c: [стрелка, предел пробега].
-func charge_for(c: Contract, p: Dictionary, u: Legionnaire) -> Array:
+## Куда бежит боец места p при выпуске фигуры c: [стрелка, предел пробега]. axis — общая ось
+## оттяжки рогатки (ZERO — выпуск без прицела: у фигуры своя геометрия).
+func charge_for(c: Contract, p: Dictionary, u: Legionnaire, axis := Vector2.ZERO) -> Array:
+	if axis != Vector2.ZERO:
+		return [axis, INF]
 	if c.figure == ContractShape.EIGHT:
 		var target := c.lobes[1 - c.lobe_at(float(p["along"]))]
 		return _toward(u.position, target, FigureCfg.EIGHT_OVERRUN, p["normal"])
@@ -74,19 +97,26 @@ static func _toward(from: Vector2, to: Vector2, overrun: float, fallback: Vector
 
 
 ## Щелчок, рогатка или Таб по любому участку фигуры: срывается вся фигура разом (как кольцо).
-## power < 0 — щелчок. Залпы участков — одна группа: комбо растёт один раз за выпуск.
-func release(c: Contract, power: float, perfect: bool) -> int:
+## power < 0 — щелчок, axis != ZERO — рогатка (общая ось оттяжки). Залпы участков — одна группа:
+## комбо растёт один раз за выпуск. Заряжен ли строй, решает Contract.charge_ready(): не заряжен —
+## ульты нет, но натиск идёт обычный.
+func release(c: Contract, power: float, perfect: bool, axis := Vector2.ZERO) -> int:
 	var squad := _squad(c)
-	var rite := _rite_ready(c)
-	if rite:
+	var ult := c.charge_ready()
+	_ult_serial += 1
+	var group := {"hit": false, "units": 0, "id": _ult_serial}
+	if ult and c.figure == ContractShape.TRIANGLE:
 		_rite = c
-	var group := {"hit": false, "units": 0}
 	var n := 0
 	for s in c.seg_count():
 		if not c.seg_alive(s):
 			continue
-		var v := world._volley(c.seg_dir(s), power, perfect, true)
+		var dir := axis if axis != Vector2.ZERO else c.seg_dir(s)
+		var v := world._volley(dir, power, perfect, true)
 		v["group"] = group
+		if axis != Vector2.ZERO:
+			v["axis"] = axis
+		_ult_volley(c, v, ult, _ult_serial)
 		world._release(c, s, &"manual", v)
 		group["units"] = int(group["units"]) + int(v["units"])
 		n += 1
@@ -97,9 +127,38 @@ func release(c: Contract, power: float, perfect: bool) -> int:
 			_stat("sling_releases")
 			if perfect:
 				_stat("perfect_releases")
-		if rite:
-			_do_rite(c, squad)
+		if ult:
+			_do_ult(c, squad, axis)
+			world.figure_ult.emit(c)
+		if axis != Vector2.ZERO:
+			world.figure_slung.emit(c)
 	return n
+
+
+## Метка залпа: у «Комиссии» — id группы для метки цели, у «Неустойки» — параметры замедления.
+## У остальных ульта решается сразу (_do_ult) или первым контактом самой группы.
+func _ult_volley(c: Contract, v: Dictionary, ult: bool, group_id: int) -> void:
+	if not ult:
+		return
+	match c.figure:
+		ContractShape.PENTAGON:
+			v["mark_group"] = group_id
+		ContractShape.D_SHAPE:
+			v["slow"] = {"r": FigureCfg.D_SLOW_R, "mult": FigureCfg.D_SLOW_MULT,
+				"t": FigureCfg.D_SLOW_T}
+		_:
+			pass
+
+
+## Ульта заряженного выпуска, которая решается сразу (не первым контактом).
+func _do_ult(c: Contract, squad: Array[Legionnaire], _axis: Vector2) -> void:
+	match c.figure:
+		ContractShape.TRIANGLE:
+			_do_rite(c, squad)
+		ContractShape.SQUARE:
+			_do_guard(squad)
+		_:
+			pass
 
 
 ## Участок фигуры дотаял — тает вся фигура; самотаяние с набранным строем — награда.
@@ -113,15 +172,19 @@ func melt(c: Contract) -> void:
 	if c.figure == ContractShape.EIGHT:
 		for u in squad:
 			homes.append(c.lobes[c.lobe_at(float(u.post["along"]))])
-	var rite := _rite_ready(c)
-	if rite:
+	var ult := c.charge_ready()
+	if ult and c.figure == ContractShape.TRIANGLE:
 		_rite = c
-	var group := {"hit": false, "units": 0}
+	# у самотаяния тоже своя группа залпа (J5): у двух тающих «Комиссий» с общим id 0 метка
+	# одной усиливала бы бойцов другой, а их собственные метки были бы неотличимы
+	_ult_serial += 1
+	var group := {"hit": false, "units": 0, "id": _ult_serial}
 	for s in c.seg_count():
 		if not c.seg_alive(s):
 			continue
 		var v := world._volley(c.seg_dir(s), -1.0, false, false)
 		v["group"] = group
+		_ult_volley(c, v, ult, _ult_serial)
 		world._release(c, s, &"melt", v)
 	_rite = null
 	if c.figure == ContractShape.EIGHT and intact and fill >= FigureCfg.OVERTIME_FILL \
@@ -133,8 +196,9 @@ func melt(c: Contract) -> void:
 			"side": c.owner_side,
 			"group": {"hit": false, "units": 0}})
 		_stat("overtime_armed")
-	elif rite:
-		_do_rite(c, squad)
+	elif ult:
+		_do_ult(c, squad, Vector2.ZERO)
+		world.figure_ult.emit(c)
 
 
 ## Бойцы, стоящие в строю фигуры (POSTED на её местах), — участники выпуска и обряда.
@@ -148,12 +212,8 @@ func _squad(c: Contract) -> Array[Legionnaire]:
 	return squad
 
 
-## Треугольник набрал строй к обряду (доля мест — в миг срыва; потери её просто убавляют).
-static func _rite_ready(c: Contract) -> bool:
-	return c.figure == ContractShape.TRIANGLE and c.fill() >= FigureCfg.RITE_FILL - 0.0001
-
-
-## Шаг боя (мир зовёт после бойцов): отложенные «Сверхурочные» срываются; усиление обряда гаснет.
+## Шаг боя (мир зовёт после бойцов): отложенные «Сверхурочные» срываются; пассив «Комиссии»
+## выдаёт щиты, усиления гаснут.
 func tick(dt: float) -> void:
 	for i in range(_overtime.size() - 1, -1, -1):
 		_overtime[i]["t"] = float(_overtime[i]["t"]) - dt
@@ -162,8 +222,28 @@ func tick(dt: float) -> void:
 	for i in range(_buffs.size() - 1, -1, -1):
 		_buffs[i]["t"] = float(_buffs[i]["t"]) - dt
 		if float(_buffs[i]["t"]) <= 0.0:
-			_unbuff(_buffs[i]["units"])
+			_unbuff(_buffs[i]["units"], _buffs[i]["kind"])
 			_buffs.remove_at(i)
+	if world != null:
+		for c in world.all_contracts():
+			_tick_charge_passive(c)
+
+
+## Пассив «Комиссии»: строй ДОЖДАЛСЯ заряда — каждый стоящий участник получает одноразовый
+## личный щит. Один раз на договор (Contract.ult_armed): подновление линии щит не пополняет и
+## новый приход его не получает — он не держал позицию.
+func _tick_charge_passive(c: Contract) -> void:
+	if c.figure != ContractShape.PENTAGON or c.ult_armed or not c.charge_ready():
+		return
+	c.ult_armed = true
+	for p in c.posts:
+		var u: Legionnaire = p["unit"]
+		if p["dead"] or u == null or not u.alive or u.shield_given:
+			continue
+		if u.state != Legionnaire.State.POSTED:
+			continue
+		u.shield_given = true
+		u.shield_hp = u.max_hp * FigureCfg.PENTA_SHIELD
 
 
 func pending_overtime() -> int:
@@ -210,25 +290,35 @@ func _fire_overtime(job: Dictionary) -> bool:
 	return waiting == 0 or float(job["t"]) < -FigureCfg.OVERTIME_WAIT
 
 
+## «Обряд»: удар в центре фигуры. У мини-обряда числа ослаблены (D-1002 §6 «Мини-спам»):
+## радиус не больше RITE_MINI_R_FRAC·D, урон RITE_DMG_MINI, оглушение RITE_STUN_MINI, подъём ≤ 1.
 func _do_rite(c: Contract, squad: Array[Legionnaire]) -> void:
 	var reach := 0.0
 	for t in c.tips:
 		reach += t.distance_to(c.center)
 	var r := maxf(FigureCfg.RITE_R_MIN, reach / maxf(1.0, c.tips.size()) * FigureCfg.RITE_R_FRAC)
+	var dmg := FigureCfg.RITE_DMG
+	var stun := FigureCfg.RITE_STUN
+	var raise_max := FigureCfg.RITE_RAISE_MAX
+	if c.size_mini:
+		r = minf(r, ContractShape.fig_span(c.points) * FigureCfg.RITE_MINI_R_FRAC)
+		dmg = FigureCfg.RITE_DMG_MINI
+		stun = FigureCfg.RITE_STUN_MINI
+		raise_max = FigureCfg.RITE_RAISE_MAX_MINI
 	var hit := 0
 	var stunned := 0
 	var effects := world.items_of(c.owner_side).effects
 	for f: Variant in effects.enemies(c.center, r):
-		effects.damage(f, FigureCfg.RITE_DMG, c.center)
+		effects.damage(f, dmg, c.center)
 		hit += 1
 		if f.alive:
-			f.stun(FigureCfg.RITE_STUN)
+			f.stun(stun)
 			stunned += 1 if f.is_stunned() else 0
 	var raised := 0
 	var hero := world.hero_of(c.owner_side)
 	if hero != null:
 		# Дубль-вэ базового ранга: обряд — не навык, прокачка W его не усиливает
-		var corpses := hero.fresh_corpses(c.center, r, FigureCfg.RITE_RAISE_MAX)
+		var corpses := hero.fresh_corpses(c.center, r, raise_max)
 		raised = hero.raise_corpses(corpses, float(LegionCfg.W_DMG_MULT_BY_RANK[0]),
 			float(LegionCfg.W_DURATION_BY_RANK[0])).size()
 	var live: Array[Legionnaire] = []
@@ -236,7 +326,7 @@ func _do_rite(c: Contract, squad: Array[Legionnaire]) -> void:
 		if is_instance_valid(u) and u.alive:
 			u.rite_dmg_mult = FigureCfg.RITE_BUFF_MULT
 			live.append(u)
-	_buffs.append({"t": FigureCfg.RITE_BUFF_T, "units": live})
+	_add_buff(live, FigureCfg.RITE_BUFF_T, &"rite")
 	last_rite = {"center": c.center, "r": r, "hit": hit, "stunned": stunned, "raised": raised,
 		"units": live.size()}
 	_stat("rites")
@@ -245,10 +335,49 @@ func _do_rite(c: Contract, squad: Array[Legionnaire]) -> void:
 	world.field_of(c).on_rite(c, r)
 
 
-func _unbuff(units: Array[Legionnaire]) -> void:
+## «Каре» заряженный выпуск: участники держат защиту SQUARE_GUARD_T секунд.
+func _do_guard(squad: Array[Legionnaire]) -> void:
+	var live: Array[Legionnaire] = []
+	for u in squad:
+		if is_instance_valid(u) and u.alive:
+			u.guard_dmg_mult = FigureCfg.SQUARE_GUARD_MULT
+			live.append(u)
+	if not live.is_empty():
+		_add_buff(live, FigureCfg.SQUARE_GUARD_T, &"armor")
+		_stat("guards")
+
+
+func _add_buff(units: Array[Legionnaire], t: float, kind: StringName) -> void:
+	if units.is_empty():
+		return
+	# обновление — по максимуму срока, а не перемножением: старая запись того же вида снимается
+	for i in range(_buffs.size() - 1, -1, -1):
+		if _buffs[i]["kind"] != kind:
+			continue
+		# состав — ОБЪЕДИНЕНИЕ, а не только первая запись (J1): второй отряд, получивший тот же
+		# бафф, обязан попасть в запись — снятие по таймеру идёт по её участникам, и боец,
+		# не попавший туда, остался бы с множителем до конца боя
+		var known: Array = _buffs[i]["units"]
+		for u in units:
+			if not known.has(u):
+				known.append(u)
+		_buffs[i]["units"] = known
+		_buffs[i]["t"] = maxf(float(_buffs[i]["t"]), t)
+		return
+	_buffs.append({"t": t, "units": units.duplicate(), "kind": kind})
+
+
+func _unbuff(units: Array[Legionnaire], kind: StringName) -> void:
 	for u in units:
-		if is_instance_valid(u):
-			u.rite_dmg_mult = 1.0
+		if not is_instance_valid(u):
+			continue
+		match kind:
+			&"rite":
+				u.rite_dmg_mult = 1.0
+			&"armor":
+				u.guard_dmg_mult = 1.0
+			_:
+				pass
 
 
 func _stat(key: String) -> void:

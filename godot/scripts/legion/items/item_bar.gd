@@ -246,8 +246,11 @@ func slot_info(i: int) -> Dictionary:
 		var e := LegionItemDb.item(id)
 		var r := LegionItemDb.rarity(id)
 		var n := shown_count(id)
+		var status := "Постоянно" if bool(e.get("passive", false)) else "Срабатываний: %d" \
+			% inventory.activation_count(id)
 		return {"title": String(e["title"]) + (" ×%d" % n if n > 1 else ""),
-			"text": String(e["text"]), "sub": String(CfgItems.RARITY_TITLE.get(r, "")),
+			"text": String(e["text"]), "sub": String(CfgItems.RARITY_TITLE.get(r, ""))
+				+ " · " + status,
 			"color": CfgItems.RARITY_COLOR.get(r, Color.WHITE)}
 	var sid := shown_synergies[i - shown.size()]
 	var s := LegionItemDb.synergy(sid)

@@ -348,8 +348,17 @@ func _test_campaign_stat() -> void:
 			&"mana_regen_bonus", &"start_souls", &"ability_rank_q", &"perk_fast_hire", &"army_cap_bonus"]:
 		neutral = neutral and Campaign.stat(key) == 0.0
 	_check(neutral, "Campaign.stat по умолчанию нейтрален (множители 1, прибавки 0)")
-	Campaign.add_upgrade(&"aggressive_lawyers")
-	Campaign.add_upgrade(&"coffee_machine")
-	_check(is_equal_approx(Campaign.stat(&"charge_dmg_mult"), 1.25)
-			and is_equal_approx(Campaign.stat(&"mana_regen_bonus"), 2.0),
-		"поправки к договору видны через stat (×1,25 натиска, +2 реген)")
+	# A1: прокачка — 12 карточек поправок AmendmentDb (рогалик), старого пула мелких процентов
+	# нет. Свод модов карточек — MetaMods: ключ-множитель ∏(1+v), прибавочный Σv.
+	Campaign.add_upgrade(&"golden_exit")   # натиск +60 %
+	Campaign.add_upgrade(&"bulk_ink")      # цена договора −35 %, набор −60 шагов
+	var taken := Campaign.upgrades()
+	_check(taken.size() == 2 and taken.has(&"golden_exit") and taken.has(&"bulk_ink"),
+		"карточки поправок ложатся в договор (%s)" % [taken])
+	_check(is_equal_approx(Campaign.stat(&"charge_dmg_mult"), 1.6)
+			and is_equal_approx(Campaign.stat(&"mana_cost_mult"), 0.65)
+			and is_equal_approx(Campaign.stat(&"recruit_r_guard"), -60.0),
+		"поправки видны через stat (×1,6 натиска, ×0,65 цены договора, −60 набора)")
+	# E-1005: второй источник того же ключа-множителя не складывается, а перемножается (0,65 × 1,25).
+	_check(is_equal_approx(Campaign.stat(&"mana_cost_mult", [0.25]), 0.8125),
+		"stat сводит дополнительный источник тем же правилом (×0,65 · ×1,25)")

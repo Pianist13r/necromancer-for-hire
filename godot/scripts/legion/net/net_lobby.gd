@@ -123,11 +123,7 @@ func _ready() -> void:
 	var join := _btn("Войти", 120.0)
 	join.pressed.connect(func() -> void: session.join_room(_code_edit.text))
 	_code_row.add_child(join)
-	var back_btn := _btn("Назад", 190.0)
-	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back_btn.pressed.connect(func() -> void: back.emit())
-	box.add_child(back_btn)
-	session.status.connect(_on_status)
+	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
 	session.failed.connect(_on_failed)
 	session.lobby.connect(_on_lobby)
 	_refresh_mode()

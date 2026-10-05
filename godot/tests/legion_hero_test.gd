@@ -5,10 +5,15 @@ extends SceneTree
 ##   "$GODOT" --headless --path godot --fixed-fps 60
 ##       --script res://tests/legion_hero_test.gd -- --mute
 ##
-## Итог «LEGION HERO: N/M OK»; код выхода 1, если что-то упало. Мир настоящий (карта _gray,
-## без волн и стартовой армии, in_campaign = true — мета читается из сохранения), ранги и перки —
-## настоящим API героя Campaign.hero_rank_up/hero_take_perk на временный save-путь
-## (Campaign.set_save_path), реальный user://legion.cfg владельца не трогаем.
+## Итог «LEGION HERO: N/M OK»; код выхода 1, если что-то упало.
+## Мир настоящий (карта _gray, без волн и стартовой армии, in_campaign = true — мета читается из
+## сохранения), сила приходит настоящими поправками-карточками (Campaign.add_upgrade) на временный
+## save-путь (Campaign.set_save_path), реальный user://legion.cfg владельца не трогаем.
+##
+## OVERHAUL 05.10: ранги способностей и перки героя ушли из меты в поправки-рогалик — покупки
+## Campaign.hero_rank_up/hero_take_perk остались в профиле (экран героя, коллекция), но бой их
+## больше не читает. Тесты ниже проверяют и новую силу (карточки), и то, что профиль героя
+## остаётся в бою нейтральным (регресс-охрана от возврата покупок в бой через _hero_mods).
 ##
 
 const SAVE := "user://legion_hero_test.cfg"
@@ -64,7 +69,7 @@ func _run() -> void:
 	_test_w_boss_excluded()
 	_test_e_radius_and_stack()
 	_test_e_rank_perk_cap()
-	_test_fine_print_perk()
+	_test_bulk_ink_amendment()
 	await _test_unlock_gate()
 	Campaign.reset()
 	print("LEGION HERO: %d/%d OK" % [_checks - _fails, _checks])
@@ -120,34 +125,50 @@ func _test_q_no_target() -> void:
 		"нет цели — Ку не срабатывает и откат не тратится")
 
 
+## Ранги героя и перки ушли из меты в поправки-карточки (OVERHAUL 05.10): покупка ранга или перка
+## больше НЕ усиливает бой — сила собирается внутри забега. Прежние проверки «два ранга бьют
+## сильнее», «перк „Цепная реакция“ добавляет пятую цель» заменены на эквивалент новой системы:
+## тот же эффект даёт карточка «Опасное напряжение» (q_chain +2, q_dmg +0.4, q_stun −0.5), а
+## профиль героя обязан остаться в бою нейтральным (регресс-охрана: раньше покупки героя молча
+## возвращались в бой через Campaign._hero_mods).
 func _test_q_rank_and_perk() -> void:
-	_fresh()
-	var main := _still_foe("zombie", LAB)
-	hero.cast(LegionHero.SLOT_Q, LAB)
-	var hp_norank := float(main.def["hp"]) - main.hp
-	_kill(main)
+	Campaign.reset()
+	Campaign.unlock_all()
+	Campaign._add_hero_xp(3200)
 	_fresh()
 	Campaign.hero_rank_up(&"q")
 	Campaign.hero_rank_up(&"q")
-	_check(hero.rank(LegionHero.SLOT_Q) == 2, "два ранга Ку читаются из Campaign.stat")
-	var main2 := _still_foe("zombie", LAB)
-	hero.cast(LegionHero.SLOT_Q, LAB)
-	var hp_rank2 := float(main2.def["hp"]) - main2.hp
-	_check(hp_rank2 > hp_norank, "ранг 2 бьёт сильнее ранга 0 (%.1f > %.1f)" % [hp_rank2, hp_norank])
-	_kill(main2)
-	_fresh()
 	Campaign.hero_take_perk(&"perk_short_cd")     # ветка Чернокнижника по порядку
 	Campaign.hero_take_perk(&"perk_chain_reaction")
+	_check(Campaign.hero_rank(&"q") == 2 and Campaign.hero_has_perk(&"perk_chain_reaction"),
+		"ранг и перк записаны в профиль героя")
+	_fresh()
+	_check(hero.rank(LegionHero.SLOT_Q) == 0
+			and is_equal_approx(Campaign.stat(&"ability_rank_q"), 0.0),
+		"профиль героя в бой не идёт: ранг Ку в бою 0")
+	_check(hero.q_chain_len() == LegionCfg.Q_CHAIN_BASE_TARGETS,
+		"перк «Цепная реакция» цепь не удлиняет (в бою %d цели)" % hero.q_chain_len())
+	var dmg_base := hero.q_damage(0)
+	# тот же эффект несёт карточка забега
+	Campaign.add_upgrade(&"high_voltage")
+	w.mods = Campaign.active_mods()
+	_fresh()
+	_check(hero.q_chain_len() == LegionCfg.Q_CHAIN_BASE_TARGETS + 2,
+		"карточка «Опасное напряжение»: цепь %d целей" % hero.q_chain_len())
+	_check(hero.q_damage(0) > dmg_base,
+		"карточка бьёт сильнее базы (%.1f > %.1f)" % [hero.q_damage(0), dmg_base])
+	_check(is_equal_approx(hero.q_stun(), LegionCfg.Q_STUN * 0.5),
+		"оглушение карточки вдвое короче (%.2f)" % hero.q_stun())
 	var m := _still_foe("zombie", LAB)
 	var extras: Array[Foe] = []
-	for i in 4:
+	for i in 5:
 		extras.append(_still_foe("zombie", LAB + Vector2(10.0 * (i + 1), 0)))
 	hero.cast(LegionHero.SLOT_Q, LAB)
 	var hit := 0
 	for f in extras:
 		if f.hp < float(f.def["hp"]):
 			hit += 1
-	_check(hit == 4, "перк «Цепная реакция» добавляет пятую цель (задето соседей %d/4)" % hit)
+	_check(hit == 5, "карточка удлиняет цепь до шести целей (задето соседей %d/5)" % hit)
 	_kill(m)
 	for f in extras:
 		_kill(f)
@@ -237,25 +258,33 @@ func _test_e_radius_and_stack() -> void:
 	outside.take_damage(100000.0, LAB)
 
 
+## 26.09 здесь проверяли «ранг 2 + перк „Сверхурочные“ упираются в потолок 8 с». Ранги и перки
+## вышли из меты (OVERHAUL 05.10) и бой не двигают — длину Аврала теперь задаёт карточка
+## «Ненормированный день» (e_dur +4), причём её прибавка идёт ПОСЛЕ потолка ранга: Аврал
+## становится длиннее прежнего максимума, а не упирается в него.
 func _test_e_rank_perk_cap() -> void:
+	Campaign.reset()
+	Campaign.unlock_all()
+	Campaign._add_hero_xp(3200)
 	_fresh()
-	Campaign.hero_rank_up(&"e")
-	Campaign.hero_rank_up(&"e")
-	Campaign.hero_take_perk(&"perk_overtime")
+	Campaign.add_upgrade(&"overtime_cycle")
+	w.mods = Campaign.active_mods()
+	_fresh()
 	var u := w.spawn_unit(LegionCfg.KIND_LABORER, LAB)
 	hero.cast(LegionHero.SLOT_E, LAB)
-	_check(is_equal_approx(hero._haste_left, LegionCfg.E_DURATION_CAP),
-		"ранг 2 + перк «Сверхурочные» упираются в потолок 8 с (сейчас %.1f)" % hero._haste_left)
+	_check(is_equal_approx(hero._haste_left, LegionCfg.E_DURATION_BASE + 4.0)
+			and hero._haste_left > LegionCfg.E_DURATION_CAP,
+		"карточка «Ненормированный день» удлиняет Аврал сверх потолка (%.1f)" % hero._haste_left)
 	u.take_damage(100000.0, LAB)
 
 
 ## polish1 (ревью 25.09.2026): перк «Мелкий шрифт» (ветка «Юрист») был описан, но нигде не
-## переводился в ключ боя — бой его не применял. Проверяем всю цепочку: camp_stat("mana_cost_mult")
-## после взятия перка, ContractField.setup() снимает его в поле при старте карты, а новый Contract
-## несёт множитель сам (Contract.mana_per_px() == Contract.base_price(kind) * mult).
-func _test_fine_print_perk() -> void:
-	# свежий прогресс: предыдущие тесты этого файла уже разобрали 7 из 9 очков героя на ранги
-	# и другие ветки — на «Юриста» (3 перка подряд) их не хватит.
+## переводился в ключ боя. Перки вышли из меты (OVERHAUL 05.10); ту же цепочку «мета → поле
+## договоров → новый договор» теперь несёт карточка «Мелкий оптовый шрифт» (bulk_ink,
+## mana_cost_mult −0,35). Проверяем её: camp_stat("mana_cost_mult") после взятия карточки,
+## ContractField.setup() снимает множитель в поле при старте карты, а новый Contract несёт его
+## сам (Contract.mana_per_px() == Contract.base_price(kind) * mult).
+func _test_bulk_ink_amendment() -> void:
 	Campaign.reset()
 	Campaign.unlock_all()
 	Campaign._add_hero_xp(3200)
@@ -263,25 +292,22 @@ func _test_fine_print_perk() -> void:
 	var kind: StringName = LegionCfg.KIND_LABORER
 	var base := Contract.base_price(kind)
 	_check(is_equal_approx(w.contracts.mana_cost_mult, 1.0),
-		"mana_cost_mult 1.0 до «Мелкого шрифта»")
+		"mana_cost_mult 1.0 до карточки")
 	var c := w.contracts.add_contract(
 		PackedVector2Array([LAB, LAB + Vector2(100, 0)]), 1, false, kind)
 	_check(c != null and is_equal_approx(c.mana_per_px(), base),
-		"цена договора без перка — базовая (Contract.mana_per_px == base_price)")
-	_check(Campaign.hero_take_perk(&"perk_settlement_on_time"), "«Расчёт в срок» берётся")
-	_check(Campaign.hero_take_perk(&"perk_far_call"),
-		"«Дальний призыв» берётся после «Расчёта в срок»")
-	_check(Campaign.hero_take_perk(&"perk_fine_print"),
-		"«Мелкий шрифт» берётся после «Дальнего призыва»")
-	_check(is_equal_approx(Campaign.stat(&"mana_cost_mult"), 0.9),
-		"camp_stat mana_cost_mult = 0.9 (−10 %) после «Мелкого шрифта»")
+		"цена договора без карточки — базовая (Contract.mana_per_px == base_price)")
+	Campaign.add_upgrade(&"bulk_ink")
+	w.mods = Campaign.active_mods()
+	_check(is_equal_approx(Campaign.stat(&"mana_cost_mult"), 0.65),
+		"camp_stat mana_cost_mult = 0.65 (−35 %%) после карточки")
 	_fresh()   # новая карта — ContractField.setup() перечитывает camp_stat заново
-	_check(is_equal_approx(w.contracts.mana_cost_mult, 0.9),
-		"ContractField снимает perk_fine_print при setup()")
+	_check(is_equal_approx(w.contracts.mana_cost_mult, 0.65),
+		"ContractField снимает mana_cost_mult карточки при setup()")
 	var c2 := w.contracts.add_contract(
 		PackedVector2Array([LAB, LAB + Vector2(100, 0)]), 1, false, kind)
-	_check(c2 != null and is_equal_approx(c2.mana_per_px(), base * 0.9),
-		"новый договор несёт множитель перка — цена линии на 10% ниже")
+	_check(c2 != null and is_equal_approx(c2.mana_per_px(), base * 0.65),
+		"новый договор несёт множитель карточки — цена линии на 35 % ниже")
 
 
 func _test_unlock_gate() -> void:

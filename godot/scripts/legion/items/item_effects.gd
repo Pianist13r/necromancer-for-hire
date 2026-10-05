@@ -81,7 +81,7 @@ static func look_color(id: StringName) -> Color:
 
 ## Артефакт сработал на поле — вид связывает событие с его значком в полоске (item_bar).
 func used(id: StringName, at: Vector2) -> void:
-	items.fx_event.emit(&"used", {"id": id, "pos": at})
+	items.record_activation(id, at)
 
 
 ## f — нейтральный враг (Foe) или боец чужой армии (PvP).
@@ -153,8 +153,10 @@ func _stamp_blast(at: Vector2, r: float, dmg: float, stun: float) -> void:
 
 ## «Золотое перо»: точный срыв перезаряжает Ку.
 func fx_golden_pen(_n: int, _p: Dictionary, args: Array) -> void:
-	if bool(args[1]) and world.hero_of(items.owner_side) != null:
+	if bool(args[1]) and world.hero_of(items.owner_side) != null \
+			and world.hero_of(items.owner_side).cd_left(LegionHero.SLOT_Q) > 0.0:
 		world.hero_of(items.owner_side).reset_cd(LegionHero.SLOT_Q)
+		used(&"golden_pen", args[0])
 		items.fx_event.emit(&"text", {"pos": args[0], "text": "Ку готова!",
 			"color": Color(1.0, 0.84, 0.32)})
 
@@ -173,6 +175,7 @@ func fx_lightning_rod(_n: int, p: Dictionary, args: Array) -> void:
 		if t == null:
 			return
 		bolt(from, t, dmg, col)
+		used(&"lightning_rod", from)
 		world.stats["item_bolt_hops"] = int(world.stats.get("item_bolt_hops", 0)) + 1
 		if t.alive:
 			return
@@ -214,6 +217,7 @@ func fx_charge_trail(_n: int, p: Dictionary, _args: Array) -> void:
 		items.add_hazard({"pos": u.position, "kind": &"trail", "r": float(p["r"]),
 			"t": float(p["t"]), "dps": float(p["dps"])})
 		world.stats["item_trail"] = int(world.stats.get("item_trail", 0)) + 1
+		used(&"burning_seal", u.position)
 	for id: int in last.keys():
 		if not seen.has(id):
 			last.erase(id)
@@ -224,6 +228,7 @@ func fx_charge_trail(_n: int, p: Dictionary, _args: Array) -> void:
 func fx_vassal_blast(_n: int, p: Dictionary, args: Array) -> void:
 	var mult := 1.0 + items.value(&"blast_mult")
 	blast(args[0], float(p["r"]), float(p["dmg"]) * mult, 0.0, Color(1.0, 0.8, 0.3))
+	used(&"temp_contract", args[0])
 
 
 ## «Пролонгация»: участок, растаявший сам, ещё t секунд держит призрачную линию: враг на ней
@@ -244,10 +249,16 @@ func fx_ghost_line(_n: int, p: Dictionary, args: Array) -> void:
 	used(&"prolongation", c.seg_center(seg))
 
 
-## «Рупор завхоза»: «Сбор» оглушает врагов в круге.
+## «Рупор завхоза»: «Сбор» оглушает врагов в круге. Только за НАСТОЯЩИЙ сбор: сигнал
+## rally_used приходит и с n == 0 («некого звать» — этот случай слушает обучение, ему ноль нужен),
+## а откат и мана в мире списываются лишь при n > 0 (legion_world.rally) — без этой отсечки R
+## оглушал всех в 95 px бесплатно, без отката и без маны (E-1005, ошибка 2).
 func fx_roll_call(_n: int, p: Dictionary, args: Array) -> void:
+	if int(args[1]) <= 0:
+		return
 	# круг оглушения — цветом оглушения; «Рупор» красит само кольцо «Сбора» (look rally)
-	stun_area(args[0], float(p["r"]), float(p["stun"]))
+	if stun_area(args[0], float(p["r"]), float(p["stun"])) > 0:
+		used(&"megaphone", args[0])
 
 
 ## «Душеприказчик»: душа убитого летит в Котёл и лечит его.
@@ -257,7 +268,10 @@ func fx_soul_heal(n: int, p: Dictionary, args: Array) -> void:
 		return
 	var heal := float(p["heal"]) * n * LegionChallenge.heads(f)   # за прежние головы (D-0927-49)
 	var own := world.sides[items.owner_side]
+	var before := own.cauldron_hp
 	own.cauldron_hp = minf(own.cauldron_max, own.cauldron_hp + heal)
+	if own.cauldron_hp > before:
+		used(&"soul_magnet", args[1])
 	world.stats["item_heal"] = float(world.stats.get("item_heal", 0.0)) + heal
 	items.fx_event.emit(&"heal", {"from": args[1],
 		"to": world.cauldron_view_of(items.owner_side)})

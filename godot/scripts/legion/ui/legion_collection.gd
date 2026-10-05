@@ -70,16 +70,8 @@ func populate() -> void:
 		for i in range(list.size() - 1, -1, -1):
 			rows.add_child(_build_row(list[i]))
 
-	var back_btn := Button.new()
-	back_btn.text = "Назад"
-	back_btn.custom_minimum_size = Vector2(160.0, 46.0)
-	back_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	back_btn.add_theme_font_size_override("font_size", 20)
-	back_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	back_btn.position = Vector2(-80.0, -60.0)
-	UiStyle.style_button(back_btn)
-	back_btn.pressed.connect(func() -> void: back.emit())
-	add_child(back_btn)
+	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+
 
 
 func _build_row(entry: Dictionary) -> Control:
@@ -155,8 +147,10 @@ func _build_row(entry: Dictionary) -> Control:
 	remove_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	UiStyle.style_button(remove_btn)
 	remove_btn.pressed.connect(func() -> void:
-		LegionCollection.remove(map_id)
-		populate())
+		LegionUi.confirm(self, "Убрать карту из коллекции? Сохранённая запись будет удалена.",
+			func() -> void:
+				LegionCollection.remove(map_id)
+				populate()))
 	row.add_child(remove_btn)
 
 	return panel

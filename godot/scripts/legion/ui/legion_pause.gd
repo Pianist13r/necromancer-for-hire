@@ -10,6 +10,7 @@ signal restart_pressed
 signal settings_pressed
 signal howto_pressed
 signal menu_pressed
+signal dossier_pressed
 ## Пакет tutorial: «Пропустить обучение» (docs/legion/TUTORIAL_SPEC.md).
 signal skip_tutorial_pressed
 ## D-0927-162: «сохранения сидов в коллекцию… лучше во время [боя], чтобы можно было переиграть,
@@ -18,15 +19,14 @@ signal collect_pressed
 
 ## Выставляется вызывающим (legion_main.gd) ДО add_child — читается в _ready(), поэтому кнопка
 ## либо есть с первого кадра, либо её нет вовсе (не плодим show/hide после построения экрана).
+var show_dossier := false
 var show_skip_tutorial := false
 ## D-0927-96 («Вызов дня» — одна попытка в день): «Заново» посреди объекта своей попытки не
 ## предлагаем — переиграть объект без последствий было бы обходом лимита (Котёл ещё цел, но
 ## получить тот же объект заново «почестному» нельзя, раз выйти из боя уже значит сдаться).
 var hide_restart := false
-## "" — «Меню» уходит сразу (как раньше); непустая строка — сперва показываем предупреждение с
-## этим текстом и кнопку подтверждения, «Меню» саму по себе не эмитит, пока не подтвердили
-## (D-0927-96: выход посреди объекта «Вызова дня» без подтверждения молча сжигал бы попытку).
-var confirm_menu_text := ""
+## Для дня вызывающий заменяет текст предупреждением о засчитанной попытке.
+var confirm_menu_text := "Бой будет прерван. Награды прошлых боёв сохранены."
 ## D-0927-162: показывает «В коллекцию» — только пока карта объекта СГЕНЕРИРОВАНА (не карта
 ## кампании), ставится вызывающим ДО add_child.
 var show_collect := false
@@ -38,13 +38,12 @@ var cover: Node = null
 
 var _hidden_layers: Array[CanvasLayer] = []
 var _box: VBoxContainer = null
-var _confirm_box: Control = null
 
 
 ## B-068: числа берутся из LegionCfg (как в «Как играть»), а не пишутся словами — поменяешь
 ## W_RAISE_MAX / E_PRESS_HOLD_MULT, шпаргалка не устареет.
 static func cheatsheet() -> Array[String]:
-	return [
+	var rows: Array[String] = [
 		"ЛКМ — чертить договор · ПКМ по участку: оттянуть, отпустить в золото — натиск",
 		# рогатка — главная строка выше; Пробел/колесо и щелчок — второстепенные приёмы, в этом
 		# порядке (Игорь 26.09: зажатое колесо — то же самое, что Пробел)
@@ -65,6 +64,9 @@ static func cheatsheet() -> Array[String]:
 		"Прокрутка колеса или 1/2/3 — вид договора · Esc / П — пауза",
 		"Предметы — из элитных (в короне), на кампанию или забег; наведите на иконку",
 	]
+	for i in rows.size():
+		rows[i] = Controls.text(rows[i])
+	return rows
 
 
 func _ready() -> void:
@@ -83,42 +85,31 @@ func _ready() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(backdrop)
 
-	var box := UiStyle.card_box(self, 460.0, 12)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var title := UiStyle.label("Пауза", 40, UiStyle.FONT_TITLE)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
-
+	var shell := ProgressionUi.shell(self, "Пауза", "Бой приостановлен")
+	var box: VBoxContainer = shell["body"]
 	_box = box
-	box.add_child(_make_button("Продолжить", func() -> void: resume_pressed.emit()))
-	if not hide_restart:
-		box.add_child(_make_button("Заново", func() -> void: restart_pressed.emit()))
 	box.add_child(_make_button("Настройки", func() -> void: settings_pressed.emit()))
 	box.add_child(_make_button("Как играть", func() -> void: howto_pressed.emit()))
+	if show_dossier:
+		box.add_child(_make_button("Досье артефактов", func() -> void: dossier_pressed.emit()))
+	if not hide_restart:
+		box.add_child(_make_button("Заново", func() -> void:
+			LegionUi.confirm(self, "Бой будет начат заново. Награды прошлых боёв сохранены.",
+				func() -> void: restart_pressed.emit())))
 	if show_skip_tutorial:
 		box.add_child(_make_button("Пропустить обучение", func() -> void: skip_tutorial_pressed.emit()))
 	if show_collect:
-		# тост «Карта сохранена» прячется вместе с HUD (cover) — отклик на самой кнопке
 		var collect_btn := _make_button("В коллекцию", func() -> void: collect_pressed.emit())
 		collect_btn.pressed.connect(func() -> void:
 			collect_btn.text = "Сохранено в коллекцию"
 			collect_btn.disabled = true)
 		box.add_child(collect_btn)
-	box.add_child(_make_button("Меню", _on_menu_pressed))
+	var nav := LegionUi.nav_bar(self, "В главное меню", _on_menu_pressed,
+		"Продолжить", func() -> void: resume_pressed.emit())
+	# Esc остаётся дублем продолжения, а не подтверждением выхода.
+	(nav.get_node("NavBack") as Button).shortcut = null
+	(nav.get_node("NavPrimary") as Button).grab_focus.call_deferred()
 
-	var sep := UiStyle.label("Напоминание", 17, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
-	sep.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(sep)
-
-	var sheet := VBoxContainer.new()
-	sheet.alignment = BoxContainer.ALIGNMENT_CENTER
-	sheet.add_theme_constant_override("separation", 2)
-	box.add_child(sheet)
-	for line in cheatsheet():
-		var l := UiStyle.label(line, 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		sheet.add_child(l)
 
 
 ## Вернуть то, что спрятал cover, — СИНХРОННО из LegionMain._hide_pause(), а не в _exit_tree:
@@ -131,33 +122,10 @@ func restore_covered() -> void:
 	_hidden_layers.clear()
 
 
-## «Меню» без подтверждения (confirm_menu_text == "") эмитит сразу, как раньше. С текстом —
-## первый клик показывает предупреждение и две кнопки («Да, уйти» / «Отмена») ВМЕСТО того, чтобы
-## тихо сжечь попытку «Вызова дня»; второй клик по самой кнопке «Меню» ничего не плодит повторно
-## (_confirm_box уже показан).
+## Любой прерванный бой требует явного подтверждения.
 func _on_menu_pressed() -> void:
-	if confirm_menu_text == "":
-		menu_pressed.emit()
-		return
-	if _confirm_box != null:
-		return
-	_confirm_box = VBoxContainer.new()
-	_confirm_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	_confirm_box.add_theme_constant_override("separation", 8)
-	var warn := UiStyle.label(confirm_menu_text, 16, UiStyle.FONT_TEXT, UiStyle.WARN)
-	warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	warn.autowrap_mode = TextServer.AUTOWRAP_WORD
-	warn.custom_minimum_size = Vector2(380.0, 0.0)
-	_confirm_box.add_child(warn)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
-	_confirm_box.add_child(row)
-	row.add_child(_make_button("Да, уйти", func() -> void: menu_pressed.emit()))
-	row.add_child(_make_button("Отмена", func() -> void:
-		_confirm_box.queue_free()
-		_confirm_box = null))
-	_box.add_child(_confirm_box)
+	LegionUi.confirm(self, confirm_menu_text, func() -> void: menu_pressed.emit())
+
 
 
 func _make_button(text: String, on_pressed: Callable) -> Button:
@@ -168,5 +136,7 @@ func _make_button(text: String, on_pressed: Callable) -> Button:
 	btn.add_theme_font_size_override("font_size", 22)
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	UiStyle.style_button(btn)
-	btn.pressed.connect(on_pressed)
+	btn.pressed.connect(func() -> void:
+		btn.grab_focus()
+		on_pressed.call())
 	return btn

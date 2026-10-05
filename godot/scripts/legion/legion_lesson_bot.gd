@@ -66,16 +66,72 @@ static func act(t: LegionTutorial) -> void:
 			var at := t.aura_target()
 			if at != Vector2.INF and world.hero != null:
 				world.hero.cast(LegionHero.SLOT_E, at)
-		&"figure":
+		&"figure", &"figure_mini":
 			# фигура — настоящим штрихом через поле: распознавание то же, что у мыши
+			_draw_figure(t)
+		&"figure_ult":
+			# урок кончается действием: начертил — дождался заряда — сорвал
 			if not t.bot_done:
-				t.bot_done = true
-				var pts := t.figure_points()
-				world.contracts.set_kind(LegionCfg.KIND_LABORER)
-				world.contracts.begin(pts[0])
-				for i in range(1, pts.size()):
-					world.contracts.extend(pts[i])
-				world.contracts.finish()
+				_draw_figure(t)
+			else:
+				_fire_charged(t)
+		&"figure_slung":
+			if not t.bot_done:
+				_draw_figure(t)
+			else:
+				_sling_charged(t)
+
+
+## Начертить фигуру урока настоящим штрихом через поле (распознавание — как у мыши).
+static func _draw_figure(t: LegionTutorial) -> void:
+	if t.bot_done:
+		return
+	var pts := t.figure_points()
+	if pts.size() < 2:
+		return
+	t.bot_done = true
+	var world := t.world
+	world.contracts.set_kind(LegionCfg.KIND_LABORER)
+	world.contracts.begin(pts[0])
+	for i in range(1, pts.size()):
+		world.contracts.extend(pts[i])
+	world.contracts.finish()
+
+
+## Фигура урока, дождавшаяся заряда и подходящая по arg («mini» — любая мини).
+static func _charged_figure(t: LegionTutorial) -> Contract:
+	var want := String(t.lesson().get("arg", ""))
+	for c in t.world.contracts.contracts:
+		if c.figure == &"" or not c.charge_ready() or c.seg_count() == 0:
+			continue
+		if want == "mini":
+			if c.size_mini:
+				return c
+		elif String(c.figure) == want:
+			return c
+	return null
+
+
+## Сорвать заряженную фигуру щелчком (ульта/специальный выпуск).
+static func _fire_charged(t: LegionTutorial) -> void:
+	var c := _charged_figure(t)
+	if c == null:
+		return
+	for s in c.seg_count():
+		if c.seg_alive(s):
+			t.world.contracts.release(c, s)
+			return
+
+
+## Сорвать заряженную фигуру рогаткой — выпуск по общей оси оттяжки (одна группа).
+static func _sling_charged(t: LegionTutorial) -> void:
+	var c := _charged_figure(t)
+	if c == null:
+		return
+	for s in c.seg_count():
+		if c.seg_alive(s):
+			t.world.contracts.sling_release(c, s, Vector2(0.0, 60.0))
+			return
 
 
 ## Как человек: ждёт, пока строй встанет, и отпускает самый людный участок.
@@ -180,11 +236,19 @@ static func template(fig: String, c: Vector2, r: float) -> PackedVector2Array:
 				var t := PI * 0.5 + TAU * float(i) / n
 				corners.append(c + Vector2(a * sin(t), r * sin(t) * cos(t)).rotated(PI * 0.5))
 			return corners
-		"triangle", "square":
-			var n := 3 if fig == "triangle" else 4
-			var a0 := -PI * 0.5 if n == 3 else -PI * 0.75
+		"triangle", "square", "pentagon":
+			var n := 3 if fig == "triangle" else 4 if fig == "square" else 5
+			var a0 := -PI * 0.5 if n == 3 else -PI * 0.75 if n == 4 else -PI * 0.5
 			for k in n + 1:
 				var a := a0 + TAU * float(k % n) / n
+				corners.append(c + Vector2(cos(a), sin(a)) * r)
+		"d_shape":
+			# прямая сторона + полукруг вправо (порядок — как у руки: снизу вверх по прямой)
+			corners.append(c + Vector2(0.0, r))
+			corners.append(c + Vector2(0.0, -r))
+			var dn := ceili(PI * r / LessonsCfg.FIG_STEP)
+			for k in dn + 1:
+				var a := -PI * 0.5 + PI * float(k) / dn
 				corners.append(c + Vector2(cos(a), sin(a)) * r)
 	var out := PackedVector2Array()
 	if corners.is_empty():

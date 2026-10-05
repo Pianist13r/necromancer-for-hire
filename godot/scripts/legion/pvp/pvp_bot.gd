@@ -261,8 +261,14 @@ func _consolidate() -> void:
 			stray = u
 	if stray == null:
 		return
-	var at := stray.position + (goal - stray.position).normalized() * STRAY_PULL
-	_cmd(PvpCmd.rally(at))
+	# Прямая к кучке может попасть глубоко в скалу. Берём продвижение по тому же пути,
+	# которым пойдёт боец, и проверяем центр до команды: отказ не расходует откат.
+	var route := _field().recruit_path(stray.position, goal)
+	if route.is_empty():
+		return
+	var at := world.rally_center(_route_point(stray.position, route, STRAY_PULL))
+	if at != Vector2.INF and stray.position.distance_to(at) <= LegionCfg.RALLY_R:
+		_cmd(PvpCmd.rally(at))
 
 
 ## Хватает ли своей маны на способность с запасом бота на линии (PvpSide.ability_mana_reserve,

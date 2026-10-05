@@ -242,8 +242,27 @@
     }
   ],
   "hint": "На слиянии оставляйте свободный резерв: призраки проходят сквозь строй.",
-  "unlocks": [],
-  "lessons": [],
+  "unlocks": ["shape_unlocked_pentagon"],
+  "lessons": [
+    {
+      "id": "pentagon",
+      "voice": "lg_tut_pentagon",
+      "when": "start",
+      "hold": 25,
+      "done": "figure_ult:pentagon",
+      "mark": {"at": [200, 560], "r": 65},
+      "text": "«Комиссия»: пятиугольник, четверо на углах из пяти. Заряд даёт щит, а выпуск метит врага — бейте сильнее."
+    },
+    {
+      "id": "mini",
+      "voice": "lg_tut_mini",
+      "when": "start",
+      "hold": 25,
+      "done": "figure_mini:triangle",
+      "mark": {"at": [180, 480], "r": 45},
+      "text": "Маленькая фигура — та же фигура: мест меньше, удар мягче, стоит дешевле. Сорвите по заряду."
+    }
+  ],
   "water": [],
   "bridges": [],
   "swamp": [],

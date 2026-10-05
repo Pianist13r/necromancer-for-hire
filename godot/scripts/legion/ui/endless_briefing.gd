@@ -9,6 +9,7 @@ extends Control
 
 signal start(map_id: String)
 signal back
+signal office_pressed
 
 
 func _ready() -> void:
@@ -106,28 +107,13 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 		var picker := DifficultyPicker.new()
 		box.add_child(picker)
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	box.add_child(row)
+	var row := LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
+		"В бой", func() -> void: start.emit(map_id))
+	var office := ProgressionUi.button("Контора (%d премии)" % Campaign.bounty(),
+		func() -> void: office_pressed.emit())
+	row.add_child(office)
+	row.move_child(office, 1)
 
-	var back_btn := Button.new()
-	back_btn.text = "В меню"
-	back_btn.custom_minimum_size = Vector2(160.0, 46.0)
-	back_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	back_btn.add_theme_font_size_override("font_size", 20)
-	UiStyle.style_button(back_btn)
-	back_btn.pressed.connect(func() -> void: back.emit())
-	row.add_child(back_btn)
-
-	var start_btn := Button.new()
-	start_btn.text = "В бой"
-	start_btn.custom_minimum_size = Vector2(200.0, 46.0)
-	start_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	start_btn.add_theme_font_size_override("font_size", 22)
-	UiStyle.style_button(start_btn)
-	start_btn.pressed.connect(func() -> void: start.emit(map_id))
-	row.add_child(start_btn)
 
 
 ## Тот же расчёт угроз, что Briefing кампании (Briefing.FOE_NAMES — общий словарь имён).

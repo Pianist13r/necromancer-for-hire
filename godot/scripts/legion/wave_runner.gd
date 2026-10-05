@@ -129,10 +129,12 @@ func _tick_run(run: Dictionary) -> void:
 		var e: Dictionary = queue[int(run["qi"])]
 		var path := world.road_remainder(String(e["road"]), float(e["at"]))
 		if not path.is_empty():
-			world.spawn_foe_on_path(String(e["type"]), path, path[0], false,
-				{"wave": int(run["i"]) + 1, "breach": String(e["breach"]),
+			var origin := {"wave": int(run["i"]) + 1, "breach": String(e["breach"]),
 					"elite": bool(e.get("elite", false)),
-					"souls_mult": float(e.get("souls_mult", 1.0))})
+					"souls_mult": float(e.get("souls_mult", 1.0))}
+			if not world.pvp:
+				origin["road"] = String(e["road"])
+			world.spawn_foe_on_path(String(e["type"]), path, path[0], false, origin)
 		run["qi"] = int(run["qi"]) + 1
 	if bool(run["cleared"]) or int(run["qi"]) < queue.size():
 		return

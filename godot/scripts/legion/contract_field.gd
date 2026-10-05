@@ -132,6 +132,8 @@ var path_queries := 0
 ## v17 рогатка: схема ввода (Settings.control_scheme() на старте карты) и шкала «Отсрочка».
 var scheme := Settings.SCHEME_SLING
 var delay := LegionCfg.DELAY_MAX
+## Рисование выполняется этим же CanvasItem; помощник не добавляет узлов/трансформов.
+var _renderer: ContractRenderer = null
 var _draft := PackedVector2Array()
 var _draft_len := 0.0
 var _drawing := false
@@ -220,6 +222,8 @@ var _aim_unsent := Vector2.INF
 
 
 func _enter_tree() -> void:
+	# Standalone world tests/tools also receive the saved/default named controls.
+	Controls.apply()
 	if _input_fields == 0:
 		_saved_accumulated_input = Input.use_accumulated_input
 		# Накопление срезает повороты до одного motion на кадр и добавляет кадр задержки.
@@ -241,8 +245,10 @@ func setup(w: LegionWorld) -> void:
 	for kind in LegionCfg.KIND_ORDER:
 		recruit_r[kind] = LegionCfg.RECRUIT_R + world.camp_stat(StringName("recruit_r_" + kind))
 		unlocked[kind] = world.camp_stat(StringName("kind_unlocked_" + kind)) > 0.5
+	# Новые фигуры перечислены ЯВНО (D-1002 §6): shapes.get(fig, true) иначе открыл бы
+	# забытый ключ, а распознавание — это не то же, что разрешение кампании
 	for fig: StringName in [ContractShape.RING, ContractShape.EIGHT, ContractShape.TRIANGLE,
-			ContractShape.SQUARE]:
+			ContractShape.SQUARE, ContractShape.PENTAGON, ContractShape.D_SHAPE]:
 		shapes[fig] = world.camp_stat(StringName("shape_unlocked_" + String(fig))) > 0.5
 	aim_unlocked = world.camp_stat(&"control_unlocked_aim") > 0.5
 	if not bool(unlocked.get(current_kind, true)):
@@ -324,6 +330,11 @@ func tick(delta: float, t: float) -> void:
 	var i := contracts.size() - 1
 	while i >= 0:
 		var c := contracts[i]
+		# Подготовка фигуры (D-1002 §1): заряд копится, пока строй держит нужную долю углов
+		# НЕПРЕРЫВНО, и обнуляется, как только просел. Ульта — только у заряженной фигуры.
+		if c.charge_need() > 0:
+			c.charge_t = minf(FigureCfg.CHARGE_TIME, c.charge_t + delta) \
+				if c.charge_filled() else 0.0
 		for s in c.seg_count():
 			if c.seg_dead[s] != 0:
 				continue
@@ -357,12 +368,15 @@ func add_contract(
 	var plen := _poly_len(pts)
 	if plen < LegionCfg.LINE_MIN or plen > LegionCfg.LINE_MAX + 0.5:
 		return null
+	var cost := plen * _kind_price(kind) if paid else 0.0
 	if paid:
-		var cost := plen * _kind_price(kind)
 		if cost > mana:
 			return null
 		_spend(cost)
-	return _create(pts, side, kind)
+	var c := _create(pts, side, kind)
+	if c == null and paid:
+		_refund(cost)   # угол фигуры в стене — фигура не заключена, мана возвращается
+	return c
 
 
 ## Продлить участки договора (бот: «штрих» по этим участкам, цена — их длина).
@@ -403,7 +417,9 @@ func release_aimed(c: Contract, seg: int, dir: Vector2, power: float, perfect: b
 		_squeeze(c, power, perfect)
 		return
 	if c.figure != &"":
-		_fig_release(c, power, perfect)
+		# рогатка: выпуск по оси прицела (углы выходят по общей оси оттяжки); щелчок зовёт
+		# release() напрямую и оси не даёт — тогда у фигуры своя геометрия
+		_fig_release(c, power, perfect, dir)
 		return
 	world.release_segment_aimed(c, seg, dir, power, perfect)
 	if perfect:
@@ -827,7 +843,7 @@ func _input(event: InputEvent) -> void:
 			_hover_dirty = true
 		return
 	var k := event as InputEventKey
-	if k != null and k.physical_keycode == KEY_TAB and _battle_input():
+	if k != null and event.is_action(&"erase_piece") and _battle_input():
 		# Таб в бою — стирание куска. Гасим здесь, в _input: разбор интерфейса идёт раньше
 		# _unhandled_input, и ui_focus_next увёл бы фокус на кнопку HUD (D-0929-10). На паузе и в
 		# меню Таб по-прежнему ходит по кнопкам.
@@ -903,12 +919,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		var k := event as InputEventKey
 		if k.echo:
 			return
-		if k.physical_keycode == KEY_SPACE:
+		if event.is_action(&"aim_contract"):
 			_hold_aim(AIM_SPACE, k.pressed)
 			get_viewport().set_input_as_handled()
-		elif k.pressed and k.physical_keycode in [KEY_1, KEY_2, KEY_3]:
-			set_kind(LegionCfg.KIND_ORDER[int(k.physical_keycode) - int(KEY_1)])
-			get_viewport().set_input_as_handled()
+		elif k.pressed:
+			for i in 3:
+				if event.is_action([&"rune_normal", &"rune_frost", &"rune_ash"][i]):
+					set_kind(LegionCfg.KIND_ORDER[i])
+					get_viewport().set_input_as_handled()
+					break
 
 
 static func _is_press(event: InputEvent) -> bool:
@@ -1467,6 +1486,8 @@ func sling_aim() -> Dictionary:
 	var dir := -pull.normalized()
 	var power := 1.0
 	if c.shaped():
+		if c.corners_only and pull.length() > 0.01:
+			return corner_aim(c, seg, pull, power)
 		return ring_aim(c, seg, pull, power)
 	var dist := float(LegionCfg.UNIT_KINDS[c.kind]["charge_dist"]) \
 		* lerpf(LegionCfg.SLING_RANGE.x, LegionCfg.SLING_RANGE.y, power)
@@ -1853,11 +1874,12 @@ func finish() -> void:
 		if owner_side == world.local_side:
 			world.toast("Не больше %d договоров сразу" % LegionCfg.MAX_CONTRACTS, &"warn")
 		return
-	# треугольник и квадрат: перелёт конца за начало срезается (ContractShape.trim_overshoot) и
-	# мест не даёт — его мана возвращается, как хвост линии сверх LINE_MAX, а замыкание считается
-	# от среза (D-1002-08)
-	var poly := fig == ContractShape.TRIANGLE or fig == ContractShape.SQUARE
+	# угловые фигуры: перелёт конца за начало срезается (ContractShape.trim_overshoot) и мест не
+	# даёт — его мана возвращается, как хвост линии сверх LINE_MAX, а замыкание считается от
+	# среза (D-1002-08)
+	var poly := ContractShape.CORNER_FIGURES.has(fig)
 	var closing := ContractShape.trim_overshoot(stroke) if poly else stroke
+	var shape_cost := 0.0
 	if ring or fig != &"":
 		# замыкание зазора — тоже договор: платим за него, как за штрих (verifier 26.09: у предела
 		# длины кольцо бесплатно выходило на ~12 % длиннее любой линии); нечем платить — линия
@@ -1868,11 +1890,35 @@ func finish() -> void:
 			fig = &""
 		else:
 			_spend(gap_cost)
+			shape_cost = gap_cost
 	if poly and fig != &"":
 		var cut := _poly_len(stroke) - _poly_len(closing)
 		if cut > 0.0:
-			_refund(minf(_draft_cost, cut * _kind_price(current_kind)))
+			var back := minf(_draft_cost, cut * _kind_price(current_kind))
+			_refund(back)
+			_draft_cost -= back
+	if ring or fig != &"":
+		# цена фигуры — max(контур, floor эффекта): доплата атомарна, не хватает маны — знак
+		# отменяется с ПОЛНЫМ возвратом (D-1002 §6)
+		var floor := float(FigureCfg.PRICE_FLOOR.get(
+			ContractShape.RING if ring else fig, 0.0))
+		var paid := _draft_cost + shape_cost
+		if paid < floor:
+			if floor - paid > mana:
+				_refund(paid)
+				_short_bump(stroke)
+				return
+			_spend(floor - paid)
 	var c := _create(stroke, stroke_side(stroke), current_kind, ring, fig)
+	if c == null:
+		# угол фигуры встал в воду или скалу — фигура не заключена, мана вернулась целиком
+		_refund(_draft_cost + shape_cost)
+		var blocked := Contract.new().build_figure(stroke, fig, world.terrain.walkable,
+			current_kind).blocked_tips
+		_wall_bump(blocked[0] if not blocked.is_empty() else stroke[stroke.size() - 1])
+		if owner_side == world.local_side:
+			world.toast("Угол фигуры в стене — знак не встал", &"warn")
+		return
 	if ring:
 		_on_ring_made(c)
 		figure_made.emit(c)
@@ -1931,6 +1977,10 @@ func _create(pts: PackedVector2Array, side: int, kind: StringName, ring := false
 		c = Contract.new().build_figure(pts, fig, world.terrain.walkable, kind)
 	else:
 		c = Contract.new().build(pts, side, world.terrain.walkable, kind)
+	if not c.blocked_tips.is_empty():
+		# угол фигуры в воде или скале: фигура не заключается вовсе (D-1002 §2). Молча потерять
+		# угол и считать оставшиеся полным треугольником нельзя — вызывающий вернёт ману.
+		return null
 	c.mana_cost_mult = mana_cost_mult   # перк «Мелкий шрифт» — договор несёт множитель сам
 	c.owner_side = owner_side
 	c.id = _next_id
@@ -1974,65 +2024,6 @@ static func _kind_color(kind: StringName, field: String) -> Color:
 	return LegionCfg.UNIT_KINDS[k][field]
 
 
-# ── Артефакты на линиях (D-0927-163: у каждого своё постоянное изменение вида) ──
-
-## «Чернила оптом»: запись вида чернил или {} (цвет линии смешивается с чернилами — вид виден
-## и у всех видов бойцов, и оттенок вида не теряется целиком).
-func _ink_look() -> Dictionary:
-	if world == null or world.items == null:
-		return {}
-	var lk := world.items_of(owner_side).look_of(&"contract", &"ink")
-	if not lk.is_empty() and not contracts.is_empty():
-		world.items_of(owner_side).note_look(&"contract", &"ink")
-	return lk
-
-
-static func _inked(body: Color, ink: Dictionary) -> Color:
-	if ink.is_empty():
-		return body
-	return body.lerp(ink["color"], float(ink.get("mix", 0.5)))
-
-
-func _gild_look() -> Dictionary:
-	if world == null or world.items == null:
-		return {}
-	return world.items_of(owner_side).look_of(&"contract", &"gild")
-
-
-## «Золотое перо»: золотая нить вдоль живых участков со стороны натиска и бегущие блёстки —
-## договор «подписан золотом», «Точно!» перезарядит Ку. Импульс получения — нить толще.
-func _draw_gild(c: Contract, gild: Dictionary) -> void:
-	var col: Color = gild["color"]
-	var k := world.items_of(owner_side).pulse(&"contract")
-	var shift := c.dir * CfgItems.GILD_OFFSET if not c.shaped() else Vector2.ZERO
-	var drew := false
-	for s in c.seg_count():
-		if not c.seg_alive(s):
-			continue
-		var poly := c.seg_polys[s]
-		var pts := PackedVector2Array()
-		for p in poly:
-			pts.append(p + shift)
-		var a := _seg_alpha(c, s)
-		# тёмный кант под нитью: золото на светлой дороге иначе пропадает (кадр 27.09)
-		overlay.draw_polyline(pts, Color(0.2, 0.12, 0.02, 0.6 * a), 5.0 + 2.5 * k, true)
-		overlay.draw_polyline(pts, Color(col, a), 2.8 + 2.5 * k, true)
-		drew = true
-	if not drew:
-		return
-	world.items_of(owner_side).note_look(&"contract", &"gild")
-	# блёстки бегут по договору: шаг GILD_SPARK_STEP, фаза — часы мира (без ГСЧ)
-	var run := fmod(now * 60.0, CfgItems.GILD_SPARK_STEP)
-	var d := run
-	while d < c.length:
-		var seg := c.segment_at(d)
-		if c.seg_alive(seg):
-			var p := c.point_at(d) + shift
-			overlay.draw_circle(p, 4.5 + 2.0 * k, Color(col, 0.35))
-			overlay.draw_circle(p, 2.6 + 1.5 * k, Color(1.0, 0.97, 0.75, 0.95))
-		d += CfgItems.GILD_SPARK_STEP
-
-
 static func _poly_len(pts: PackedVector2Array) -> float:
 	var plen := 0.0
 	for i in range(1, pts.size()):
@@ -2071,39 +2062,7 @@ func fading_count() -> int:
 
 
 func _draw() -> void:
-	var eco := Settings.is_economy_graphics()
-	_sync_vis(eco)
-	drawn_lines = 0
-	if _drawing and _draft.size() >= 2 and match_refresh(_draft).is_empty():
-		_draw_recruit_preview(_kind_color(current_kind, "color"))
-	var ink := _ink_look()
-	for c in contracts:
-		var body := _inked(_kind_color(c.kind, "color"), ink)
-		var core := _kind_color(c.kind, "core")
-		for p in c.posts:
-			if not p["dead"] and p["unit"] == null:
-				draw_circle(p["pos"], 1.8, Color(core, 0.35))
-		drawn_lines += 1
-		var swell := 0.0
-		var breath := 1.0
-		if not eco:
-			var k := _birth_k(c)
-			swell = CfgLines.BIRTH_SWELL * (1.0 - k) * (1.0 - k)
-			# своя фаза у договора: соседние линии дышат вразнобой и не сливаются в одно мигание
-			breath = 1.0 - CfgLines.BREATH \
-				+ CfgLines.BREATH * (0.5 + 0.5 * sin(now * CfgLines.BREATH_RATE + c.id * 1.7))
-		var s := 0
-		while s < c.seg_count():
-			var e := _run_end(c, s, false)
-			if e > s:
-				var pts := _run_poly(c, s, e)
-				if eco:
-					_draw_glow(self, pts, body, core, _seg_alpha(c, s))
-				else:
-					_draw_layers(self, pts, body, core, _seg_alpha(c, s), swell, breath)
-				s = e
-			else:
-				s += 1
+	_renderer_view()._draw()
 
 
 ## Прогон участков [s, конец): живые подряд и одного возраста (значит, одной альфы мигания) —
@@ -2149,90 +2108,7 @@ func make_overlay() -> Node2D:
 
 
 func _draw_overlay() -> void:
-	var eco := Settings.is_economy_graphics()
-	drawn_flow = 0
-	_draw_package_marks()
-	_draw_pick_halo()
-	if eco:
-		_fading.clear()
-	else:
-		_draw_fading()
-	var ink := _ink_look()
-	var gild := _gild_look()
-	for c in contracts:
-		var body := _inked(_kind_color(c.kind, "color"), ink)
-		var core := _kind_color(c.kind, "core")
-		# 1) контур руны: прогонами одного возраста (обычно весь договор одной ломаной),
-		# прогнутый давкой участок — отдельно
-		var r := 0
-		while r < c.seg_count():
-			var e := _run_end(c, r, true)
-			if e == r:
-				r += 1
-			elif e == r + 1 and c.seg_bend[r] > 0.0:
-				_draw_seg_contour(c, r, body, core)
-				r = e
-			else:
-				_draw_rune_contour(_run_poly(c, r, e), _seg_alpha(c, r), body, core)
-				r = e
-		if not gild.is_empty():
-			_draw_gild(c, gild)
-		# 2) течение, вспышка продления и голова рождения — поверх контура, под кольцами срока:
-		# штрихи течения «входят» в кольцо-печать и пропадают под ним
-		if not eco:
-			_draw_flow(c, core)
-			_draw_renew(c, core)
-			_draw_birth(c, body, core)
-		# 3) часы, печать и стрелка каждого участка
-		for s in c.seg_count():
-			if not c.seg_alive(s):
-				continue
-			var a := _seg_alpha(c, s)
-			_draw_ttl_ring(c.seg_center(s), c.seg_left(s) / c.ttl, a, body, core)
-			if seal_ready(c, s):
-				overlay.draw_circle(c.seg_center(s) + Vector2(0, -LegionCfg.RUNE_TTL_R),
-					LegionCfg.CORE_WAX_R, LegionCfg.CORE_WAX_COLOR)
-			if is_slinging() and _grab["contract"] == c and int(_grab["seg"]) == s:
-				continue
-			var col := ARROW_COLOR if c.seg_left(s) > LegionCfg.SEG_BLINK else ARROW_WARN
-			_draw_arrow(c.seg_center(s), c.seg_dir(s), Color(col, 0.9 * a))
-	_draw_figures()
-	if _drawing and _draft.size() >= 2:
-		if _draft_ring and match_refresh(_draft).is_empty():
-			_draw_ring_draft()
-		elif _draft_fig != &"" and match_refresh(_draft).is_empty():
-			_draw_fig_draft()
-		else:
-			_draw_draft()
-			_draw_over_limit()
-	if is_slinging() and not _aim.is_empty():
-		if (_grab["contract"] as Contract).shaped():
-			_draw_ring_sling()
-		else:
-			_draw_sling()
-	elif sling_pending():
-		_draw_sling_pending()
-	_draw_wall_fx()
-	_draw_hits()
-	_draw_ring_fx()
-	_draw_rite_fx()
-	_draw_cross_fx()
-	_draw_popups()
-
-
-func _draw_seg_contour(c: Contract, s: int, body: Color, core: Color) -> void:
-	var a := _seg_alpha(c, s)
-	var bend := c.bend_frac(s)
-	if bend <= 0.0:
-		_draw_rune_contour(c.seg_polys[s], a, body, core)
-		return
-	# v18 «Давка»: контур гнётся вместе со строем и краснеет к прорыву; к концу —
-	# пульс, чтобы было видно, какой участок пора отпускать пружиной
-	var pulse := 0.5 + 0.5 * sin(now * 14.0) if bend > 0.6 else 1.0
-	var warn := Color(LegionCfg.PRESS_COLOR, 1.0)
-	_draw_rune_contour(c.bent_poly(s), a, body.lerp(warn, bend * pulse),
-		core.lerp(Color(1.0, 0.85, 0.7), bend * pulse))
-	_draw_press_gauge(c.seg_center(s), bend, pulse)
+	_renderer_view()._draw_overlay()
 
 
 # ── Вид линий: рождение, течение, продление, растворение (только полная графика) ──
@@ -2309,348 +2185,10 @@ func _mark_renew(c: Contract, segs: PackedInt32Array) -> void:
 	v["renew_until"] = now + CfgLines.RENEW_T
 
 
-## Слои линии под бойцами: тень-подложка (только в своём слое — поверх бойцов она бы их
-## пачкала), дышащий ореол, свечение, тело, сердцевина. swell — вспышка рождения.
-func _draw_layers(
-	ci: CanvasItem, pts: PackedVector2Array, body: Color, core: Color, a: float, swell: float,
-	breath: float
-) -> void:
-	if pts.size() < 2:
-		return
-	if ci == self:
-		ci.draw_polyline(pts, Color(CfgLines.SHADOW, CfgLines.SHADOW.a * a), CfgLines.SHADOW_W, true)
-	ci.draw_polyline(pts, Color(body, CfgLines.HALO_A * a * breath * (1.0 + swell)),
-		CfgLines.HALO_W * (1.0 + swell), true)
-	ci.draw_polyline(pts, Color(body, CfgLines.GLOW_A * a), CfgLines.GLOW_W * (1.0 + swell * 0.5),
-		true)
-	ci.draw_polyline(pts, Color(body, CfgLines.BODY_A * a), CfgLines.BODY_W, true)
-	ci.draw_polyline(pts, Color(core.lerp(Color.WHITE, minf(1.0, swell)), CfgLines.CORE_A * a),
-		CfgLines.CORE_W, true)
-
-
-## Течение: светлые штрихи бегут от краёв каждого участка к его середине (к кольцу срока и
-## стрелке выпуска). Путь — две полухорды «край → середина»: у участка 64 px ломаная мыши от
-## них почти не отходит, а считать точку по длине ломаной на каждый штрих дорого. Все штрихи
-## договора — одной командой draw_multiline. Мигающий и прогнутый участок не течёт.
-func _draw_flow(c: Contract, core: Color) -> void:
-	_strokes.clear()
-	var shift := fposmod(now * CfgLines.FLOW_SPEED + c.id * 5.3, CfgLines.FLOW_GAP)
-	for s in c.seg_count():
-		if c.seg_dead[s] != 0 or c.seg_bend[s] > 0.0 or c.ttl - c.seg_age[s] <= LegionCfg.SEG_BLINK:
-			continue
-		var poly := c.seg_polys[s]
-		var mid := c.seg_center(s)
-		_flow_half(poly[0], mid, shift)
-		_flow_half(poly[poly.size() - 1], mid, shift)
-	if _strokes.is_empty():
-		return
-	drawn_flow += _strokes.size() / 2
-	var col := Color(core.lerp(Color.WHITE, CfgLines.FLOW_WHITE), CfgLines.FLOW_A)
-	overlay.draw_multiline(_strokes, col, CfgLines.FLOW_W)
-
-
-func _flow_half(from: Vector2, to: Vector2, shift: float) -> void:
-	var half := from.distance_to(to)
-	if half < CfgLines.FLOW_LEN:
-		return
-	var d := shift
-	while d < half:
-		_strokes.append(from.lerp(to, d / half))
-		_strokes.append(from.lerp(to, minf(1.0, (d + CfgLines.FLOW_LEN) / half)))
-		d += CfgLines.FLOW_GAP
-
-
-## Рождение: раскалённая голова пробегает по новой линии от начала штриха к концу (ease-out) —
-## договор «скрепляется»; одновременно ореол вспыхивает и оседает (swell в _draw).
-func _draw_birth(c: Contract, body: Color, core: Color) -> void:
-	var k := _birth_k(c)
-	if k >= 1.0:
-		return
-	var run := 1.0 - pow(1.0 - k, 3.0)
-	var at := c.point_at(run * c.length)
-	var fade := 1.0 - k
-	overlay.draw_circle(at, CfgLines.BIRTH_HALO_R * (0.6 + 0.4 * fade),
-		Color(body, CfgLines.BIRTH_HALO_A * fade))
-	overlay.draw_circle(at, CfgLines.BIRTH_HEAD_R, Color(core.lerp(Color.WHITE, 0.6), fade))
-
-
-func _draw_renew(c: Contract, core: Color) -> void:
-	var v: Dictionary = _vis.get(c, {})
-	if v.is_empty() or now >= float(v["renew_until"]):
-		return
-	var renew: PackedFloat32Array = v["renew"]
-	var col := core.lerp(Color.WHITE, 0.4)
-	for s in mini(renew.size(), c.seg_count()):
-		var k := (now - renew[s]) / CfgLines.RENEW_T
-		if k < 0.0 or k >= 1.0 or c.seg_dead[s] != 0:
-			continue
-		overlay.draw_polyline(c.bent_poly(s), Color(col, CfgLines.RENEW_A * (1.0 - k) * (1.0 - k)),
-			CfgLines.RENEW_W * (1.0 - 0.4 * k), true)
-
-
-## Растворение: участок бледнеет, расплывается и всплывает, а вдоль него поднимаются искры.
-## Вместо мгновенного исчезновения — видно, ЧТО именно ушло (растаял/выпущен/снят).
-func _draw_fading() -> void:
-	var i := _fading.size() - 1
-	while i >= 0:
-		var f := _fading[i]
-		var k := (now - float(f["t0"])) / CfgLines.FADE_T
-		if k >= 1.0 or k < 0.0:
-			_fading.remove_at(i)
-		else:
-			_draw_fade(f, k)
-		i -= 1
-
-
-func _draw_fade(f: Dictionary, k: float) -> void:
-	var poly: PackedVector2Array = f["poly"]
-	if poly.size() < 2:
-		return
-	var body: Color = f["body"]
-	var core: Color = f["core"]
-	var e := 1.0 - k
-	overlay.draw_set_transform(Vector2(0.0, -CfgLines.FADE_RISE * k))
-	overlay.draw_polyline(poly, Color(body, CfgLines.GLOW_A * 1.6 * e * e),
-		CfgLines.GLOW_W * (1.0 + CfgLines.FADE_SPREAD * k), true)
-	overlay.draw_polyline(poly, Color(core.lerp(body, k), CfgLines.CORE_A * e * e * e),
-		CfgLines.BODY_W * (1.0 - 0.6 * k), true)
-	overlay.draw_set_transform(Vector2.ZERO)
-	_strokes.clear()
-	var a := poly[0]
-	var b := poly[poly.size() - 1]
-	var seed := float(f["seed"])
-	var lift := 1.0 - e * e
-	for j in CfgLines.FADE_EMBERS:
-		var h1 := _hash01(seed + j * 1.37)
-		var h2 := _hash01(seed * 1.91 + j * 7.13)
-		var p := a.lerp(b, (j + 0.2 + 0.6 * h1) / CfgLines.FADE_EMBERS)
-		p += Vector2(sin(k * 7.0 + h1 * TAU) * CfgLines.FADE_EMBER_SWAY,
-			-lerpf(CfgLines.FADE_EMBER_RISE.x, CfgLines.FADE_EMBER_RISE.y, h2) * lift)
-		_strokes.append(p)
-		_strokes.append(p + Vector2(0.0, CfgLines.FADE_EMBER_LEN * e + 1.0))
-	overlay.draw_multiline(_strokes, Color(core, e), CfgLines.FADE_EMBER_W)
-
-
 ## Детерминированный «шум» 0..1 без ГСЧ: искры не сдвигают ни world.rng, ни глобальный randf.
 static func _hash01(x: float) -> float:
 	var v := sin(x * 12.9898) * 43758.5453
 	return v - floorf(v)
-
-
-## Превью рогатки: зона удара (контур видно всегда — куда ждать врага; золотая, когда он там),
-## тетива — участок, натянутый до упора, толстая стрелка натиска полной длины (сила всегда полная),
-## подпись у курсора — что делать: «Жди врага в зоне» / «Срывай!».
-func _draw_sling() -> void:
-	var c: Contract = _grab["contract"]
-	var seg := int(_grab["seg"])
-	var dir: Vector2 = _aim["dir"]
-	var gold := bool(_aim["perfect"])
-	var col := LegionCfg.PERFECT_COLOR if gold else LegionCfg.SLING_WAIT_COLOR
-	var center: Vector2 = _aim["center"]
-	var side := dir.orthogonal() * float(_aim["half_w"])
-	var depth := dir * float(_aim["depth"])
-	var zone := PackedVector2Array([center + side, center + side + depth,
-		center - side + depth, center - side])
-	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
-	overlay.draw_colored_polygon(zone, Color(col, 0.22 + 0.12 * pulse if gold else 0.12))
-	zone.append(zone[0])
-	# вне золота контур ярче прежнего (0.35 → 0.6): теперь это единственное, на что смотреть
-	overlay.draw_polyline(zone, Color(col, 0.85 if gold else 0.6), 2.0 if gold else 1.5, true)
-	# тетива: концы участка → точка, оттянутая назад до упора (не на долю оттяжки — сила полная)
-	var poly := c.seg_polys[seg]
-	var bend := center - dir * LegionCfg.SLING_BOW_BEND
-	var body := _kind_color(c.kind, "color")
-	var string_pts := PackedVector2Array([poly[0], bend, poly[poly.size() - 1]])
-	overlay.draw_polyline(string_pts, Color(0, 0, 0, 0.55), 6.0, true)
-	overlay.draw_polyline(string_pts, Color(body, 0.95), 3.0, true)
-	overlay.draw_dashed_line(bend, _pull, Color(col, 0.6), 2.0, 6.0, true)
-	overlay.draw_circle(_pull, 5.0, Color(col, 0.9))
-	# стрелка натиска — полной длины и толщины с первого кадра натяжки
-	var base := center + dir * ARROW_OFFSET * 0.6
-	var tip := base + dir * LegionCfg.SLING_ARROW_LEN
-	var wing := dir.orthogonal() * 14.0
-	var back := tip - dir * 20.0
-	var width := 10.0
-	var head := PackedVector2Array([back + wing, tip, back - wing])
-	overlay.draw_line(base, back, Color(0, 0, 0, 0.6), width + 3.0, true)
-	overlay.draw_colored_polygon(head, Color(0, 0, 0, 0.6))
-	overlay.draw_line(base, back, col, width, true)
-	overlay.draw_colored_polygon(PackedVector2Array([back + wing * 0.8, tip - dir * 2.0,
-		back - wing * 0.8]), col)
-	# подпись — сбоку от курсора (вправо), поперёк оттяжки: за курсором висит шкала Отсрочки
-	var across := dir.orthogonal()
-	if across.x < 0.0:
-		across = -across
-	_draw_sling_hint(_pull + across * 22.0 + Vector2(0.0, 6.0), col, gold)
-
-
-## Подпись натяжки: «Жди врага в зоне» спокойно, «Срывай!» — крупнее и пульсирует. Один слот у
-## курсора (прежняя «Сила N%»), нового слоя текста поверх драки нет.
-## align_right — подпись кончается в at (растёт влево), а не начинается.
-func _draw_sling_hint(at: Vector2, col: Color, gold: bool, align_right := false) -> void:
-	var font: Font = UiStyle.FONT_TITLE
-	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
-	var size := _fsz(roundi(22.0 + 3.0 * pulse) if gold else 17)
-	var label := sling_hint()
-	var label_w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	if align_right:
-		at.x -= label_w
-	# у края окна курсор упирается в край (см. _sling_armed) — подпись не уходит за экран и под
-	# верхнюю полосу HUD
-	var view := get_viewport().get_visible_rect()
-	at.x = clampf(at.x, view.position.x + SLING_HINT_MARGIN.x,
-		view.end.x - label_w - SLING_HINT_MARGIN.x)
-	at.y = clampf(at.y, view.position.y + SLING_HINT_MARGIN.y, view.end.y - SLING_HINT_MARGIN.x)
-	overlay.draw_string_outline(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5,
-		Color(0, 0, 0, 0.8))
-	overlay.draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
-
-
-## Подсветка того, что возьмут Пробел, колесо или ПКМ (hover_pick): мягкое свечение цветом
-## сердцевины вида под контуром руны — весь договор (его стрелку крутит Пробел) и ярче участок
-## под курсором (его срывает ПКМ). Идёт прицел — светится прицельный договор целиком.
-func _draw_pick_halo() -> void:
-	var h := hover_pick()
-	if h.is_empty():
-		return
-	var c: Contract = h["contract"]
-	var seg := int(h["seg"])
-	var col := _kind_color(c.kind, "core").lerp(Color.WHITE, LegionCfg.PICK_HALO_WHITE)
-	var whole := LegionCfg.PICK_HALO_AIM_ALPHA if seg < 0 else LegionCfg.PICK_HALO_ALPHA
-	for s in c.seg_count():
-		if not c.seg_alive(s):
-			continue
-		var poly := c.bent_poly(s)
-		overlay.draw_polyline(poly, Color(col, whole), LegionCfg.PICK_HALO_W, true)
-		if s == seg:
-			overlay.draw_polyline(poly, Color(col, LegionCfg.PICK_HALO_SEG_ALPHA),
-				LegionCfg.PICK_HALO_W, true)
-			overlay.draw_arc(c.seg_center(s), LegionCfg.RUNE_TTL_R + LegionCfg.PICK_RING_GAP, 0.0, TAU,
-				LegionCfg.RUNE_TTL_POINTS, Color(col, LegionCfg.PICK_RING_ALPHA), LegionCfg.PICK_RING_W, true)
-
-
-## Кольцо удара натиска: быстро расходится и гаснет; у точного срыва — золотое и шире.
-func _draw_hits() -> void:
-	for h in _hits:
-		var k := clampf(float(h["t"]) / 0.3, 0.0, 1.0)
-		if k >= 1.0:
-			continue
-		var perfect := bool(h["perfect"])
-		var col := LegionCfg.PERFECT_COLOR if perfect else Color(1.0, 0.9, 0.8)
-		var r := lerpf(6.0, 34.0 if perfect else 22.0, 1.0 - pow(1.0 - k, 3.0))
-		overlay.draw_arc(h["pos"], r, 0.0, TAU, 28, Color(col, 0.9 * (1.0 - k)),
-			4.0 if perfect else 2.5, true)
-
-
-## «Точно!» над участком: выпрыгивает с перелётом масштаба, всплывает и гаснет.
-func _draw_popups() -> void:
-	var font: Font = UiStyle.FONT_TITLE
-	for p in _popups:
-		var k := float(p["t"]) / LegionCfg.PERFECT_POPUP_TIME
-		var pop := 1.0 + (POPUP_POP - 1.0) * maxf(0.0, 1.0 - k * 6.0)
-		var size := _fsz(roundi(float(p.get("size", 30.0)) * pop))
-		var a := 1.0 if k < 0.6 else 1.0 - (k - 0.6) / 0.4
-		var text := String(p.get("text", "Точно!"))
-		var col: Color = p.get("color", LegionCfg.PERFECT_COLOR)
-		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-		var at: Vector2 = p["pos"] + Vector2(-w * 0.5, -POPUP_LIFT - POPUP_RISE * k)
-		at.x = _clamp_label_x(at.x, w)
-		overlay.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 7,
-			Color(0.1, 0.02, 0.0, 0.85 * a))
-		overlay.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(col, a))
-
-
-## Тонкий полупрозрачный контур руны поверх строя (RUNE): земляная линия под ногами
-## бойцов не видна, а без неё игрок не понимает, где проходит договор и что ещё держит.
-## Ширина и альфа — LegionCfg.RUNE_OVERLAY_*, подобраны так, чтобы бойцы оставались видны.
-func _draw_rune_contour(pts: PackedVector2Array, a: float, body: Color, core: Color) -> void:
-	if pts.size() < 2:
-		return
-	overlay.draw_polyline(
-		pts, Color(body, LegionCfg.RUNE_OVERLAY_ALPHA * a), LegionCfg.RUNE_OVERLAY_W, true
-	)
-	overlay.draw_polyline(
-		pts, Color(core, LegionCfg.RUNE_OVERLAY_ALPHA * 0.7 * a), LegionCfg.RUNE_OVERLAY_CORE_W,
-		true
-	)
-
-
-## Кольцо-«часы» у центра участка: дуга «съедается» по мере таяния, тусклый фоновый круг
-## держит форму кольца видимой даже когда участок почти истёк. Мигание — через тот же `a`,
-## что и у контура/стрелки (LegionCfg.SEG_BLINK), поэтому все три читаются как один сигнал.
-func _draw_ttl_ring(at: Vector2, frac: float, a: float, body: Color, core: Color) -> void:
-	var backing := LegionCfg.RUNE_TTL_OUTLINE_COLOR
-	backing.a *= a
-	overlay.draw_arc(at, LegionCfg.RUNE_TTL_R, 0.0, TAU, LegionCfg.RUNE_TTL_POINTS,
-		backing, LegionCfg.RUNE_TTL_OUTLINE_W, true)
-	overlay.draw_arc(
-		at, LegionCfg.RUNE_TTL_R, 0.0, TAU, LegionCfg.RUNE_TTL_POINTS,
-		Color(core, LegionCfg.RUNE_TTL_BG_ALPHA * a), LegionCfg.RUNE_TTL_W, true
-	)
-	if frac <= 0.0:
-		return
-	overlay.draw_arc(
-		at, LegionCfg.RUNE_TTL_R, -PI * 0.5, -PI * 0.5 + TAU * frac, LegionCfg.RUNE_TTL_POINTS,
-		Color(body, 0.95 * a), LegionCfg.RUNE_TTL_W, true
-	)
-
-
-func _draw_glow(
-	ci: CanvasItem, pts: PackedVector2Array, body: Color, core: Color, a: float
-) -> void:
-	if pts.size() < 2:
-		return
-	ci.draw_polyline(pts, Color(body, a * 0.22), GLOW_W, true)
-	ci.draw_polyline(pts, Color(body, a * 0.6), MID_W, true)
-	ci.draw_polyline(pts, Color(core, a * 0.95), CORE_W, true)
-
-
-## v18 «Давка»: шкала напора вокруг кольца срока — красная дуга растёт к прорыву, после 0,6
-## пульсирует. Контур линии под толпой не виден (кадры приёмки 26.09), кольцо над строем — видно.
-func _draw_press_gauge(at: Vector2, bend: float, pulse: float) -> void:
-	var r := LegionCfg.RUNE_TTL_R + 7.0
-	var from := -PI * 0.5
-	overlay.draw_arc(at, r, 0.0, TAU, 32, Color(0.05, 0.02, 0.02, 0.55), 6.0, true)
-	overlay.draw_arc(at, r, from, from + TAU * bend, 32,
-		Color(LegionCfg.PRESS_COLOR, 0.55 + 0.45 * pulse), 4.0 + 2.0 * bend, true)
-
-
-## Шеврон по стрелке выпуска — туда побежит отряд участка, когда договор истечёт.
-func _draw_arrow(at: Vector2, n: Vector2, col: Color) -> void:
-	var base := at + n * ARROW_OFFSET
-	var tip := base + n * ARROW_LEN
-	var side := Vector2(-n.y, n.x) * ARROW_WING
-	var back := tip - n * (ARROW_LEN * 0.55)
-	overlay.draw_line(base, tip, Color(0, 0, 0, col.a * 0.6), 4.5, true)
-	overlay.draw_polyline(
-		PackedVector2Array([back + side, tip, back - side]), Color(0, 0, 0, col.a * 0.6), 4.5, true
-	)
-	overlay.draw_line(base, tip, col, 2.2, true)
-	overlay.draw_polyline(PackedVector2Array([back + side, tip, back - side]), col, 2.2, true)
-
-
-func _draw_draft() -> void:
-	var refresh_like := not match_refresh(_truncate(_draft, LegionCfg.LINE_MAX)).is_empty()
-	var body := REFRESH_COLOR if refresh_like else _kind_color(current_kind, "color")
-	var core := _kind_color(current_kind, "core")
-	if Settings.is_economy_graphics():
-		_draw_glow(overlay, _draft, body, core, 0.9)
-	else:
-		_draw_layers(overlay, _draft, body, core, 0.9, 0.0, 1.0)
-		_draw_pen(body, core)
-	if refresh_like:
-		return
-	_draw_draft_empty(body)
-	_draw_preview_labels(body)
-	# стрелка черновика — одна на весь договор: видно, куда пойдёт отряд, до отпускания кнопки
-	var n := stroke_dir(_draft) if _draft_dir == Vector2.ZERO else _draft_dir
-	var steps := maxi(1, int(_draft_len / LegionCfg.SEG_LEN))
-	for i in steps:
-		var at := _poly_point(_draft, (i + 0.5) * _draft_len / steps)
-		_draw_arrow(at, n, Color(ARROW_COLOR, 0.9))
-	# B-028: подпись — ПОСЛЕ стрелок, поверх них: стрелка первого участка ложилась на
-	# «наберёт N / мест M» и перечёркивала буквы.
-	_draw_preview_caption()
 
 
 ## slow/intuit: отрезки черновика (длины вдоль линии превью, Vector2(from, to)), где у мест не
@@ -2678,80 +2216,6 @@ func draft_empty_runs() -> Array[Vector2]:
 		else:
 			out.append(Vector2(from, from + step))
 	return out
-
-
-## Пустая часть черновика — притушена тёмной полосой и прочерчена пунктиром: «сюда не встанут».
-func _draw_draft_empty(body: Color) -> void:
-	var runs := draft_empty_runs()
-	if runs.is_empty():
-		return
-	var line := _truncate(_draft, LegionCfg.LINE_MAX)
-	for r in runs:
-		var part := LegionIntuit.sub_poly(line, r.x, r.y)
-		if part.size() < 2:
-			continue
-		overlay.draw_polyline(part, IntuitCfg.DRAFT_EMPTY_SHADE, IntuitCfg.DRAFT_EMPTY_W, true)
-		for i in range(1, part.size()):
-			overlay.draw_dashed_line(part[i - 1], part[i], Color(body, 0.55), 2.0,
-				IntuitCfg.DRAFT_EMPTY_DASH, true)
-
-
-## B-071: бледная стрелка, пока оттяжка между щелчком и взводом — куда пошёл бы натиск.
-func _draw_sling_pending() -> void:
-	var c: Contract = _grab["contract"]
-	var seg := int(_grab["seg"])
-	var dir := -(_pull - _grab_pos).normalized()
-	if dir.is_zero_approx():
-		return
-	var col := Color(LegionCfg.SLING_WAIT_COLOR, IntuitCfg.PENDING_ALPHA)
-	var base := c.seg_center(seg) + dir * ARROW_OFFSET * 0.6
-	var tip := base + dir * IntuitCfg.PENDING_ARROW_LEN
-	var back := tip - dir * 14.0
-	var wing := dir.orthogonal() * 9.0
-	var head := PackedVector2Array([back + wing, tip, back - wing])
-	# тонкая тёмная обводка: на светлой дороге одна бледная стрелка терялась (кадр 7_short_pull)
-	var shade := Color(0, 0, 0, IntuitCfg.PENDING_ALPHA * 0.6)
-	overlay.draw_line(base, back, shade, 8.0, true)
-	head.append(head[0])
-	overlay.draw_polyline(head, shade, 3.0, true)
-	head.remove_at(3)
-	overlay.draw_line(base, back, col, 5.0, true)
-	overlay.draw_colored_polygon(head, col)
-
-
-## «Стена»: красное кольцо расходится от точки и гаснет, слово — над ним.
-func _draw_wall_fx() -> void:
-	var ms := Time.get_ticks_msec()
-	for i in range(_wall_fx.size() - 1, -1, -1):
-		var fx := _wall_fx[i]
-		var label := String(fx.get("label", IntuitCfg.WALL_LABEL))
-		var k := float(ms - int(fx["ms"])) / (float(fx.get("life", IntuitCfg.WALL_FX)) * 1000.0)
-		if k >= 1.0:
-			_wall_fx.remove_at(i)
-			continue
-		var at: Vector2 = fx["pos"]
-		var a := 1.0 - k
-		var col := Color(IntuitCfg.WALL_COLOR, a)
-		overlay.draw_arc(at, lerpf(6.0, IntuitCfg.WALL_R, 1.0 - pow(1.0 - k, 3.0)), 0.0, TAU, 24,
-			col, 3.0, true)
-		overlay.draw_line(at + Vector2(-5, -5), at + Vector2(5, 5), col, 3.0, true)
-		overlay.draw_line(at + Vector2(-5, 5), at + Vector2(5, -5), col, 3.0, true)
-		var font: Font = UiStyle.FONT_TITLE
-		var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, _fsz(18)).x
-		var t := at + Vector2(-w * 0.5, -IntuitCfg.WALL_R - 8.0)
-		t.x = _clamp_label_x(t.x, w)   # скала у края окна — слово не уходит за экран
-		overlay.draw_string_outline(font, t, label, HORIZONTAL_ALIGNMENT_LEFT, -1, _fsz(18), 5,
-			Color(0, 0, 0, 0.85 * a))
-		overlay.draw_string(font, t, label, HORIZONTAL_ALIGNMENT_LEFT, -1, _fsz(18), col)
-
-
-## Перо на конце черновика: пульсирующая светлая точка — «чернила» текут прямо сейчас.
-func _draw_pen(body: Color, core: Color) -> void:
-	var end := _draft[_draft.size() - 1]
-	var pulse := 0.5 + 0.5 * sin(now * CfgLines.PEN_PULSE_RATE)
-	overlay.draw_circle(end, CfgLines.PEN_HALO_R * (0.85 + 0.15 * pulse),
-		Color(body, CfgLines.PEN_HALO_A))
-	overlay.draw_circle(end, CfgLines.PEN_R, core.lerp(Color.WHITE, 0.5))
 
 
 static func _poly_point(pts: PackedVector2Array, dist: float) -> Vector2:
@@ -3149,57 +2613,6 @@ func seal_ready(c: Contract, seg: int) -> bool:
 	return c.seg_renewed[seg] != 0 and in_package(c, seg)
 
 
-func _draw_package_marks() -> void:
-	for pair in _package_pairs:
-		if not _pair_alive(pair):
-			continue
-		var a: Vector2 = pair["a"].seg_center(pair["sa"])
-		var b: Vector2 = pair["b"].seg_center(pair["sb"])
-		var mid := a.lerp(b, 0.5) + LegionCfg.CORE_CLIP_OFFSET
-		var size := LegionCfg.CORE_CLIP_SIZE
-		overlay.draw_polyline(PackedVector2Array([a, mid, b]),
-			Color(LegionCfg.CORE_CLIP_COLOR, 0.35), 1.0, true)
-		overlay.draw_polyline(PackedVector2Array([
-			mid + Vector2(-size.x, 0), mid + Vector2(-size.x, -size.y),
-			mid + Vector2(size.x, -size.y), mid + Vector2(size.x, size.y),
-			mid + Vector2(-size.x, size.y), mid + Vector2(-size.x, 0), mid,
-		]), LegionCfg.CORE_CLIP_COLOR, 2.0, true)
-
-
-func _draw_recruit_preview(body: Color) -> void:
-	var radius := float(recruit_r.get(current_kind, LegionCfg.RECRUIT_R))
-	var zone := Color(body, LegionCfg.DRAFT_ZONE_ALPHA)
-	# Полоса на нижнем слое: широкая линия не закрывает персонажей и подсказки.
-	draw_polyline(_draft, zone, radius * 2.0, true)
-	draw_circle(_draft[0], radius, zone)
-	draw_circle(_draft[_draft.size() - 1], radius, zone)
-
-
-func _draw_preview_labels(body: Color) -> void:
-	for assignment in _preview_plan:
-		var u: Legionnaire = assignment["unit"]
-		if is_instance_valid(u) and u.alive:
-			overlay.draw_arc(u.position, LegionCfg.DRAFT_RING_R, 0, TAU, 24, body, 2.0, true)
-	var end := _draft[_draft.size() - 1]
-	if _pen_wait or _space:
-		var radius := LegionCfg.PEN_RETURN_R * (0.75 + 0.25 * sin(now * LegionCfg.PEN_PULSE_RATE))
-		overlay.draw_arc(end, radius, 0, TAU, 32, Color.WHITE, 2.0, true)
-
-
-## Подпись превью «наберёт N / мест M» — последним слоем черновика (поверх стрелок, B-028).
-func _draw_preview_caption() -> void:
-	var places := _preview.posts.size() if _preview != null else 0
-	var label := "наберёт %d / мест %d" % [_preview_plan.size(), places]
-	var at := _draft[0] + LegionCfg.CORE_LABEL_OFFSET
-	var font: Font = ThemeDB.fallback_font
-	# B-028: бойцы, дерущиеся у линии, закрывали белую подпись без подложки — тёмная обводка,
-	# как у «Точно!» (_draw_popups) и подписи силы натяжки (_draw_sling).
-	overlay.draw_string_outline(font, at, label, HORIZONTAL_ALIGNMENT_LEFT, -1,
-		_core_fs(), LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
-	overlay.draw_string(font, at, label, HORIZONTAL_ALIGNMENT_LEFT,
-		-1, _core_fs(), Color.WHITE)
-
-
 # ── «Оцепление»: договор-кольцо (ContractShape) ───────────────────────────────────
 # Отдельный раздел: цвет и красоту линий параллельно правит ветка slow/lines, поэтому кольцо
 # не переписывает прежние функции отрисовки, а только добавляет свои.
@@ -3232,6 +2645,40 @@ func _on_ring_made(c: Contract) -> void:
 	_sound("ult_ready", 1.25)
 
 
+## Прицел рогатки по УГЛОВОЙ фигуре (крыша, каре, комиссия, неустойка): стрелка — общая ось
+## оттяжки (у каждого участника своё начало траектории, LegionFigures.charge_for), а зона
+## «Точно!» — полоса по РЕАЛЬНЫМ местам стоящих участников: пустые длинные рёбра больше не дают
+## широкую зону попадания (D-1002 §5). Зона считается от середины строя по оси, ширина — разброс
+## мест поперёк оси.
+func corner_aim(c: Contract, seg: int, pull: Vector2, power: float) -> Dictionary:
+	var axis := -pull.normalized()
+	if axis.is_zero_approx():
+		axis = c.seg_dir(seg)
+	var reach := float(LegionCfg.UNIT_KINDS[c.kind]["charge_dist"]) \
+		* lerpf(LegionCfg.SLING_RANGE.x, LegionCfg.SLING_RANGE.y, power)
+	var depth := reach * world.perfect_zone_frac(owner_side)
+	var side := axis.orthogonal()
+	var n := 0
+	var sum := Vector2.ZERO
+	var lo := INF
+	var hi := -INF
+	for p in c.posts:
+		var u: Legionnaire = p["unit"]
+		if p["dead"] or u == null or u.state != Legionnaire.State.POSTED:
+			continue
+		n += 1
+		sum += u.position
+		lo = minf(lo, u.position.dot(side))
+		hi = maxf(hi, u.position.dot(side))
+	if n == 0:
+		return {"dir": axis, "power": power, "pull": pull, "center": c.center,
+			"half_w": depth * 0.5, "depth": depth, "perfect": false, "axis": axis}
+	var center := sum / float(n)
+	var half_w := maxf((hi - lo) * 0.5, LegionCfg.UNIT_RADIUS)
+	return {"dir": axis, "power": power, "pull": pull, "center": center, "half_w": half_w,
+		"depth": depth, "perfect": zone_has_foe(center, axis, half_w, depth), "axis": axis}
+
+
 ## Прицел рогатки по кольцу: стрелка — своя у участка (к центру или наружу), сила — общая,
 ## «Точно!» — если враг в зоне удара хотя бы одного живого участка.
 func ring_aim(c: Contract, seg: int, pull: Vector2, power: float) -> Dictionary:
@@ -3259,101 +2706,6 @@ func ring_aim(c: Contract, seg: int, pull: Vector2, power: float) -> Dictionary:
 	}
 
 
-## Черновик-кольцо: штрих цвета фигуры, пунктир замыкания, стрелки к центру по всему кругу и
-## подпись «Оцепление» у курсора — ДО отпускания видно, что выйдет кольцо, а не линия.
-func _draw_ring_draft() -> void:
-	var body := RING_COLOR
-	_draw_glow(overlay, _draft, _kind_color(current_kind, "color"), body, 0.95)
-	var first := _draft[0]
-	var last := _draft[_draft.size() - 1]
-	overlay.draw_dashed_line(last, first, Color(body, 0.9), 2.5, 6.0, true)
-	var center := ContractShape.centroid(_draft)
-	var pulse := 0.5 + 0.5 * sin(now * 8.0)
-	overlay.draw_circle(center, 3.0 + 2.0 * pulse, Color(body, 0.8))
-	var steps := maxi(3, int(_draft_len / RING_DRAFT_ARROW_STEP))
-	for i in steps:
-		var at := _poly_point(_draft, (i + 0.5) * _draft_len / steps)
-		var n := (center - at).normalized()
-		if n != Vector2.ZERO:
-			_draw_arrow(at, n, Color(body, 0.9))
-	_draw_preview_labels(body)
-	# подпись — у курсора, но ОТ кольца наружу: курсор у замыкания, над ним и сам штрих, и
-	# подпись превью «наберёт N / мест M» (та уезжает под кольцо, см. ниже)
-	var font: Font = UiStyle.FONT_TITLE
-	var size := _fsz(roundi(RING_LABEL_SIZE * (1.0 + 0.08 * pulse)))
-	var out := (_pointer - center).normalized()
-	var label_w := font.get_string_size(RING_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var label_at := _pointer + out * RING_LABEL_OFFSET.x + Vector2(0.0, size * 0.35)
-	if out.x < 0.0:
-		label_at.x -= label_w
-	overlay.draw_string_outline(font, label_at, RING_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5,
-		Color(0, 0, 0, 0.85))
-	overlay.draw_string(font, label_at, RING_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, size, body)
-	# превью набора — под кольцом по центру (у линии оно у начала штриха, а у кольца начало —
-	# это и есть курсор)
-	var bottom := center.y
-	for p in _draft:
-		bottom = maxf(bottom, p.y)
-	var places := _preview.posts.size() if _preview != null else 0
-	var caption := "наберёт %d / мест %d" % [_preview_plan.size(), places]
-	var small: Font = ThemeDB.fallback_font
-	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
-		_core_fs()).x
-	var cap_at := Vector2(center.x - cw * 0.5, bottom - RING_LABEL_OFFSET.y + ARROW_OFFSET)
-	overlay.draw_string_outline(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
-		_core_fs(), LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
-	overlay.draw_string(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
-		_core_fs(), Color.WHITE)
-
-
-## Натяжка по кольцу: толстые стрелки на КАЖДОМ живом участке — сорвётся весь круг; цвет и
-## длина полная (сила всегда полная, 26.09), золото — «Точно!». Подпись у курсора.
-func _draw_ring_sling() -> void:
-	var c: Contract = _grab["contract"]
-	var t := float(_aim["power"])
-	var gold := bool(_aim["perfect"])
-	var col := LegionCfg.PERFECT_COLOR if gold else LegionCfg.SLING_WAIT_COLOR
-	overlay.draw_dashed_line(_grab_pos, _pull, Color(col, 0.6), 2.0, 6.0, true)
-	overlay.draw_circle(_pull, 5.0, Color(col, 0.9))
-	var length := LegionCfg.SLING_ARROW_LEN * 0.6
-	for s in c.seg_count():
-		if not c.seg_alive(s):
-			continue
-		var dir := c.seg_dir(s)
-		var base := c.seg_center(s) + dir * ARROW_OFFSET * 0.5
-		# к центру — острия не дальше центра: иначе стрелки встречных участков сливаются в звезду
-		var run := length if c.ring_out or not c.ring \
-			else minf(length, maxf(12.0, base.distance_to(c.center) - ARROW_WING * 2.0))
-		var tip := base + dir * run
-		var wing := dir.orthogonal() * (6.0 + 4.0 * t)
-		var back := tip - dir * (10.0 + 4.0 * t)
-		var width := 3.0 + 3.0 * t
-		overlay.draw_line(base, back, Color(0, 0, 0, 0.6), width + 3.0, true)
-		overlay.draw_line(base, back, col, width, true)
-		overlay.draw_colored_polygon(PackedVector2Array([back + wing, tip, back - wing]), col)
-	# за шкалой Отсрочки, наружу от кольца: шкала висит у курсора наружу (DelayGauge.AWAY) и
-	# закрывала подпись, стоявшую просто справа (кадр 26.09); внутрь — строй кольца. Внизу круга
-	# дальше: под шкалой её собственная подпись «Отсрочка».
-	var back := -c.seg_dir(int(_grab["seg"]))
-	var reach := DelayGauge.AWAY + DelayGauge.R + 14.0 + maxf(0.0, back.y) * 26.0
-	_draw_sling_hint(_pull + back * reach + Vector2(0.0, 6.0), col, gold, back.x < 0.0)
-
-
-## Обод кольца схлопывается к центру за RING_FX_MS — «клещи» видны даже в свалке.
-func _draw_ring_fx() -> void:
-	var ms := Time.get_ticks_msec()
-	for i in range(_ring_fx.size() - 1, -1, -1):
-		var fx := _ring_fx[i]
-		var k := float(ms - int(fx["ms"])) / RING_FX_MS
-		if k >= 1.0:
-			_ring_fx.remove_at(i)
-			continue
-		var e := 1.0 - pow(1.0 - k, 3.0)
-		var r := lerpf(float(fx["r"]), 6.0, e)
-		overlay.draw_arc(fx["center"], r, 0.0, TAU, 48, Color(RING_COLOR, 0.9 * (1.0 - k)),
-			3.0 + 3.0 * (1.0 - k), true)
-
-
 # ── Восьмёрка «Двойная смена», треугольник «Обряд», квадрат «Каре» (LegionFigures) ─────
 # Отдельный раздел, как у кольца: прежние функции отрисовки не переписываются.
 
@@ -3376,6 +2728,10 @@ static func fig_color(fig: StringName) -> Color:
 			return FigureCfg.TRI_COLOR
 		ContractShape.SQUARE:
 			return FigureCfg.SQUARE_COLOR
+		ContractShape.PENTAGON:
+			return FigureCfg.PENTA_COLOR
+		ContractShape.D_SHAPE:
+			return FigureCfg.D_COLOR
 	return FigureCfg.EIGHT_COLOR
 
 
@@ -3385,6 +2741,10 @@ static func fig_label(fig: StringName) -> String:
 			return FigureCfg.TRI_LABEL
 		ContractShape.SQUARE:
 			return FigureCfg.SQUARE_LABEL
+		ContractShape.PENTAGON:
+			return FigureCfg.PENTA_LABEL
+		ContractShape.D_SHAPE:
+			return FigureCfg.D_LABEL
 	return FigureCfg.EIGHT_LABEL
 
 
@@ -3393,9 +2753,13 @@ static func fig_label(fig: StringName) -> String:
 static func fig_hint(fig: StringName) -> String:
 	match fig:
 		ContractShape.TRIANGLE:
-			return "не бьют · набери строй и сорви — обряд"
+			return "трое на углах · не бьют · набери строй и сорви — обряд"
 		ContractShape.SQUARE:
-			return "держат удар и давку · тает дольше"
+			return "четверо на углах · держат удар и давку · тает дольше"
+		ContractShape.PENTAGON:
+			return "четверо из пяти углов · щит после подготовки · метят цель"
+		ContractShape.D_SHAPE:
+			return "двое на углах · выпуск по оттяжке замедляет врагов"
 	return "бьют чаще · выпуск крест-накрест"
 
 
@@ -3436,9 +2800,10 @@ static func fig_bottom(c: Contract) -> float:
 	return bottom
 
 
-func _fig_release(c: Contract, power: float, perfect: bool) -> void:
+func _fig_release(c: Contract, power: float, perfect: bool, axis := Vector2.ZERO) -> void:
 	var rites := int(world.stats.get("rites", 0))
-	if world.figures.release(c, power, perfect) <= 0:
+	var guards := int(world.stats.get("guards", 0))
+	if world.figures.release(c, power, perfect, axis) <= 0:
 		return
 	var text := FigureCfg.CROSS_LABEL
 	if c.figure == ContractShape.EIGHT:
@@ -3446,8 +2811,11 @@ func _fig_release(c: Contract, power: float, perfect: bool) -> void:
 	elif c.figure == ContractShape.TRIANGLE:
 		# обряд подписывает себя сам (on_rite); без него — обычный натиск к центру
 		text = "" if int(world.stats.get("rites", 0)) > rites else "Натиск к центру!"
+	elif c.figure == ContractShape.SQUARE:
+		text = FigureCfg.SQUARE_GUARD_LABEL if int(world.stats.get("guards", 0)) > guards \
+			else "Каре — в натиск!"
 	else:
-		text = "Каре — в натиск!"
+		text = fig_label(c.figure) + " — в натиск!"
 	if text != "":
 		_popups.append({"pos": c.center, "t": 0.0, "text": text,
 			"color": LegionCfg.PERFECT_COLOR if perfect else fig_color(c.figure)})
@@ -3529,166 +2897,6 @@ func on_rite(c: Contract, r: float) -> void:
 	_sound("mine_boom", 0.6)   # один плеер поля: второй звук перебил бы первый
 
 
-## Живые фигуры: у треугольника и квадрата — сам ровный контур по вершинам поверх строя (фигура
-## читается, даже когда строй закрыл линию), у восьмёрки — точки центров петель; счёт строя
-## к награде у центра (у квадрата награды нет — просто число в строю).
-func _draw_figures() -> void:
-	var font: Font = ThemeDB.fallback_font
-	for c in contracts:
-		if c.figure == &"" or not c.alive():
-			continue
-		var col := fig_color(c.figure)
-		var pulse := 0.5 + 0.5 * sin(now * 5.0)
-		# контур фигуры поверх строя: плотный строй закрывает линию под ногами целиком (кадр 26.09)
-		var outline := c.points
-		if c.tips.size() >= 3:
-			outline = c.tips.duplicate()
-			outline.append(c.tips[0])
-		overlay.draw_polyline(outline, Color(0.05, 0.02, 0.1, 0.35), 6.0, true)
-		overlay.draw_polyline(outline, Color(col, 0.45 + 0.2 * pulse), 3.0, true)
-		if c.figure == ContractShape.EIGHT:
-			for lc in c.lobes:
-				overlay.draw_circle(lc, 3.0 + 1.5 * pulse, Color(col, 0.9))
-		var have := 0
-		for p in c.posts:
-			if not p["dead"] and p["unit"] != null \
-					and (p["unit"] as Legionnaire).state == Legionnaire.State.POSTED:
-				have += 1
-		var need := fig_need(c)
-		var ready := need > 0 and have >= need
-		var text := "%s %d/%d" % [fig_label(c.figure), have, need] if need > 0 \
-			else "%s %d" % [fig_label(c.figure), have]
-		var size := _core_fs()
-		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-		var at := c.center + Vector2(-w * 0.5, size * 0.35)
-		at.x = _clamp_label_x(at.x, w)
-		overlay.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size,
-			LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
-		overlay.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size,
-			LegionCfg.PERFECT_COLOR if ready else Color(col.lerp(Color.WHITE, 0.4), 0.95))
-
-
-## Черновик-фигура: штрих цвета фигуры, пунктир замыкания, стрелки мест (восьмёрка — к центру
-## чужой петли, треугольник — к центру, квадрат — наружу) и подпись у курсора с именем и сутью.
-func _draw_fig_draft() -> void:
-	var col := fig_color(_draft_fig)
-	_draw_glow(overlay, _draft, _kind_color(current_kind, "color"), col, 0.95)
-	var first := _draft[0]
-	var last := _draft[_draft.size() - 1]
-	overlay.draw_dashed_line(last, first, Color(col, 0.9), 2.5, 6.0, true)
-	var pulse := 0.5 + 0.5 * sin(now * 8.0)
-	var probe := Contract.new().build_figure(_draft, _draft_fig) if _preview == null \
-		or _preview.figure != _draft_fig else _preview
-	if probe.figure == ContractShape.EIGHT:
-		for lc in probe.lobes:
-			overlay.draw_circle(lc, 3.0 + 2.0 * pulse, Color(col, 0.85))
-	elif probe.tips.size() >= 3:
-		overlay.draw_circle(probe.center, 3.0 + 2.0 * pulse, Color(col, 0.85))
-	for s in probe.seg_count():
-		_draw_arrow(probe.seg_center(s), probe.seg_dir(s), Color(col, 0.9))
-	_draw_preview_labels(col)
-	var center := probe.center
-	var font: Font = UiStyle.FONT_TITLE
-	var size := _fsz(roundi(RING_LABEL_SIZE * (1.0 + 0.08 * pulse)))
-	var label := fig_label(_draft_fig)
-	var out := (_pointer - center).normalized()
-	var label_w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var label_at := _pointer + out * RING_LABEL_OFFSET.x + Vector2(0.0, size * 0.35)
-	var small: Font = ThemeDB.fallback_font
-	var hint := fig_hint(_draft_fig)
-	var hs := _core_fs()
-	var hint_w := small.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
-	# у правого края подпись уходила за экран (кадр 26.09) — тогда она слева от курсора
-	var block_w := maxf(label_w, hint_w)
-	if out.x < 0.0 or label_at.x + block_w > _screen_w() - 8.0:
-		label_at.x = _pointer.x - RING_LABEL_OFFSET.x - block_w
-		if out.x >= 0.0:
-			# прижата к правому краю — поднять над курсором: внизу слева висит «наберёт N / мест M»
-			label_at.y -= size + hs + 16.0
-	label_at.x = _clamp_label_x(label_at.x, block_w)
-	overlay.draw_string_outline(font, label_at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5,
-		Color(0, 0, 0, 0.85))
-	overlay.draw_string(font, label_at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
-	var hint_at := label_at + Vector2(0.0, hs + 4.0)
-	overlay.draw_string_outline(small, hint_at, hint, HORIZONTAL_ALIGNMENT_LEFT, -1, hs,
-		LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
-	overlay.draw_string(small, hint_at, hint, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color.WHITE)
-	# превью набора — под фигурой по центру (как у кольца)
-	var bottom := center.y
-	for p in _draft:
-		bottom = maxf(bottom, p.y)
-	var places := _preview.posts.size() if _preview != null else 0
-	var need := ceili(places * fig_need_frac(_draft_fig) - 0.001)
-	var caption := "наберёт %d / мест %d" % [_preview_plan.size(), places]
-	if need > 0:
-		caption += " · нужно %d" % need
-	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
-	var cap_at := Vector2(center.x - cw * 0.5, bottom - RING_LABEL_OFFSET.y + ARROW_OFFSET)
-	cap_at.x = _clamp_label_x(cap_at.x, cw)
-	overlay.draw_string_outline(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs,
-		LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
-	overlay.draw_string(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color.WHITE)
-
-
-## Линия длиннее LINE_MAX (ещё не фигура): хвост сверх предела притушен пунктиром и подписан —
-## отпустишь так, он отрежется; дальше рисовать дают только ради фигуры.
-func _draw_over_limit() -> void:
-	if _draft_len <= LegionCfg.LINE_MAX \
-			or not match_refresh(_truncate(_draft, LegionCfg.LINE_MAX)).is_empty():
-		return
-	var tail := PackedVector2Array([_poly_point(_draft, LegionCfg.LINE_MAX)])
-	var run := 0.0
-	for i in range(1, _draft.size()):
-		run += _draft[i].distance_to(_draft[i - 1])
-		if run > LegionCfg.LINE_MAX:
-			tail.append(_draft[i])
-	overlay.draw_polyline(tail, Color(0.05, 0.03, 0.08, 0.75), GLOW_W * 0.8, true)
-	for i in range(1, tail.size()):
-		overlay.draw_dashed_line(tail[i - 1], tail[i], Color(1, 1, 1, 0.55), 2.0, 5.0, true)
-	var small: Font = ThemeDB.fallback_font
-	var text := "дальше — только фигура"
-	var at := _pointer + Vector2(14.0, -12.0)
-	overlay.draw_string_outline(small, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1,
-		_core_fs(), LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
-	overlay.draw_string(small, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, _core_fs(),
-		Color(1, 1, 1, 0.8))
-
-
-## Обряд: треугольник вспыхивает белым и гаснет в фиолет, круг-вспышка и волна до края удара.
-## Реальное время (стоп-кадр мира её не тормозит).
-func _draw_rite_fx() -> void:
-	var ms := Time.get_ticks_msec()
-	for i in range(_rite_fx.size() - 1, -1, -1):
-		var fx := _rite_fx[i]
-		var k := float(ms - int(fx["ms"])) / FigureCfg.RITE_FX_MS
-		if k >= 1.0:
-			_rite_fx.remove_at(i)
-			continue
-		var center: Vector2 = fx["center"]
-		var r := float(fx["r"])
-		var col := FigureCfg.TRI_COLOR
-		# вспышка: первые 15 % — белый диск, дальше гаснет
-		var flash := clampf(1.0 - k / 0.25, 0.0, 1.0)
-		if flash > 0.0:
-			overlay.draw_circle(center, r * (0.6 + 0.4 * flash), Color(1, 0.95, 1, 0.35 * flash))
-		# волна: разлетается до 1.25 r с ease-out
-		var e := 1.0 - pow(1.0 - minf(1.0, k / 0.55), 3.0)
-		overlay.draw_arc(center, lerpf(r * 0.2, r * 1.25, e), 0.0, TAU, 64,
-			Color(col.lerp(Color.WHITE, 0.5), 0.9 * (1.0 - e)), 3.0 + 9.0 * (1.0 - e), true)
-		# треугольник: толстая белая → тонкая фиолетовая, чуть раздувается от центра
-		var tips: PackedVector2Array = fx["tips"]
-		if tips.size() >= 3:
-			var grow := 1.0 + 0.12 * e
-			var outline := PackedVector2Array()
-			for t in tips:
-				outline.append(center + (t - center) * grow)
-			outline.append(outline[0])
-			var a := 1.0 - k
-			overlay.draw_polyline(outline, Color(col, 0.5 * a), 18.0 * a + 4.0, true)
-			overlay.draw_polyline(outline, Color(col.lerp(Color.WHITE, flash), a), 5.0 * a + 2.0,
-				true)
-
-
 ## Правый край видимого мира (подписи у курсора не уходят за экран; в «Схватке» — вид ×0,8).
 func _screen_w() -> float:
 	if world != null:
@@ -3711,26 +2919,7 @@ func _clamp_label_x(x: float, w: float) -> float:
 	return clampf(x, x0, maxf(x0, _screen_w() - 8.0 - w))
 
 
-## «Крест-накрест»: две толстые стрелки от центра петли к центру другой, чуть разведённые, —
-## видно, что петли пробегают сквозь перетяжку навстречу. 600 мс реального времени.
-func _draw_cross_fx() -> void:
-	var ms := Time.get_ticks_msec()
-	for i in range(_cross_fx.size() - 1, -1, -1):
-		var fx := _cross_fx[i]
-		var k := float(ms - int(fx["ms"])) / 600.0
-		if k >= 1.0:
-			_cross_fx.remove_at(i)
-			continue
-		var e := 1.0 - pow(1.0 - minf(1.0, k / 0.5), 3.0)
-		var col := Color(FigureCfg.EIGHT_COLOR.lerp(Color.WHITE, 0.3), 1.0 - k)
-		for pair: Array in [[fx["a"], fx["b"]], [fx["b"], fx["a"]]]:
-			var a: Vector2 = pair[0]
-			var b: Vector2 = pair[1]
-			var side := (b - a).orthogonal().normalized() * 9.0
-			var tip := a.lerp(b, 0.15 + 0.85 * e) + side
-			var base := a + side
-			var d := (tip - base).normalized()
-			overlay.draw_line(base, tip - d * 10.0, Color(0, 0, 0, 0.5 * (1.0 - k)), 8.0, true)
-			overlay.draw_line(base, tip - d * 10.0, col, 5.0, true)
-			overlay.draw_colored_polygon(PackedVector2Array([tip - d * 14.0 + d.orthogonal() * 9.0,
-				tip, tip - d * 14.0 - d.orthogonal() * 9.0]), col)
+func _renderer_view() -> ContractRenderer:
+	if _renderer == null:
+		_renderer = ContractRenderer.new(self)
+	return _renderer

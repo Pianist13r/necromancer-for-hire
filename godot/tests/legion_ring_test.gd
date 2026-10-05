@@ -22,7 +22,9 @@ const SAVE := "user://legion_ring_test.cfg"
 const SHAPE_PATH := "res://scripts/legion/contract_shape.gd"
 ## Полоса карты _gray между рекой (x 620–706) и скалой (x 870+), выше северной дороги.
 const RC := Vector2(790.0, 112.0)
-const RR := 55.0
+## Радиус кольца пробы: D = 2·RR = 120 — ОБЫЧНОЕ кольцо (D > 112). Мини-кольцо (48…112) держит
+## четыре места НА контуре и одного ряда — его проверяет legion_corners_test.
+const RR := 60.0
 const DEVICE := 7
 
 var w: LegionWorld
@@ -60,6 +62,7 @@ func _run() -> void:
 	root.add_child(w)
 	await _frames(2)
 	_test_corpus()
+	_test_mini_ring()
 	await _test_draw_ring()
 	await _test_melt()
 	await _test_click_squeeze()
@@ -70,6 +73,32 @@ func _run() -> void:
 	Campaign.reset()
 	print("LEGION RING: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails > 0 else 0)
+
+
+## D-1002 §3: мини-кольцо (D = 90) — четыре места НА контуре, одного ряда; стрелки мест
+## по-прежнему к центру. Места ездят по контуру (offset нулевой), а не в два ряда вокруг него.
+func _test_mini_ring() -> void:
+	print("— мини-кольцо: четыре места на контуре")
+	_fresh()
+	var pts := _arc(RC, 45.0, 45.0, 0.0, TAU - 0.1, 0.0, 1.0)
+	var cls: StringName = shape.call("classify", pts) if shape != null else &"?"
+	_check(cls == &"ring", "круг D=90 — кольцо (классификация «%s»)" % str(cls))
+	var c: Contract = w.contracts.call("_create", pts, 1, LegionCfg.KIND_LABORER, true, &"")
+	_check(c != null and c.ring, "мини-кольцо собрано")
+	if c == null or not c.ring:
+		return
+	_check(c.posts.size() == 4, "мини-кольцо: четыре места (%d)" % c.posts.size())
+	var on_line := true
+	var one_row := true
+	for p in c.posts:
+		on_line = on_line and c.live_distance(p["pos"]) < 1.0
+		one_row = one_row and int(p["row"]) == 0 and (p["offset"] as Vector2).length() < 0.5
+	_check(on_line and one_row, "места стоят НА контуре, второго ряда нет")
+	var normals := true
+	for p in c.posts:
+		var to_center := (_center(c) - (p["pos"] as Vector2)).normalized()
+		normals = normals and (p["normal"] as Vector2).dot(to_center) > 0.99
+	_check(normals, "стрелки мест — к центру")
 
 
 # ── Корпус штрихов ───────────────────────────────────────────────────────────

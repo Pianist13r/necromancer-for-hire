@@ -160,8 +160,7 @@ func _test_daily_and_normal_runs_dont_wipe_each_other() -> void:
 			var opts := Campaign.offer_upgrades(main.world.rng)
 			main.pick_upgrade(opts[0])
 			await _frames(2)
-		main.screen.back.emit()   # «Дальше» из «Конторы»
-		await _frames(2)
+		_check(main.screen is EndlessBriefing, "поправка сразу ведёт в следующий объект")
 	_check(LegionRunStore.endless_k(false) == 3 and LegionRunStore.endless_tenure(false) == 2,
 		"обычный забег: 2 победы -> k=3 стаж=2")
 
@@ -216,7 +215,7 @@ func _test_retry_after_victory_does_not_recount() -> void:
 		var opts := Campaign.offer_upgrades(main.world.rng)
 		main.pick_upgrade(opts[0])
 		await _frames(2)
-	_check(main.screen is OfficeShop, "«Дальше» после победы объекта по-прежнему ведёт в «Контору»")
+	_check(main.screen is EndlessBriefing, "после поправки — брифинг следующего объекта")
 
 
 ## verifier 27.09, probe3.gd: «Контора» в забеге была мертва — bounty() не рос. Премия должна
@@ -243,9 +242,12 @@ func _test_bounty_earned_and_spendable_in_office() -> void:
 		var opts := Campaign.offer_upgrades(main.world.rng)
 		main.pick_upgrade(opts[0])
 		await _frames(2)
-	_check(main.screen is OfficeShop, "премия ведёт в «Контору» забега")
+	_check(main.screen is EndlessBriefing, "после награды брифинг забега")
+	main.screen.office_pressed.emit()
+	await _frames(2)
+	_check(main.screen is OfficeShop, "необязательная Контора открылась с брифинга")
 	var bounty_before := Campaign.bounty()
-	var bought := Campaign.shop_buy("range", "laborer")
+	var bought := Campaign.shop_buy("souls")
 	_check(bought and Campaign.bounty() < bounty_before,
 		"verifier п.4: в «Конторе» забега реально можно что-то купить на накопленную премию")
 
@@ -270,8 +272,8 @@ func _test_pending_reward_survives_fresh_session_world_null() -> void:
 	await _frames(2)
 	_check(main.world == null,
 		"offer_upgrade_or_skip() с незабранной наградой забега не создаёт мир сам по себе")
-	_check(main.screen is UpgradePicker or main.screen is OfficeShop,
-		"verifier п.5 (мир null): дошли до выбора поправки/«Конторы», а не упали с ошибкой скрипта")
+	_check(main.screen is UpgradePicker,
+		"verifier п.5 (мир null): дошли до выбора поправки, а не упали с ошибкой скрипта")
 
 
 ## verifier 27.09, probe3.gd (владельческая копия сохранения): реальный старый баг master —
@@ -295,8 +297,8 @@ func _test_owner_bug_campaign_pending_reward_world_null() -> void:
 	(main.screen as LegionMenu).continue_pressed.emit(m1)
 	await _frames(2)
 	_check(main.world == null, "«Продолжить» с pending_reward не создаёт мир сам по себе")
-	_check(main.screen is UpgradePicker or main.screen is OfficeShop,
-		"verifier п.5: ошибка доступа к 'rng' у Nil больше не валит игру — дошли до поправки/«Конторы»")
+	_check(main.screen is UpgradePicker,
+		"verifier п.5: ошибка доступа к 'rng' у Nil больше не валит игру — дошли до поправки")
 
 
 ## D-0927-96: «Вызов дня» — ОДНА попытка в день. Проверяет: пауза без «Заново» и с подтверждением
@@ -329,9 +331,13 @@ func _test_daily_one_attempt_per_day() -> void:
 	await _frames(1)
 	_check(main.world.phase == LegionWorld.Phase.BATTLE,
 		"первый клик «Меню» только показал предупреждение, бой не прерван")
-	_check(main._pause_screen._confirm_box != null, "предупреждение с подтверждением показано")
-	# «Да, уйти» — тот же сигнал menu_pressed, эмитированный из подтверждения.
-	main._pause_screen.menu_pressed.emit()
+	var confirmation := main._pause_screen.find_child("*", false, false) as ConfirmationDialog
+	for child in main._pause_screen.get_children():
+		if child is ConfirmationDialog:
+			confirmation = child
+	_check(confirmation != null, "предупреждение с подтверждением показано")
+	if confirmation != null:
+		confirmation.confirmed.emit()
 	await _frames(3)
 	_check(main.screen is Necrolog,
 		"подтверждённый выход посреди объекта «Вызова дня» показал некролог, не меню")
@@ -417,8 +423,7 @@ func _test_collection_save_from_pause_and_result_and_replay() -> void:
 		var opts := Campaign.offer_upgrades(main.world.rng)
 		main.pick_upgrade(opts[0])
 		await _frames(2)
-	main.screen.back.emit()
-	await _frames(2)
+	_check(main.screen is EndlessBriefing, "следующий объект без обязательной Конторы")
 	_check(LegionRunStore.endless_k(false) == k_before,
 		"брифинг следующего объекта — ещё не выигран, k не меняется (коллекция забег не трогала)")
 

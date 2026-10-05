@@ -152,7 +152,8 @@ func _draw_rally_slot() -> void:
 	if _rally_blink > 0.0:
 		_root.draw_rect(rect, Color(1.0, 0.2, 0.2, 0.45 * (_rally_blink / BLINK_DUR)), true)
 	_draw_price(rect, LegionCfg.RALLY_SLOT, locked)
-	LegionUi.draw_stamp(_root, rect.position + Vector2(rect.size.x - 6.0, 4.0), "R",
+	LegionUi.draw_stamp(_root, rect.position + Vector2(rect.size.x - 6.0, 4.0),
+		Controls.label(&"rally"),
 		Color(LegionUi.TEXT_DIM, 0.4) if locked else LegionUi.STAMP, 14, 0.12, 20.0)
 	var nw := LegionUi.FONT_TEXT.get_string_size("Сбор", HORIZONTAL_ALIGNMENT_LEFT, -1,
 		NAME_FONT).x
@@ -221,7 +222,8 @@ func _draw_bar() -> void:
 		if aimed:
 			# clarity: слот в прицеле — золотая рамка, чтобы было видно, какой навык зажат
 			_root.draw_rect(rect.grow(3.0), LegionUi.GOLD, false, AIM_FRAME_W)
-		LegionUi.draw_stamp(_root, rect.position + Vector2(rect.size.x - 6.0, 4.0), KEYS[i],
+		LegionUi.draw_stamp(_root, rect.position + Vector2(rect.size.x - 6.0, 4.0),
+			Controls.label([&"cast_q", &"cast_w", &"cast_e"][i]),
 			LegionUi.STAMP if unlocked else Color(LegionUi.TEXT_DIM, 0.4), 14, 0.12, 20.0)
 		var name_col := LegionUi.TEXT_DIM if unlocked else Color(LegionUi.TEXT_DIM, 0.35)
 		if aimed:
@@ -271,7 +273,7 @@ func _draw_aim_hint() -> void:
 	var aim := world.ability_aim
 	if aim == null or not aim.is_aiming():
 		return
-	var text := aim.describe(aim.slot)
+	var text := Controls.text(aim.describe(aim.slot))
 	var font: Font = LegionUi.FONT_TEXT
 	var size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, AIM_HINT_FONT)
 	# якорь — точка мира (подпись прицела рисуется в мире), строка — на слое HUD: в экран (P5a)

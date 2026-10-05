@@ -442,8 +442,10 @@ func fig_hint_pos(c: Contract, text := IntuitCfg.HINT_RITE) -> Vector2:
 		ContractField.fig_bottom(c) + size + IntuitCfg.HINT_RISE + IntuitCfg.HINT_UP)
 
 
+## Совет «сорви: «Обряд!»» — только у ЗАРЯЖЕННОГО треугольника (D-1002 §1): ранний срыв ульты
+## не даёт, и совет звал бы не туда.
 static func _rite_ready(c: Contract) -> bool:
-	return c.fill() >= FigureCfg.RITE_FILL - 0.0001
+	return c.fill() >= FigureCfg.RITE_FILL - 0.0001 and c.charge_ready()
 
 
 func _on_unit_died(u: Legionnaire) -> void:
@@ -587,7 +589,7 @@ func _offer(type: StringName, slot: int, at: Vector2, text: String) -> void:
 		return   # один совет на поле; тип не «сгорает» — предложится на следующем скане
 	_last[type] = t
 	_shown[type] = hints_shown(type) + 1
-	_labels.append({"type": type, "slot": slot, "pos": at, "text": text, "t0": t})
+	_labels.append({"type": type, "slot": slot, "pos": at, "text": Controls.text(text), "t0": t})
 
 
 # ── Отрисовка ─────────────────────────────────────────────────────────────────

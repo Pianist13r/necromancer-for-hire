@@ -71,24 +71,28 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		box.add_child(stars_label)
 
 	box.add_child(_stats_block(stats))
+	box.add_child(BattleDebrief.panel(stats.get("debrief", {})))
 
 	if not rewards.is_empty():
 		box.add_child(_rewards_block(rewards, victory))
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	box.add_child(row)
-
-	if victory and has_next:
-		row.add_child(_make_button("Дальше", func() -> void: next.emit()))
-	if show_retry:
-		row.add_child(_make_button("Ещё раз", func() -> void: retry.emit()))
+	var primary := "Дальше: выбор поправки" if victory and has_next else "Ещё раз"
+	var action := func() -> void:
+		if victory and has_next:
+			next.emit()
+		else:
+			retry.emit()
+	if not show_retry and not has_next:
+		primary = ""
+	LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
+		primary, action)
 	if show_maps:
-		row.add_child(_make_button("Карты", func() -> void: maps.emit()))
+		box.add_child(_make_button("Карты", func() -> void: maps.emit()))
+	if show_retry and victory and has_next:
+		box.add_child(_make_button("Ещё раз", func() -> void: retry.emit()))
 	if show_collect:
-		row.add_child(_make_button("В коллекцию", func() -> void: collect_pressed.emit()))
-	row.add_child(_make_button("Меню", func() -> void: menu.emit()))
+		box.add_child(_make_button("В коллекцию", func() -> void: collect_pressed.emit()))
+
 
 
 ## Печатает только те строки, для которых есть данные — задание прямо требует не выдумывать

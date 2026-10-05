@@ -1,117 +1,164 @@
 class_name UpgradePicker
 extends Control
-##
-## Модал «Поправка к договору №…» между картами кампании: 3 карточки из LegionMetaCfg.UPGRADE_POOL,
-## выбор одной. Раскладка повторяет `scripts/ui/upgrade_screen.gd` (карточка-пергамент), с новыми
-## текстами и без завязки на CfgMeta (та мета — старого режима).
-##
+## Четвёртая поправка требует явной замены одного пункта.
 
 signal picked(id: StringName)
-
-const CARD_W := 320.0
-const CARD_H := 260.0
-const GAP := 30.0
-
-var _cards_box: HBoxContainer
+signal back
+var next_label := "Дальше: брифинг"
+var _cards_box: GridContainer
+var _replace_box: VBoxContainer
+var _replace_grid: GridContainer
+var _note: Label
+var _reroll: Button
+var _options: Array[StringName] = []
+var _selected: StringName = &""
+var _focused_option: StringName = &""
+var _primary: Button
 
 
 func _ready() -> void:
-	UiStyle.fill_rect(self)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var dim := ColorRect.new()
-	dim.color = Color(0.02, 0.01, 0.04, 0.85)
-	UiStyle.fill_rect(dim)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(dim)
-
-	var title := UiStyle.label("Поправка к договору", 30, UiStyle.FONT_TITLE, UiStyle.GOLD)
-	title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	title.offset_top = 90.0
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(title)
-
-	var subtitle := UiStyle.label("Выберите одну — обратной силы не имеет", 17,
-		UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
-	subtitle.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	subtitle.offset_top = 134.0
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(subtitle)
-
-	_cards_box = HBoxContainer.new()
-	_cards_box.add_theme_constant_override("separation", int(GAP))
-	_cards_box.set_anchors_preset(Control.PRESET_CENTER)
-	_cards_box.offset_left = -(CARD_W * 1.5 + GAP)
-	_cards_box.offset_right = CARD_W * 1.5 + GAP
-	_cards_box.offset_top = -CARD_H * 0.5 + 10.0
-	_cards_box.offset_bottom = CARD_H * 0.5 + 10.0
-	add_child(_cards_box)
+	var shell := ProgressionUi.shell(self, "Поправка к договору",
+		"Выберите правило забега. Три пункта — предел; мелкий шрифт читаем до подписи.")
+	_note = shell["note"]
+	var body: VBoxContainer = shell["body"]
+	var footer: HBoxContainer = shell["footer"]
+	_cards_box = ProgressionUi.grid()
+	body.add_child(_cards_box)
+	_replace_box = VBoxContainer.new()
+	_replace_box.add_theme_constant_override("separation", 10)
+	body.add_child(_replace_box)
+	_reroll = ProgressionUi.button("", _on_reroll)
+	footer.add_child(_reroll)
+	var nav := LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
+		next_label, func() -> void: choose(_focused_option))
+	_primary = nav.get_node("NavPrimary") as Button
+	resized.connect(_resize_cards)
+	_resize_cards()
+	_refresh_footer()
+	ModalFocus.contain.call_deferred(self)
 
 
-## options — id из LegionMetaCfg.UPGRADE_POOL (например, Campaign.offer_upgrades()).
+func _exit_tree() -> void:
+	RunProgression.clear_stage()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and _selected != &"":
+		_cancel_replacement()
+		get_viewport().set_input_as_handled()
+	ModalFocus.contain(self)
+
+
+func offered() -> Array[StringName]:
+	return _options.duplicate()
+
+
 func offer(options: Array) -> void:
-	for c in _cards_box.get_children():
-		c.queue_free()
+	_options.clear()
 	for id in options:
-		_cards_box.add_child(_build_card(StringName(id)))
+		_options.append(StringName(id))
+	_focused_option = _options[0] if not _options.is_empty() else &""
+	_cancel_replacement()
+	ProgressionUi.clear(_cards_box)
+	for id in _options:
+		# E-1005: у предложенной карточки — строка о дележе ключа с уже действующими источниками
+		# (на экране замены ниже она не нужна: там речь о вычёркивании, а не о наборе силы).
+		var card := AmendmentCard.new().configure(id, AmendmentDb.card(id),
+			"Подписать поправку", true)
+		_cards_box.add_child(card)
+		card.pressed.connect(func() -> void: choose(id))
+		card.focus_entered.connect(func() -> void: _focused_option = id)
+	_refresh_footer()
+	_resize_cards()
+	ModalFocus.contain.call_deferred(self)
 
 
-func _build_card(id: StringName) -> Control:
-	var data: Dictionary = LegionMetaCfg.UPGRADE_POOL.get(String(id), {})
-	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(CARD_W, CARD_H)
-	btn.focus_mode = Control.FOCUS_ALL
+func choose(id: StringName) -> void:
+	if not _options.has(id):
+		return
+	if Campaign.upgrades().size() < AmendmentDb.MAX_ACTIVE:
+		picked.emit(id)
+		return
+	_selected = id
+	_cards_box.hide()
+	ProgressionUi.clear(_replace_box)
+	var active := Campaign.upgrades()
+	var data := AmendmentDb.card(id)
+	# В ряд: слева — что подписываем (и возврат к предложению), справа — что вычеркнуть
+	# (компактные карточки). Вертикальная колонка не влезала в 720 px на 183 px (H_report).
+	var split := HBoxContainer.new()
+	split.add_theme_constant_override("separation", 18)
+	split.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_replace_box.add_child(split)
 
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.13, 0.09, 0.06, 0.95)
-	normal.border_color = Color(0.79, 0.64, 0.35)
-	normal.set_border_width_all(3)
-	normal.set_corner_radius_all(14)
-	normal.content_margin_left = 20.0
-	normal.content_margin_right = 20.0
-	normal.content_margin_top = 22.0
-	var hover: StyleBoxFlat = normal.duplicate()
-	hover.bg_color = Color(0.2, 0.14, 0.08, 0.98)
-	hover.border_color = UiStyle.GOLD
-	btn.add_theme_stylebox_override("normal", normal)
-	btn.add_theme_stylebox_override("hover", hover)
-	btn.add_theme_stylebox_override("pressed", hover)
-	btn.add_theme_stylebox_override("focus", hover)
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 8)
+	split.add_child(left)
+	left.add_child(ProgressionUi.text("Новый пункт: " + String(data["title"]), 22,
+		AmendmentDb.color(id)))
+	left.add_child(ProgressionUi.text(String(data["text"]), 18))
+	left.add_child(ProgressionUi.text("Мелкий шрифт: " + String(data["tradeoff"]), 16, UiStyle.WARN))
+	left.add_child(ProgressionUi.text("Что вычеркнуть? Его правило и цена исчезнут.", 17,
+		UiStyle.TEXT_DIM))
+	var pad := Control.new()
+	pad.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_child(pad)
+	left.add_child(ProgressionUi.button("Вернуться к предложению", _cancel_replacement))
 
-	var body := VBoxContainer.new()
-	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	body.offset_left = 20.0
-	body.offset_top = 16.0
-	body.offset_right = -20.0
-	body.offset_bottom = -16.0
-	body.add_theme_constant_override("separation", 10)
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	btn.add_child(body)
+	_replace_grid = ProgressionUi.grid()
+	_replace_grid.columns = maxi(1, active.size())
+	split.add_child(_replace_grid)
+	for slot in active.size():
+		var old := active[slot]
+		var card := AmendmentCard.new().configure(old, AmendmentDb.card(old),
+			"Вычеркнуть этот пункт", false, true)
+		_replace_grid.add_child(card)
+		card.pressed.connect(func() -> void: replace(slot))
+	_reroll.disabled = true
+	_primary.disabled = true
+	ModalFocus.contain.call_deferred(self)
 
-	var seal := UiStyle.label("✒", 26, UiStyle.FONT_TITLE, Color(0.74, 0.52, 0.98))
-	seal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.add_child(seal)
 
-	var title := UiStyle.label(
-		String(data.get("title", String(id))), 21, UiStyle.FONT_TITLE, UiStyle.GOLD)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD
-	body.add_child(title)
+func replace(slot: int) -> void:
+	if _selected == &"" or not RunProgression.stage(slot):
+		return
+	picked.emit(_selected)
 
-	var desc := UiStyle.label(String(data.get("text", "")), 16, UiStyle.FONT_TEXT, UiStyle.TEXT)
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc.custom_minimum_size = Vector2(CARD_W - 44.0, 0.0)
-	body.add_child(desc)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(spacer)
+func _cancel_replacement() -> void:
+	_selected = &""
+	RunProgression.clear_stage()
+	if is_instance_valid(_replace_box):
+		ProgressionUi.clear(_replace_box)
+	if is_instance_valid(_cards_box):
+		_cards_box.show()
+	_refresh_footer()
+	ModalFocus.contain.call_deferred(self)
 
-	var hint := UiStyle.label("Подписать ✒", 17, UiStyle.FONT_TEXT, UiStyle.GOLD.darkened(0.15))
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	body.add_child(hint)
 
-	btn.pressed.connect(func() -> void: picked.emit(id))
-	return btn
+func _on_reroll() -> void:
+	var next := RunProgression.reroll(Campaign.pending_reward_rng())
+	if not next.is_empty():
+		offer(next)
+	else:
+		_note.text = "Переброска не оплачена. Предложение осталось прежним."
+	_refresh_footer()
+
+
+func _refresh_footer() -> void:
+	if not is_instance_valid(_reroll):
+		return
+	if is_instance_valid(_primary):
+		_primary.disabled = _options.is_empty() or _selected != &""
+	_reroll.text = "Другое предложение · %d премии" % AmendmentDb.REROLL_COST \
+		if RunProgression.reroll_tokens() == 0 else "Другое предложение · оплачено"
+	_reroll.disabled = not RunProgression.can_reroll() or _selected != &""
+
+
+func _resize_cards() -> void:
+	if is_instance_valid(_cards_box):
+		ProgressionUi.resize_grid(_cards_box, size.x)
+	# Сетку замены по ширине окна не пересобираем: карточки стоят в ряд по числу активных
+	# поправок (всегда MAX_ACTIVE), и должны остаться узкими.

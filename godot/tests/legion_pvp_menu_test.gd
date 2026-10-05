@@ -85,14 +85,15 @@ func _run() -> void:
 	var select := main.screen
 	_check(select != null and select.find_child("PvpFieldDuel", true, false) != null
 		and select.find_child("PvpFieldRandom", true, false) != null
-		and _has_button(select, "Назад"), "«Схватка» → выбор поля: Дуэль, Случайное поле, Назад")
+		and _has_button(select, "← Назад"),
+		"«Схватка» → выбор поля: Дуэль, Случайное поле, Назад")
 	# Esc из выбора — в меню
 	_key_escape()
 	await _frames(2)
 	_check(main.screen is LegionMenu, "Esc в выборе поля возвращает в меню")
 	_press(main.screen, "PvpAction")
 	await _frames(2)
-	_check(_press_text(main.screen, "Назад") and await _frame_is_menu(), "«Назад» — в меню")
+	_check(_press_text(main.screen, "← Назад") and await _frame_is_menu(), "«← Назад» — в меню")
 
 	await _duel_and_surrender()
 	await _random_field()
@@ -186,7 +187,7 @@ func _duel_and_surrender() -> void:
 	w.command(0, PvpCmd.surrender())
 	await _frames(20)
 	_check(w.hud.pvp_result.is_open(), "второй итог открыт")
-	w.hud.pvp_result.button("В меню").pressed.emit()
+	w.hud.pvp_result.button("В главное меню").pressed.emit()
 	await _frames(3)
 	_check(main.screen is LegionMenu and w.phase == LegionWorld.Phase.MENU,
 		"«В меню» ведёт в главное меню (не выход из игры)")
@@ -207,7 +208,7 @@ func _random_field() -> void:
 		"случайное поле: матч идёт, камера ×0,8")
 	w.command(0, PvpCmd.surrender())
 	await _frames(20)
-	w.hud.pvp_result.button("В меню").pressed.emit()
+	w.hud.pvp_result.button("В главное меню").pressed.emit()
 	await _frames(3)
 	_press(main.screen, "PvpAction")
 	await _frames(2)
@@ -216,7 +217,7 @@ func _random_field() -> void:
 	_check(main.world.map_id != id1, "сид новый при каждом входе")
 	main.world.command(0, PvpCmd.surrender())
 	await _frames(20)
-	main.world.hud.pvp_result.button("В меню").pressed.emit()
+	main.world.hud.pvp_result.button("В главное меню").pressed.emit()
 	await _frames(3)
 	_check_menu_view(main.world, "после второго «В меню»")
 

@@ -36,7 +36,8 @@ enum Stage { IDLE, CONNECTING, LOBBY, LOADING, PLAYING, OVER }
 ## 2 — прямое соединение (cand/path/late/p2p_mismatch, токен p2p в start, задержка по пути).
 const PROTO := 2
 ## Сборка: соперник с другой сборкой в комнату не войдёт (ретранслятор сравнит строки).
-const BUILD := "net-2026-10-03b"
+## 2026-10-05c — угловые фигуры и ульты: NetSnap.VERSION 4.
+const BUILD := "net-2026-10-05c"
 const DT := 1.0 / 60.0
 ## Ход — 3 тика (50 мс); ввод хода t стороны применяется в начале хода t + её задержки у обоих.
 const TURN := 3
@@ -251,9 +252,16 @@ func _ready() -> void:
 	add_child(_overlay)
 	_label = Label.new()
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	_label.position = Vector2(0.0, 92.0)
-	_label.size = Vector2(1280.0, 40.0)
+	# Якоря и поля — явно и во всю ширину вьюпорта. Пресет CENTER_TOP, поставленный ДО add_child
+	# (узел ещё вне дерева, родительский прямоугольник нулевой), оставлял смещения от нуля:
+	# подпись вставала в rect 640…1920 — половина строки состояния уезжала за правую кромку
+	# (нашёл аудит наложений, clickwalk_menu.gd).
+	_label.anchor_left = 0.0
+	_label.anchor_right = 1.0
+	_label.offset_left = 0.0
+	_label.offset_right = 0.0
+	_label.offset_top = 92.0
+	_label.offset_bottom = 132.0
 	_label.add_theme_font_size_override("font_size", 22)
 	_label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.5))
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))

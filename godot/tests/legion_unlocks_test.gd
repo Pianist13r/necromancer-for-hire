@@ -30,8 +30,8 @@ const LADDER := [
 	["fork", ["shape_unlocked_ring", "ability_unlocked_w", "ability_unlocked_e"]],
 	["archive", ["shape_unlocked_eight", "kind_unlocked_clerk", "loot_unlocked_items"]],
 	["bridge", ["shape_unlocked_triangle"]],
-	["maze", []],
-	["swamp", ["shape_unlocked_square"]],
+	["maze", ["shape_unlocked_pentagon"]],
+	["swamp", ["shape_unlocked_square", "shape_unlocked_d_shape"]],
 ]
 
 var w: LegionWorld
@@ -139,8 +139,9 @@ func _test_old_save() -> void:
 			"shape_unlocked_eight", "shape_unlocked_triangle", "loot_unlocked_items"]:
 		_check(Campaign.stat(StringName(k)) > 0.5, "старое сохранение: %s = 1" % k)
 	var labels := Campaign.pending_unlock_labels()
+	# D-1002: «Лабиринт» открывает ещё и «Комиссию» — у старого сохранения она тоже «новая»
 	var want := ["Фигура «Двойная смена»: восьмёрка", "Элитные проверяющие и предметы",
-		"Фигура «Обряд»: треугольник"]
+		"Фигура «Обряд»: треугольник", "Фигура «Комиссия по упокоению»: пятиугольник"]
 	_check(labels == Array(want, TYPE_STRING, "", null),
 		"«Новое» у старого сохранения — только то, чего до v20 не было: %s" % str(labels))
 	Campaign.mark_unlocks_seen()

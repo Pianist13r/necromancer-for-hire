@@ -24,7 +24,12 @@ const READY := true
 const UNIT_PROPS: Array[String] = [
 	"position", "side", "last_hit_side", "state", "kind", "hp", "max_hp", "no_return_id",
 	"alive", "item_slow_t", "haste_speed_mult", "haste_dmg_mult", "elite", "elite_dmg_mult",
-	"rite_dmg_mult", "idle_time", "idle_reason", "projectile_sealed", "_aura_t", "_aura_near",
+	"rite_dmg_mult", "idle_time", "idle_reason", "projectile_sealed",
+	# D-1002: защита «Каре», личный щит и метка группы «Комиссии» — боевые поля
+	"guard_dmg_mult", "shield_hp", "shield_given", "mark_group_id",
+	# J6: те же ульты в «Схватке» — метка на чужом бойце и замедление «Неустойки» по нему
+	"mark_hit_group", "mark_hit_t", "ult_slow_mult", "ult_slow_t",
+	"_aura_t", "_aura_near",
 	"_seal_t", "_seal_cd", "_path", "_path_i", "_atk_cd", "_bonus_t", "_charge_t", "_charge_dir",
 	"_charge_run", "_charge_cap", "_bonus_mult", "_first_strike", "_dead_t", "_stun_t",
 	"_rally_t", "_scan_skip", "_guard_skip",
@@ -43,7 +48,8 @@ const FOE_PROPS: Array[String] = [
 	"visible",   # игровое: невидимый (прорвался к Котлу, vanish) не идёт в трупы (_cleanup)
 	"type_id", "origin", "state", "hp", "max_hp", "speed", "radius", "ghost", "alive",
 	"goal_side", "last_hit_side", "stamp_pos", "stamp_t", "holding", "ram_pos", "ram_t",
-	"seal_slow_t", "law_seg", "law_pos", "law_read_t", "stun_t", "elite", "carrier",
+	"seal_slow_t", "slow_t", "slow_mult", "mark_group_id", "mark_t",
+	"law_seg", "law_pos", "law_read_t", "stun_t", "elite", "carrier",
 	"died_stunned", "_ram_run", "_ram_start", "_path", "_wp", "_detour_at", "_atk_cd",
 	"_skill_cd", "_roar_cd", "_wake_t", "_dead_t", "_dir", "_law_scan", "_law_off_road",
 ]

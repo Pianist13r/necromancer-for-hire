@@ -62,6 +62,24 @@ var elite := false
 var elite_dmg_mult := 1.0
 ## «Обряд» (треугольник): участники сильнее на время — ставит и снимает LegionFigures.
 var rite_dmg_mult := 1.0
+## «Каре» заряженный выпуск: входящий урон × это, пока идёт срок (ставит LegionFigures).
+var guard_dmg_mult := 1.0
+## «Комиссия по упокоению»: одноразовый личный щит — доля max_hp. Снимает урон РАНЬШЕ здоровья;
+## выдаётся один раз на бойца после подготовки фигуры, подновление линии его не пополняет.
+var shield_hp := 0.0
+var shield_given := false
+## «Комиссия» заряженный выпуск: id группы залпа — по нему участники ЭТОЙ группы бьют помеченную
+## цель сильнее (Foe.mark_group_id). −1 — группа не метит.
+var mark_group_id := -1
+## «Комиссия» в «Схватке» (J6): id группы, пометившей ЭТОГО бойца чужим залпом. У врага PvE то же
+## поле зовётся mark_group_id, но у бойца оно уже занято своей группой — метку цели держим
+## отдельно. −1 — не помечен; mark_hit_t — срок метки (как Foe.mark_t).
+var mark_hit_group := -1
+var mark_hit_t := 0.0
+## «Неустойка» в «Схватке» (J6): замедление чужого залпа — скорость × ult_slow_mult, пока
+## ult_slow_t > 0. У врага PvE это slow_mult/slow_t; правила те же.
+var ult_slow_mult := 1.0
+var ult_slow_t := 0.0
 
 var idle_time := 0.0
 var idle_reason: StringName = &"no_contract"
@@ -140,6 +158,11 @@ func tick(dt: float) -> void:
 
 func _tick_state(dt: float) -> void:
 	item_slow_t = maxf(0.0, item_slow_t - dt)
+	ult_slow_t = maxf(0.0, ult_slow_t - dt)
+	if mark_hit_t > 0.0:
+		mark_hit_t = maxf(0.0, mark_hit_t - dt)
+		if mark_hit_t <= 0.0:
+			mark_hit_group = -1
 	_atk_cd -= dt
 	_seal_t = maxf(0.0, _seal_t - dt)
 	_seal_cd = maxf(0.0, _seal_cd - dt)
@@ -257,6 +280,8 @@ func start_charge(dir: Vector2, volley: Dictionary = {}, cap := INF) -> void:
 	_first_strike = true
 	if not volley.is_empty():
 		volley["units"] = int(volley["units"]) + 1
+		# «Комиссия»: залп помечает цель — по id группы бойцы ЗНАЮТ, чью метку усиливать
+		mark_group_id = int(volley.get("mark_group", -1))
 
 
 ## Натиск окончен (удар, дистанция, упёрся): залп узнаёт, что бойцом меньше.
@@ -282,8 +307,15 @@ func take_damage(amount: float, from: Vector2) -> void:
 			a *= maxf(0.0, float(spec["front_armor"]) - world.mod_add("hold_armor"))
 		if contract != null and contract.figure == ContractShape.SQUARE:
 			a *= FigureCfg.SQUARE_DMG_MULT   # «Каре» (D-1002-03): строй квадрата держит удар
+	# «Каре» заряженный выпуск: защитный бафф участников держится и в натиске, и в строю
+	a *= guard_dmg_mult
 	if world.dev_invuln:
 		a = 0.0
+	# «Комиссия»: личный щит принимает урон раньше здоровья (один раз на бойца)
+	if shield_hp > 0.0 and a > 0.0:
+		var absorbed := minf(shield_hp, a)
+		shield_hp -= absorbed
+		a -= absorbed
 	hp -= a
 	view.react_hit()
 	if hp <= 0.0:
@@ -604,6 +636,13 @@ func _strike(foe: Node2D, mult: float, charged := false) -> void:
 	view.attack_impact()
 	var sealed := _seal_t > 0.0
 	var dmg := float(spec["dmg"]) * mult * haste_dmg_mult * elite_dmg_mult * rite_dmg_mult
+	# «Комиссия»: цель, помеченная моим залпом, получает от участников группы больше. В «Схватке»
+	# метка ложится и на чужого бойца (J6) — у него она в своём поле (mark_hit_group).
+	if mark_group_id >= 0:
+		if foe is Foe and (foe as Foe).mark_group_id == mark_group_id:
+			dmg *= FigureCfg.PENTA_MARK_MULT
+		elif foe is Legionnaire and (foe as Legionnaire).mark_hit_group == mark_group_id:
+			dmg *= FigureCfg.PENTA_MARK_MULT
 	if charged:
 		dmg *= world.item_mult(&"charge_dmg", side)   # «Дырокол-кастет»
 	if sealed:
@@ -791,4 +830,5 @@ func _cluster_has_representative() -> bool:
 
 
 func _item_speed() -> float:
-	return haste_speed_mult * (0.5 if item_slow_t > 0.0 else 1.0)
+	return haste_speed_mult * (0.5 if item_slow_t > 0.0 else 1.0) \
+		* (ult_slow_mult if ult_slow_t > 0.0 else 1.0)

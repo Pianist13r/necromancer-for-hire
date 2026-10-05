@@ -13,8 +13,8 @@ extends SceneTree
 ##
 
 const TEST_PATH := "user://legion_flow_test_run.cfg"
-## Поправка с легко проверяемым числовым эффектом (cauldron_hp_bonus = +30 к максимуму Котла).
-const CHOSEN_UPGRADE := &"cauldron_insurance"
+## Проверяем действующую поправку: стоимость чернил и встречная цена найма.
+const CHOSEN_UPGRADE := &"bulk_ink"
 
 var main: LegionMain
 var _checks := 0
@@ -85,26 +85,21 @@ func _run() -> void:
 	_check(main.screen is UpgradePicker, "итог → выбор поправки")
 
 	# выбор конкретной поправки (клик по карточке)
-	# meta (задание meta п.2, правка чужого файла — координация с пакетом flow): после поправки
-	# теперь экран «Контора», «Дальше» там ведёт на брифинг следующей карты.
+	# Поправка сразу открывает брифинг; Контора доступна отдельно.
 	(main.screen as UpgradePicker).picked.emit(CHOSEN_UPGRADE)
 	await _frames(2)
 	_check(Campaign.upgrades().has(CHOSEN_UPGRADE), "поправка взята в прогресс кампании")
 	_check(Campaign.is_unlocked(next_id), "следующая карта открыта")
-	_check(main.screen is OfficeShop, "поправка → «Контора» (meta)")
-	(main.screen as OfficeShop).back.emit()
-	await _frames(2)
-	_check(main.screen is Briefing, "«Контора» → брифинг следующей карты")
+	_check(main.screen is Briefing, "поправка → брифинг следующей карты")
 
 	# брифинг следующей карты → бой — поправка должна изменить число мира
-	var base_hp := float(Campaign.map(next_id).get("cauldron_hp", LegionCfg.CAULDRON_HP))
 	(main.screen as Briefing).start.emit(next_id)
 	await _frames(2)
 	_check(main.world.map_id == next_id and main.world.phase == LegionWorld.Phase.BATTLE,
 		"брифинг следующей карты → бой")
-	_check(absf(main.world.cauldron_hp - (base_hp + 30.0)) < 0.01,
-		"cauldron_insurance реально прибавила 30 HP Котла в бою (%.1f ожидалось, %.1f получено)"
-			% [base_hp + 30.0, main.world.cauldron_hp])
+	_check(is_equal_approx(Campaign.stat(&"mana_cost_mult"), 0.65)
+		and is_equal_approx(Campaign.stat(&"recruit_r_laborer"), -60.0),
+		"поправка и её цена применены на следующем объекте")
 
 	await _test_defeat_retry_menu()
 	await _test_settings_wired()
@@ -219,43 +214,29 @@ func _test_pending_reward_survives_menu() -> void:
 	await _frames(2)
 	_check(main.screen is UpgradePicker,
 		"«Продолжить» с ожидающей наградой открывает поправку, не брифинг")
-	main.pick_upgrade(&"aggressive_lawyers")
+	main.pick_upgrade((main.screen as UpgradePicker).offered()[0])
 	await _frames(2)
-	# meta: pick_upgrade теперь ведёт в «Контору», метка ожидающей награды снимается только
-	# на выходе оттуда («Дальше»), не сразу при выборе поправки.
-	_check(main.screen is OfficeShop, "pick_upgrade ведёт в «Контору» перед брифингом")
-	(main.screen as OfficeShop).back.emit()
-	await _frames(2)
-	_check(Campaign.pending_reward() == "", "выход из «Конторы» снимает метку ожидающей награды")
+	_check(main.screen is Briefing, "pick_upgrade сразу ведёт на следующий брифинг")
+	_check(Campaign.pending_reward() == "", "награда забрана и переход завершён")
+
 
 
 ## Ревью 2026-09-24, п.1: пул поправок исчерпан (взяты все) — экран поправок не открывается
 ## пустым и без выхода, «Дальше» сразу ведёт на брифинг следующей карты.
 func _test_empty_pool_skips_picker() -> void:
-	for id in LegionMetaCfg.UPGRADE_ORDER:
-		Campaign.add_upgrade(StringName(id))
-	_check(Campaign.offer_upgrades(main.world.rng).is_empty(), "пул поправок исчерпан")
+	# Пул больше не исчерпывается тремя активными: четвёртая поправка заменяет одну из них.
+	# Проверяем мигрированное состояние «уже забрана», не подделывая невозможные десять слотов.
+	var target := String(Campaign.maps()[1]["id"])
+	Campaign.set_pending_reward(target)
+	Campaign.raw_file().set_value(Campaign._meta_section(), "reward_claimed", true)
+	Campaign.save_raw()
+	main._pending_next_map = target
+	var before := Campaign.upgrades().duplicate()
+	main._offer_upgrade_or_skip()
+	await _frames(2)
+	_check(main.screen is Briefing, "забранная награда пропускает picker и Контору")
+	_check(Campaign.upgrades() == before, "повторный переход не выдаёт поправку")
 
-	var target_map := String(Campaign.maps()[0].get("id", ""))
-	main.show_menu()
-	await _frames(2)
-	(main.screen as LegionMenu).continue_pressed.emit(target_map)
-	await _frames(2)
-	(main.screen as Briefing).start.emit(target_map)
-	await _frames(2)
-	main.world.force_end(true)
-	await _frames(2)
-	_check(main.screen is LegionResult, "победа с пустым пулом → итог")
-	(main.screen as LegionResult).next.emit()
-	await _frames(2)
-	_check(not (main.screen is UpgradePicker), "пустой пул поправок не открывает пустой экран")
-	# meta: пустой пул ведёт сразу в «Контору» (премия за бой всё равно есть, что тратить),
-	# «Дальше» оттуда — на брифинг следующей карты или в меню.
-	_check(main.screen is OfficeShop, "пустой пул поправок сразу ведёт в «Контору»")
-	(main.screen as OfficeShop).back.emit()
-	await _frames(2)
-	_check(main.screen is Briefing or main.screen is LegionMenu,
-		"«Контора» → брифинг следующей карты или в меню")
 
 
 ## Сброс сохранения из «Настроек» главного меню: «Отмена» ничего не стирает, «Стереть» — стирает

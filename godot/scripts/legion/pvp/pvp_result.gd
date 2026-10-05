@@ -82,13 +82,9 @@ func show_for(w: LegionWorld) -> void:
 		var l := UiStyle.label(line, 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(l)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	box.add_child(row)
-	if not w.net_mode:   # сеть: переиграть можно только вдвоём (лобби), не кнопкой одного
-		row.add_child(_button("Ещё раз", func() -> void: again.emit()))
-	row.add_child(_button("В меню", func() -> void: menu.emit()))
+	LegionUi.nav_bar(_root, "В лобби" if w.net_mode else "В главное меню",
+		func() -> void: menu.emit(), "" if w.net_mode else "Ещё раз",
+		func() -> void: again.emit())
 	visible = true
 
 

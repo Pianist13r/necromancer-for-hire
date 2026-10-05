@@ -35,9 +35,11 @@ const EXPECT := {
 	"fork": [&"ring", &"hero_w", &"hero_e"],
 	"archive": [&"eight", &"clerk", &"item"],
 	"bridge": [&"triangle", &"perfect", &"lawyer_q", &"stun_hit"],
-	"maze": [],
-	"swamp": [&"square"],
-	"boss": [],
+	# D-1002: «Лабиринт» учит «Комиссии» (пятиугольник) и мини-фигуре, «Болото» — «Неустойке»
+	# (полукруг), «Прораб» — рогатке по ОДНОЙ фигуре
+	"maze": [&"pentagon", &"mini"],
+	"swamp": [&"square", &"d_shape"],
+	"boss": [&"sling_one"],
 }
 
 var w: LegionWorld
@@ -111,6 +113,24 @@ func _start(map_id: String, bot := "", waves := false) -> LegionTutorial:
 	var tut := w.tutorial
 	await _frames(2)
 	return tut
+
+
+## Урок фигуры: бой идёт, пока строй не наберёт заряд (1,5 с), затем фигура срывается — это и
+## есть действие урока (D-1002 §7 п.10). Отпускается первая заряженная фигура.
+func _passed_figure_ult(tut: LegionTutorial, id: StringName) -> bool:
+	for i in int(8.0 * FPS):
+		if tut.passed(id):
+			return true
+		for c in w.contracts.contracts:
+			if c.figure == &"" or not c.charge_ready():
+				continue
+			for s in c.seg_count():
+				if c.seg_alive(s):
+					w.contracts.release(c, s)
+					break
+			break
+		w._step(1.0 / FPS)
+	return tut.passed(id)
 
 
 func _step_until(cond: Callable, seconds: float, each: Callable = Callable()) -> bool:
@@ -769,15 +789,16 @@ func _test_input() -> void:
 	await _sling_at(c, seg, stun_target, false)
 	_check(await _passed_after(tut, &"stun_hit", 2.0), "Мост/оглушённые: Ку, затем рогатка ПКМ в оглушённого")
 
-	# Мост: треугольник на свободном берегу; Болото: квадрат
+	# Мост: треугольник на свободном берегу; Болото: квадрат. Урок фигуры кончается ДЕЙСТВИЕМ
+	# (D-1002 §7 п.10): начертил, дождался заряда, сорвал.
 	tut = await _start("bridge")
 	await _frames(2)
 	await _stroke(tut.figure_points())
-	_check(await _passed_after(tut, &"triangle", 1.0), "Мост/треугольник: штрих ЛКМ по шаблону")
+	_check(await _passed_figure_ult(tut, &"triangle"), "Мост/треугольник: штрих и заряженный срыв")
 	tut = await _start("swamp")
 	await _frames(2)
 	await _stroke(tut.figure_points())
-	_check(await _passed_after(tut, &"square", 1.0), "Болото/квадрат: штрих ЛКМ по шаблону")
+	_check(await _passed_figure_ult(tut, &"square"), "Болото/квадрат: штрих и заряженный срыв")
 
 
 # ── 5. Не повторяется; hold ──────────────────────────────────────────────────

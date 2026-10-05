@@ -1,17 +1,19 @@
 extends RefCounted
 ##
 ## B-358: забег «Бесконечного подряда» цепочкой — объекты 1..N ОДНОГО забега подряд через
-## настоящий поток LegionMain (брифинг → бой → итог → поправка → «Контора» → брифинг k+1), с
-## переносом всего, что переносит игра: поправок, артефактов, покупок «Конторы», стажа, душ.
+## настоящий поток LegionMain (брифинг → бой → итог → поправка → брифинг k+1; «Контора» —
+## необязательная кнопка на брифинге), с переносом всего, что переносит игра: поправок,
+## артефактов, покупок «Конторы», стажа, душ.
 ## Ядро общее для раннера (legion_run_chain_runner.gd, бой ведёт бот) и регресс-теста
 ## (legion_run_chain_test.gd, бой кончает хук через world.force_end — без полного боя).
 ## Игру не меняет: экраны ведутся их же сигналами, как реальные клики (legion_endless_flow_test).
 ##
-## Политики (D-0930-62, координатор): профиль «ветеран» (все карты кампании открыты и пройдены на
-## 3★, обучение и вступление пройдены, герой без рангов); поправка — случайная из предложенных,
-## rng от (сид забега, сид бота, k), или первая (upgrade_policy = "first"); «Контора» — жадно:
-## пока хватает премии, самая дешёвая доступная покупка (равная цена — порядок OFFICE_SHOP_ORDER,
-## внутри вида — KIND_ORDER); сложность закрепляется на забег до первого боя (lock_difficulty).
+## Политики (D-0930-62, координатор; «Контора» — A1): профиль «ветеран» (все карты кампании
+## открыты и пройдены на 3★, обучение и вступление пройдены, герой без рангов); поправка —
+## случайная из предложенных, rng от (сид забега, сид бота, k), или первая
+## (upgrade_policy = "first"); «Контора» — один пакет на объект: жадно берёт «Подъёмные»
+## (souls) с брифинга следующего объекта, пока хватает премии и пакет ещё не взят, переброски не
+## покупает; сложность закрепляется на забег до первого боя (lock_difficulty).
 ##
 
 ## Страховка от зависшего боя: кадров на один объект (--fixed-fps 60 → 1800 игровых секунд, как
@@ -134,8 +136,8 @@ func _on_match_ended(_victory: bool, final: Dictionary) -> void:
 	_got_end = true
 
 
-## Один объект: брифинг → бой → итог; победа — поправка и «Контора». Возвращает "victory",
-## "defeat", "timeout" или "" (сбой потока — текст в error).
+## Один объект: брифинг → бой → итог; победа — поправка и (по желанию политики) «Контора».
+## Возвращает "victory", "defeat", "timeout" или "" (сбой потока — текст в error).
 func _play_object(k: int) -> String:
 	var map_id := await _start_battle(k)
 	if map_id == "":
@@ -212,19 +214,18 @@ func _defeat_row(k: int, row: Dictionary) -> void:
 	_emit_row(row)
 
 
-## Победа: итог → «Дальше» → поправка → «Контора» (жадно) → «Дальше» к брифингу k+1.
+## Победа: итог → «Дальше» → поправка → брифинг k+1 (и «Контора» на нём, если политика хочет пакет).
 func _after_victory(k: int, row: Dictionary) -> bool:
 	if not (main.screen is LegionResult):
 		_fail("объект %d: победа, но экран не итог (%s)" % [k, main.screen])
 		return false
 	row["items"] = _ids(Campaign.run_items())
-	# «Дальше» → предложение поправок из world.rng. Состояние rng снимаем в том же кадре и
-	# повторяем тот же вызов на копии — узнаём ровно предложенные карточки (UpgradePicker их не
-	# хранит), не трогая игру; ниже сверяем с заголовками карточек на экране.
-	var probe := RandomNumberGenerator.new()
-	probe.seed = main.world.rng.seed
-	probe.state = main.world.rng.state
-	var offered := Campaign.offer_upgrades(probe)
+	# «Дальше» → предложение поправок. Предложение считается от сохранения (pending_reward_rng —
+	# «Баг мастера» 27.09: не от world.rng, мира в этот момент может не быть), поэтому копию того
+	# же rng повторяем тем же вызовом — узнаём ровно предложенные карточки, не трогая игру; ниже
+	# сверяем с заголовками карточек на экране. Первый же вызов пишет draft_options в свой
+	# (не боевой) профиль забега — игровой вызов потом вернёт из него тот же список.
+	var offered := Campaign.offer_upgrades(Campaign.pending_reward_rng())
 	(main.screen as LegionResult).next.emit()
 	await _frames(2)
 	var picked := ""
@@ -232,26 +233,45 @@ func _after_victory(k: int, row: Dictionary) -> bool:
 		if not _offer_matches_screen(k, offered):
 			return false
 		picked = String(_choose_upgrade(offered, k))
-		(main.screen as UpgradePicker).picked.emit(StringName(picked))
+		var picker := main.screen as UpgradePicker
+		# 4b: слоты могли стать полными только ДО синхронного choose — после него уже 3/3 на месте,
+		# и «полны ли» больше нельзя отличить «было 2» от «было 3» (ошибочно писался row.replaced).
+		var was_full := Campaign.upgrades().size() >= AmendmentDb.MAX_ACTIVE
+		picker.choose(StringName(picked))
+		if was_full:
+			var replace_slot := (k - 1) % AmendmentDb.MAX_ACTIVE
+			row["replaced"] = String(Campaign.upgrades()[replace_slot])
+			picker.replace(replace_slot)
 		await _frames(2)
 	row["offered"] = _ids(offered)
 	row["upgrade"] = picked
-	if not (main.screen is OfficeShop):
-		_fail("объект %d: после поправки ждали «Контору», экран %s" % [k, main.screen])
+	# Навигация мышью: после подписи игрок попадает СРАЗУ на брифинг объекта k+1; «Контора» —
+	# необязательная кнопка на брифинге (show_office(show_endless_briefing)), «← Назад» из неё
+	# возвращает на тот же брифинг, оттуда «В бой» (start.emit в _start_battle).
+	if not (main.screen is EndlessBriefing):
+		_fail("объект %d: после поправки ждали брифинг забега, экран %s" % [k, main.screen])
 		return false
 	row["bounty_before"] = Campaign.bounty()
 	var bought: Array[String] = []
-	if shop_on:
+	if shop_on and wants_shop():
+		(main.screen as EndlessBriefing).office_pressed.emit()
+		await _frames(2)
+		if not (main.screen is OfficeShop):
+			_fail("объект %d: «Контора» с брифинга не открылась (%s)" % [k, main.screen])
+			return false
 		bought = greedy_shop()
 		(main.screen as OfficeShop).refresh()
+		(main.screen as OfficeShop).back.emit()
+		await _frames(2)
+		if not (main.screen is EndlessBriefing):
+			_fail("объект %d: «← Назад» из «Конторы» вернул не на брифинг (%s)" % [k, main.screen])
+			return false
 	row["bought"] = bought
 	row["bounty_after"] = Campaign.bounty()
 	row["upgrades"] = _ids(Campaign.upgrades())
 	row["shop"] = shop_levels()
 	row["tenure"] = LegionRunStore.endless_tenure(false)
 	row["souls"] = LegionRunStore.endless_souls(false)
-	(main.screen as OfficeShop).back.emit()
-	await _frames(2)
 	_emit_row(row)
 	return true
 
@@ -279,41 +299,19 @@ func _choose_upgrade(offered: Array[StringName], k: int) -> StringName:
 	return offered[rng.randi_range(0, offered.size() - 1)]
 
 
-## Покупки «Конторы» по правилам доступности экрана (ui/office_shop.gd _apply_state): вид бойца
-## открыт, уровни подряд (покупается только следующий), хватает премии. Жадно — самая дешёвая,
-## при равной цене — раньше по OFFICE_SHOP_ORDER, внутри вида — по KIND_ORDER. «id» или «id:вид».
-static func shop_candidates() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	for id: String in LegionMetaCfg.OFFICE_SHOP_ORDER:
-		var kinds: Array[String] = [""]
-		if bool(LegionMetaCfg.OFFICE_SHOP[id].get("per_kind", false)):
-			kinds.clear()
-			for kind: StringName in LegionCfg.KIND_ORDER:
-				kinds.append(String(kind))
-		for kind in kinds:
-			if kind != "" and Campaign.stat(StringName("kind_unlocked_%s" % kind)) < 0.5:
-				continue
-			var cost := Campaign.shop_cost(id, kind)
-			if cost < 0:
-				continue
-			out.append({"id": id, "kind": kind, "cost": cost})
-	return out
+## Хочет ли политика пакет на объект: подготовки ещё нет и премии хватает на «Подъёмные». Пока
+## true — раннер заходит в «Контору» с брифинга (кнопка там необязательная); иначе не заходит.
+static func wants_shop() -> bool:
+	return RunProgression.preparation() == "" \
+		and Campaign.bounty() >= int(AmendmentDb.PREPARATIONS["souls"]["cost"])
 
 
 static func greedy_shop() -> Array[String]:
 	var bought: Array[String] = []
-	while true:
-		var best: Dictionary = {}
-		for c in shop_candidates():
-			var cost := int(c["cost"])
-			if cost <= Campaign.bounty() and (best.is_empty() or cost < int(best["cost"])):
-				best = c
-		if best.is_empty():
-			break
-		if not Campaign.shop_buy(String(best["id"]), String(best["kind"])):
-			break
-		bought.append(String(best["id"]) if String(best["kind"]) == "" \
-			else "%s:%s" % [best["id"], best["kind"]])
+	# Явная новая политика: один пакет подъёмных на следующий объект, без перебросок.
+	# Случайный выбор поправки остаётся прежним; замена слота циклическая по k.
+	if RunProgression.preparation() == "" and RunProgression.buy_service("souls"):
+		bought.append("preparation:souls")
 	return bought
 
 

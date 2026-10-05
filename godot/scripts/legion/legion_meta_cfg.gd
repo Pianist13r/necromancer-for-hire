@@ -30,7 +30,7 @@ const STAR2_RATIO := 0.4
 ## press_hold, elite_chance, item_luck); mana_cost_mult и start_souls — ключи Campaign.stat.
 ## needs — ключ открытия кампании (unlocks карт): до него поправку не предлагают (B-096:
 ## «Квота на бригаду» про Дубль-вэ приходила после «Пустыря», а Дубль-вэ — с «Двух отделов»).
-const UPGRADE_POOL := {
+const LEGACY_UPGRADES := {
 	"overtime_clause": {
 		"title": "Пункт о переработке",
 		"text": "Подрядчики держат участок дольше без подрисовки. Срок участка +3 с.",
@@ -152,7 +152,7 @@ const UPGRADE_POOL := {
 	},
 }
 
-const UPGRADE_ORDER := [
+const LEGACY_UPGRADE_ORDER := [
 	"overtime_clause", "aggressive_lawyers", "courier_bonus", "night_shift_hr",
 	"outstaff_partner", "signing_bonus", "coffee_machine", "expanded_budget",
 	"union_contract", "cauldron_insurance",
@@ -160,6 +160,9 @@ const UPGRADE_ORDER := [
 	"sharp_pencil", "bulk_paper", "soul_audit", "armchairs", "charter_capital",
 	"headhunters", "lost_property",
 ]
+
+const UPGRADE_POOL := AmendmentDb.CARDS
+const UPGRADE_ORDER := AmendmentDb.ORDER
 
 
 # ── Пакет meta (v15): премия, «Контора», герой (DESIGN_V15 §6, §7, §11, §12 п.8–9) ────────────
@@ -174,7 +177,7 @@ const UPGRADE_ORDER := [
 ## иначе одна общая), stat_keys/per_level — параллельные массивы (несколько ключей — как у
 ## «Маны», которая двигает и потолок, и реген разом), costs — премия за переход на уровень
 ## i+1 (индекс i = costs[текущий_уровень]); длина costs = число уровней покупки.
-const OFFICE_SHOP := {
+const LEGACY_OFFICE_SHOP := {
 	"range": {
 		"title": "Дальность", "per_kind": true, "unit": "px",
 		"desc": "Договор набирает бойцов своего вида дальше от линии.",
@@ -208,7 +211,10 @@ const OFFICE_SHOP := {
 		"stat_keys": ["settlement_mult"], "per_level": [0.25], "costs": [60, 100],
 	},
 }
-const OFFICE_SHOP_ORDER := ["range", "staff", "respawn", "mana", "souls", "settlement"]
+const LEGACY_OFFICE_SHOP_ORDER := ["range", "staff", "respawn", "mana", "souls", "settlement"]
+## Старый API доступен для чтения архива; новый экран покупает разовые услуги RunProgression.
+const OFFICE_SHOP := LEGACY_OFFICE_SHOP
+const OFFICE_SHOP_ORDER := LEGACY_OFFICE_SHOP_ORDER
 
 ## Русские имена видов бойцов для экрана «Контора» (LegionCfg — владелец самих видов).
 const KIND_LABELS := {

@@ -83,6 +83,10 @@ const _UNLOCK_LABELS := {
 	# (его нет в таблице) — игрок, видевший звезду, узнает про треугольник плашкой «Новое»
 	"triangle": ["shape_unlocked_triangle", "Фигура «Обряд»: треугольник"],
 	"square": ["shape_unlocked_square", "Фигура «Каре»: квадрат"],
+	# D-1002 §4: «Комиссия по упокоению» (пятиугольник) — «Лабиринт», «Неустойка» (полукруг) —
+	# «Болото». Открываются их же уроками.
+	"pentagon": ["shape_unlocked_pentagon", "Фигура «Комиссия по упокоению»: пятиугольник"],
+	"d_shape": ["shape_unlocked_d_shape", "Фигура «Неустойка»: полукруг"],
 }
 ## Сохранение старше v20 (D-0927-50): эти открытия игрок уже имел до лестницы v20 — плашка
 ## «Новое» о них не выскакивает пачкой при первом входе (они и так в руках). Новое для всех —
@@ -115,6 +119,7 @@ static func set_save_path(path: String) -> void:
 	_mods_cache_valid = false
 	_update_depth = 0
 	_update_dirty = false
+	RunProgression.clear_stage()
 
 
 ## true — путь указывает на настоящее сохранение владельца при любом написании (регистр, «./»,
@@ -153,19 +158,24 @@ static func uses_real_save() -> bool:
 
 
 # ── mode: переключатель раздела «поправки/Контора/премия/ожидающая награда» ──────────────────
+## Смена раздела снимает отложенную замену поправки: выбор, сделанный в одном scope, не должен
+## «оживать» после возврата в прежний (A1-4a: clear_stage при каждом переключении).
 static func use_campaign_scope() -> void:
 	_scope = "campaign"
 	_mods_cache_valid = false
+	RunProgression.clear_stage()
 
 
 static func use_endless_scope() -> void:
 	_scope = "endless"
 	_mods_cache_valid = false
+	RunProgression.clear_stage()
 
 
 static func use_daily_scope() -> void:
 	_scope = "daily"
 	_mods_cache_valid = false
+	RunProgression.clear_stage()
 
 
 ## D-0927-162: переигровка из коллекции — вне забега/дня, поправки/«Контора» не копятся
@@ -173,6 +183,7 @@ static func use_daily_scope() -> void:
 static func use_replay_scope() -> void:
 	_scope = "replay"
 	_mods_cache_valid = false
+	RunProgression.clear_stage()
 
 
 ## true — «Бесконечный подряд» или «Вызов дня» (не кампания, не переигровка из коллекции).
@@ -208,6 +219,7 @@ static func _run_section_for(daily: bool) -> String:
 static func _file() -> ConfigFile:
 	if _cfg == null:
 		_cfg = SafeConfig.load_file(_path)
+		RunProgression.migrate(_cfg, _path)
 	return _cfg
 
 
@@ -216,12 +228,20 @@ static func _save() -> Error:
 	if _update_depth > 0:
 		_update_dirty = true
 		return OK
+	if int(_file().get_value(RunProgression.SECTION, "version", 0)) != RunProgression.VERSION:
+		# Миграция в этой сессии уже отказывала (диск был недоступен) и _cfg держит откат: пробуем
+		# ещё раз (J9) — иначе играть можно, а сохранить итоги нельзя до перезапуска.
+		if not RunProgression.migrate(_file(), _path):
+			return ERR_FILE_CORRUPT
 	var err := SafeConfig.save_file(_file(), _path)
 	if err != OK:
 		push_warning("Campaign: не удалось сохранить %s (%d)" % [_path, err])
 	return err
 
 
+## Повтор записи из памяти после отказа диска (J2): содержимое не меняется — идемпотентно.
+static func save_now() -> bool:
+	return _save() == OK
 ## Связанные изменения (покупка, награды за бой) попадают на диск одним целым.
 static func begin_update() -> void:
 	if _update_depth == 0:
@@ -370,15 +390,20 @@ static func upgrades() -> Array[StringName]:
 	var raw: Array = _file().get_value(_meta_section(), "upgrades", [])
 	var out: Array[StringName] = []
 	for id in raw:
-		out.append(StringName(id))
+		var sid := StringName(String(id))
+		if not AmendmentDb.card(sid).is_empty() and not out.has(sid) \
+				and out.size() < AmendmentDb.MAX_ACTIVE:
+			out.append(sid)
 	return out
 
 
 static func add_upgrade(id: StringName) -> void:
-	var raw: Array = _file().get_value(_meta_section(), "upgrades", [])
-	if raw.has(String(id)):
+	var mapped := id if not AmendmentDb.card(id).is_empty() else \
+		StringName(AmendmentDb.LEGACY_MAP.get(String(id), ""))
+	var raw := upgrades()
+	if mapped == &"" or raw.has(mapped) or raw.size() >= AmendmentDb.MAX_ACTIVE:
 		return
-	raw.append(String(id))
+	raw.append(mapped)
 	_file().set_value(_meta_section(), "upgrades", raw)
 	_save()
 
@@ -403,19 +428,7 @@ static func set_run_items(ids: Array[StringName]) -> void:
 ## Три случайные ещё не взятые поправки (меньше, если пул почти выбран целиком). Поправка про
 ## то, что кампания ещё не открыла (needs — ключ открытия), не предлагается (B-096).
 static func offer_upgrades(rng: RandomNumberGenerator) -> Array[StringName]:
-	var taken := upgrades()
-	var opened := _unlock_mods()
-	var pool: Array[StringName] = []
-	for id in LegionMetaCfg.UPGRADE_ORDER:
-		var sid := StringName(id)
-		var needs := String((LegionMetaCfg.UPGRADE_POOL.get(id, {}) as Dictionary).get("needs", ""))
-		if needs != "" and float(opened.get(needs, 0.0)) < 0.5:
-			continue
-		if not taken.has(sid):
-			pool.append(sid)
-	_shuffle(pool, rng)
-	var count := mini(3, pool.size())
-	return pool.slice(0, count)
+	return RunProgression.offer(rng)
 
 
 static func _shuffle(arr: Array, rng: RandomNumberGenerator) -> void:
@@ -426,16 +439,35 @@ static func _shuffle(arr: Array, rng: RandomNumberGenerator) -> void:
 		arr[j] = tmp
 
 
-## Сумма эффектов всех взятых поправок, по ключу effect.key (LegionMetaCfg.UPGRADE_POOL).
+## Свод эффектов всех взятых поправок по ключу (правило — MetaMods.combine). КАЖДАЯ КАРТОЧКА —
+## отдельный источник: ключ-множитель от разных карточек перемножается, прибавочный складывается.
+## Форма возврата прежняя, прибавочная (множитель = 1 + значение), поэтому `world.mods` не менялся.
 static func active_mods() -> Dictionary:
+	var parts := {}
+	for id in upgrades():
+		var card_mods: Dictionary = AmendmentDb.card(id).get("mods", {})
+		for k: String in card_mods:
+			if not parts.has(k):
+				parts[k] = []
+			(parts[k] as Array).append(float(card_mods[k]))
+	var out := {}
+	for k: String in parts:
+		out[k] = MetaMods.combine(StringName(k), parts[k])
+	return out
+
+
+## Ключ-множитель — делегат к MetaMods (E-1005): вид ключа объявлен один раз на проект.
+static func is_mult_key(key: StringName) -> bool:
+	return MetaMods.is_mult_key(key)
+
+
+static func active_rules() -> Dictionary:
 	var out := {}
 	for id in upgrades():
-		var data: Dictionary = LegionMetaCfg.UPGRADE_POOL.get(String(id), {})
-		var eff: Dictionary = data.get("effect", {})
-		if eff.is_empty():
-			continue
-		var key := String(eff["key"])
-		out[key] = float(out.get(key, 0.0)) + float(eff["value"])
+		var card := AmendmentDb.card(id)
+		var rule := String(card.get("rule", ""))
+		if rule != "":
+			out[rule] = card.get("params", {}).duplicate()
 	return out
 
 
@@ -443,24 +475,20 @@ static func active_mods() -> Dictionary:
 ## значение параметра боя с поправками (позже — покупками «Конторы» и перками героя). Бой читает
 ## только его и сам покупки не разбирает. Звать при старте карты, не в кадре (читает сохранение).
 ##
-## Правило нейтрального значения — по имени ключа:
-##   * МНОЖИТЕЛЬ — ключ оканчивается на `_mult` или содержит `_mult_` (cap_mult_<kind>,
-##     respawn_mult_<kind>, charge_dmg_mult, charge_speed_mult, production_mult): нейтрально 1.0;
-##   * всё остальное — ПРИБАВКА к базовому числу LegionCfg: нейтрально 0.0 (recruit_r_<kind> —
-##     прибавка к радиусу набора, seg_ttl_bonus_<kind>, mana_max_bonus, mana_regen_bonus,
-##     start_souls, ability_rank_q|w|e — ранги сверх базового, perk_<id> — 0/1, army_cap_bonus…).
-## Нынешние поправки к договору хранят и множители как прибавку (0.25 = +25 %), поэтому для
-## ключа-множителя их сумма возвращается как 1 + сумма (как их применяет LegionWorld.mod_mult).
+## Нейтраль — по виду ключа (MetaMods.is_mult_key): множитель 1.0, прибавка 0.0. Свод источников —
+## MetaMods.combine (множитель ∏(1+v), прибавка Σv). extra — дополнительные источники (у боя это
+## подготовка «Конторы»): сводятся тем же правилом.
 ##
-## v15 (пакет meta, DESIGN_V15 §7, §11, §12 п.8–9): источник суммы — не только поправки к
+## v15 (пакет meta, DESIGN_V15 §7, §11, §12 п.8–9): источник свода — не только поправки к
 ## договору (active_mods), но и покупки «Конторы», ранги/перки героя и открытия кампанией —
-## все они складываются в один плоский набор «ключ → прибавка» (_all_mods, закэширован,
+## все они сводятся в один плоский набор «ключ → прибавка» (_all_mods, закэширован,
 ## сбрасывается любой записью в сохранение — _save()). Порядок «база → ранг → перк → мета»
 ## (§12 п.8) для способностей — дело пакета hero (он читает ability_rank_q|w|e и perk_<id>
-## отдельно и сам решает порядок применения); здесь все источники равноправно суммируются
-## по ключу, это и есть «мета» на конце цепочки.
-static func stat(key: StringName) -> float:
+## отдельно и сам решает порядок применения).
+static func stat(key: StringName, extra: Array = []) -> float:
 	var add := float(_all_mods().get(String(key), 0.0))
+	for v: Variant in extra:
+		add = MetaMods.combine(key, [add, float(v)])
 	return 1.0 + add if is_mult_key(key) else add
 
 
@@ -468,18 +496,16 @@ static func _all_mods() -> Dictionary:
 	if not _mods_cache_valid:
 		var out := {}
 		_merge_mods(out, active_mods())
-		_merge_mods(out, _legacy_army_mods())
-		_merge_mods(out, _shop_mods())
-		_merge_mods(out, _hero_mods())
 		_merge_mods(out, _unlock_mods())
 		_mods_cache = out
 		_mods_cache_valid = true
 	return _mods_cache
 
 
+## Слияние двух наборов «ключ → прибавка» (E-1005): `from` — один источник, правило — MetaMods.
 static func _merge_mods(into: Dictionary, from: Dictionary) -> void:
-	for k in from:
-		into[k] = float(into.get(k, 0.0)) + float(from[k])
+	for k: String in from:
+		into[k] = MetaMods.combine(StringName(k), [float(into.get(k, 0.0)), float(from[k])])
 
 
 ## Согласование с координатором v15 (2026-09-25): мир больше не читает поправки
@@ -515,12 +541,6 @@ static func _legacy_army_mods() -> Dictionary:
 	return out
 
 
-## Ключ-множитель по правилу имени (докстринг stat()).
-static func is_mult_key(key: StringName) -> bool:
-	var k := String(key)
-	return k.ends_with("_mult") or k.contains("_mult_")
-
-
 ## Награда (поправка к договору) за победу, ещё не забранная игроком — id карты, куда вести
 ## после выбора (ревью 2026-09-24 п.4: раньше хранилась только в памяти LegionMain и терялась,
 ## если игрок уходил в «Меню», не нажав «Дальше»). "" — нет ожидающей награды.
@@ -535,12 +555,16 @@ static func set_pending_reward(next_map_id: String) -> void:
 		return
 	_file().set_value(_meta_section(), "pending_reward", next_map_id)
 	_file().set_value(_meta_section(), "reward_claimed", false)
+	_file().set_value(_meta_section(), "draft_options", [])
+	RunProgression.clear_stage()
 	_save()
 
 
 static func clear_pending_reward() -> void:
 	_file().set_value(_meta_section(), "pending_reward", "")
 	_file().set_value(_meta_section(), "reward_claimed", false)
+	_file().set_value(_meta_section(), "draft_options", [])
+	RunProgression.clear_stage()
 	_save()
 
 
@@ -552,14 +576,26 @@ static func reward_claimed() -> bool:
 static func claim_reward(id: StringName = &"") -> bool:
 	if pending_reward() == "" or reward_claimed():
 		return false
-	if id != &"" and (not LegionMetaCfg.UPGRADE_POOL.has(String(id)) or upgrades().has(id)):
+	if id != &"" and (not RunProgression.available(id) or upgrades().has(id)):
+		return false
+	var slot := RunProgression.replacement_slot()
+	if id != &"" and upgrades().size() >= AmendmentDb.MAX_ACTIVE and slot < 0:
 		return false
 	begin_update()
 	if id != &"":
-		add_upgrade(id)
+		var active := upgrades()
+		if slot >= 0:
+			active[slot] = id
+		else:
+			active.append(id)
+		_file().set_value(_meta_section(), "upgrades", active)
 	_file().set_value(_meta_section(), "reward_claimed", true)
+	_file().set_value(_meta_section(), "draft_options", [])
 	_save()
-	return end_update(true)
+	var ok := end_update(true)
+	if ok:
+		RunProgression.clear_stage()
+	return ok
 
 
 ## Баг мастера (verifier 27.09, п.5): свежий запуск с незабранной наградой шёл в
@@ -609,7 +645,7 @@ static func _add_bounty(amount: int) -> void:
 
 
 ## Публичная обёртка — _add_bounty остаётся приватной по имени ради существующих тестов
-## (legion_tree_test.gd/legion_ui_preview.gd зовут Campaign._add_bounty() напрямую).
+## (legion_ui_preview.gd зовёт Campaign._add_bounty() напрямую).
 static func add_bounty(amount: int) -> void:
 	_add_bounty(amount)
 
@@ -670,14 +706,8 @@ static func shop_cost(id: String, kind: String = "") -> int:
 
 
 static func shop_buy(id: String, kind: String = "") -> bool:
-	var cost := shop_cost(id, kind)
-	if cost < 0 or bounty() < cost:
-		return false
-	begin_update()
-	_add_bounty(-cost)
-	_file().set_value(_meta_section(), _shop_save_key(id, kind), shop_level(id, kind) + 1)
-	_save()
-	return end_update(true)
+	# Цепочки процентов заменены услугами; старый API не даёт купить неработающий бонус.
+	return RunProgression.buy_service(id) if kind == "" else false
 
 
 ## Прибавки покупок «Конторы» в ключи Campaign.stat() (recruit_r_<kind>, cap_mult_<kind>, …) —
@@ -949,6 +979,8 @@ static func has_progress() -> bool:
 ## Сброс прогресса (кнопка «Сначала», если понадобится) — стирает файл, не только кэш.
 static func reset() -> void:
 	_cfg = ConfigFile.new()
+	_cfg.set_value(RunProgression.SECTION, "version", RunProgression.VERSION)
+	RunProgression.clear_stage()
 	_update_depth = 0
 	_update_dirty = false
 	var err := SafeConfig.save_file(_cfg, _path, true)

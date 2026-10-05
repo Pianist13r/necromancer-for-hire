@@ -44,16 +44,7 @@ func _ready() -> void:
 		"menu_pvp")
 	online.pressed.connect(func() -> void: net.emit())
 	box.add_child(online)
-	var back_btn := Button.new()
-	back_btn.name = "PvpBack"
-	back_btn.text = "Назад"
-	back_btn.custom_minimum_size = Vector2(190.0, 44.0)
-	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	back_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	back_btn.add_theme_font_size_override("font_size", 22)
-	UiStyle.style_button(back_btn)
-	back_btn.pressed.connect(func() -> void: back.emit())
-	box.add_child(back_btn)
+	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
 	duel.grab_focus.call_deferred()
 
 

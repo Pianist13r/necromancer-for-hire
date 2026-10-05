@@ -489,8 +489,13 @@ func _test_mechanics() -> void:
 		for id in grant:
 			w.items.grant(id)
 		var f := _foe("zombie", p + Vector2(60, 0), 500.0)
+		# E-1005: «Рупор» оглушает только за НАСТОЯЩИЙ сбор — без бойца в радиусе (RALLY_R)
+		# «Сбор» никого не позовёт (n = 0) и оглушения не будет. Зовём одного живого.
+		var u := w.spawn_unit(LegionCfg.KIND_LABORER, p + Vector2(30, 0))
 		w.rally_cd = 0.0
-		w.rally(p)
+		var called := w.rally(p)
+		_check(called == 1, "«Сбор» позвал бойца (%d)" % called)
+		u.take_damage(100000.0, u.position)
 		_check((f.stun_t > 0.0) == (not grant.is_empty()), "«Рупор» %s: оглушение %.1f"
 			% ["есть" if grant else "нет", f.stun_t])
 	# «Печать на Котле»: удар по Котлу — взрыв вокруг

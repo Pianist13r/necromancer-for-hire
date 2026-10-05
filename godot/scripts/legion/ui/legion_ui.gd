@@ -149,6 +149,62 @@ static func label(text: String, size: int, font: Font = FONT_TEXT, color: Color 
 	return l
 
 
+## Общая нижняя панель: возврат слева, главное действие справа. Центр свободен для услуг.
+static func nav_bar(parent: Control, left_text: String, on_back: Callable,
+		right_text := "", on_next: Callable = Callable()) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "Navigation"
+	parent.add_child(row)
+	row.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	row.offset_left = 24
+	row.offset_right = -24
+	row.offset_top = -76
+	row.offset_bottom = -24
+	row.add_theme_constant_override("separation", 14)
+	var back := ProgressionUi.button(left_text, on_back)
+	back.name = "NavBack"
+	style_button(back, INK, 20)
+	row.add_child(back)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	if right_text != "":
+		var next := ProgressionUi.button(right_text, on_next)
+		next.name = "NavPrimary"
+		next.custom_minimum_size = Vector2(220, 52)
+		style_button(next, GOLD, 22)
+		row.add_child(next)
+		var shortcut := Shortcut.new()
+		var key := InputEventKey.new()
+		key.keycode = KEY_ENTER
+		shortcut.events = [key]
+		next.shortcut = shortcut
+	var cancel := Shortcut.new()
+	var escape := InputEventKey.new()
+	escape.keycode = KEY_ESCAPE
+	cancel.events = [escape]
+	back.shortcut = cancel
+	return row
+
+
+static func confirm(parent: Node, message: String, action: Callable) -> void:
+	for child in parent.get_children():
+		if child is ConfirmationDialog and not child.is_queued_for_deletion():
+			return
+	var dialog := ConfirmationDialog.new()
+	dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+	dialog.dialog_text = message
+	dialog.ok_button_text = "Подтвердить"
+	dialog.cancel_button_text = "Отмена"
+	parent.add_child(dialog)
+	dialog.confirmed.connect(func() -> void:
+		dialog.queue_free()
+		action.call())
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.popup_centered(Vector2i(480, 180))
+
+
 # ── Штамп ───────────────────────────────────────────────────────────────────
 
 ## Штамп-бейдж: прямоугольник красных (или любых) чернил под небольшим углом, двойной контур,

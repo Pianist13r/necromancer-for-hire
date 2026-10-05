@@ -693,6 +693,17 @@
       ]
     }
   ],
+  "lessons": [
+    {
+      "id": "sling_one",
+      "voice": "lg_tut_sling_one",
+      "when": "start",
+      "hold": 25,
+      "done": "figure_slung:square",
+      "mark": {"at": [470, 380], "r": 90},
+      "text": "Рогатка берёт ОДНУ фигуру: наведите ПКМ, оттяните и отпустите — уйдёт она одна, соседняя останется."
+    }
+  ],
   "plots": [
     {
       "id": "p1",

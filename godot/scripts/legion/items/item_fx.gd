@@ -17,6 +17,8 @@ var world: LegionWorld = null
 var _vfx: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 var _drawn := false
+## Ограничиваем только вид; механические счётчики продолжают учитывать все события.
+var _recent: Dictionary = {}
 
 
 func setup(w: LegionWorld) -> void:
@@ -35,6 +37,12 @@ func _connect_sides() -> void:
 
 
 func _on_fx(kind: StringName, data: Dictionary) -> void:
+	if kind == &"used":
+		var key := "%s:%s" % [data.get("side", 0), data.get("id", &"")]
+		var previous := float(_recent.get(key, -INF))
+		if world.now >= previous and world.now - previous < 0.8:
+			return
+		_recent[key] = world.now
 	var d := data.duplicate()
 	d["kind"] = kind
 	d["t0"] = world.now
@@ -50,8 +58,8 @@ func _life(kind: StringName) -> float:
 			return HEAL_T
 		&"text":
 			return TEXT_T
-		&"echo":
-			return ECHO_T
+		&"echo", &"used":
+			return ECHO_T if kind == &"echo" else 0.8
 		&"gain":
 			return CfgItems.GAIN_RING_T
 	return CfgItems.FX_FLASH_T
@@ -100,6 +108,24 @@ func _draw() -> void:
 				var c: Color = d["color"]
 				LegionUi.draw_text(self, at, String(d["text"]), PvpView.fs(world, TEXT_FONT),
 					Color(c, 1.0 - k * k), LegionUi.FONT_TITLE)
+			&"used":
+				_draw_used(d, k)
+
+
+## Значок над местом эффекта соединяет событие с постоянным инвентарём, без текстового спама.
+func _draw_used(d: Dictionary, k: float) -> void:
+	var id := StringName(d["id"])
+	var icon := LegionIcons.tex(LegionItemDb.icon_name(id))
+	if icon == null:
+		return
+	var at: Vector2 = d["pos"] + Vector2(0, -38.0 - 12.0 * k)
+	var c: Color = LegionItemDb.look(id).get("color", LegionUi.GOLD)
+	var half := 18.0 * (1.0 + 0.15 * sin(k * PI))
+	draw_circle(at, half + 5, Color(LegionUi.PAPER_HI, 0.95 * (1.0 - k)))
+	draw_texture_rect(icon, Rect2(at - Vector2.ONE * half, Vector2.ONE * half * 2.0),
+		false, Color(1, 1, 1, 1.0 - k))
+	draw_arc(at, half + 5, -PI * 0.5, TAU * (1.0 - k) - PI * 0.5, 24,
+		Color(c, 1.0 - k), 2.0, true)
 
 
 

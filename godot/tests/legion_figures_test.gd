@@ -1,7 +1,11 @@
+# gdlint: disable=max-file-lines
 extends SceneTree
 ##
-## Фигуры D-1002-03 (Игорь 02.10.2026): звезду убрали — её трудно нарисовать, а обряд почти не
-## набрать. Треугольник — «Обряд» попроще, квадрат — «Каре».
+## Фигуры D-1002-03 (Игорь 02.10.2026) и D-1002 (05.10.2026). Треугольник — «Обряд», квадрат —
+## «Каре»; с 05.10 бойцы этих фигур стоят ТОЛЬКО на углах, ульта — только у ЗАРЯЖЕННОГО строя
+## (1,5 с заполнения порога), а распознавание знает ещё «Комиссию» (пятиугольник), «Неустойку»
+## (полукруг «D») и мини-размер 48…112 px. Места, заряд, цена и «D» против круга/линий —
+## в tests/legion_corners_test.gd.
 ##
 ##   "$GODOT" --headless --path godot --fixed-fps 60
 ##       --script res://tests/legion_figures_test.gd -- --mute
@@ -12,14 +16,16 @@ extends SceneTree
 ##    клин, пяти- и шестиугольник, «бабочка», невыпуклый четырёхугольник, звезда — нет;
 ##    серии случайных фигур «рукой»: ≥ 90 % признаны, ни одного перепутанного; круги — ни одного
 ##    многоугольника;
-## 2) «Обряд» треугольника: хватает половины мест; срабатывает при самотаянии, ПКМ, рогатке и
-##    Табе; гибель бойцов строя его не срывает; недобор — без обряда; удар — от размера фигуры;
-## 3) «Каре»: боец на квадрате получает меньше урона, давка квадрат не прогибает и не
-##    прорывает, квадрат тает дольше;
-## 4) звезда больше не фигура; открытия: «Лабиринт» даёт треугольник, «Болото» — квадрат;
+## 2) «Обряд» треугольника: мест три (по углам), порог заряда 2/3 держится 1,5 с; срабатывает
+##    при самотаянии, ПКМ, рогатке и Табе; потеря одного бойца заряд не рвёт; недобор —
+##    без обряда; удар — от размера фигуры; ранний выпуск ульты не даёт;
+## 3) «Каре»: четверо на углах; боец получает меньше урона, давка квадрат не прогибает и не
+##    прорывает, квадрат тает дольше, заряженный срыв (3 из 4) даёт защиту участникам;
+## 4) звезда больше не фигура; открытия: «Лабиринт» — треугольник и «Комиссия», «Болото» —
+##    квадрат и «Неустойка»; шестиугольник не фигура, а «D» — «Неустойка»;
 ##    старое сохранение с показанной звездой не падает и узнаёт про треугольник;
-## 5) уроки: «Лабиринт» — треугольник, «Болото» — квадрат, без голоса; на «Лабиринте» штрих
-##    по шаблону урока набирает половину строя стартовой армией, и обряд срабатывает.
+## 5) уроки: «Мост» — треугольник, «Болото» — квадрат, оба кончаются заряженным срывом; на
+##    «Мосте» штрих по шаблону урока набирает порог заряда стартовой армией, и обряд срабатывает.
 ## Новый API — через get()/call(): на старом коде тест не падает разбором, а проваливает
 ## проверки. Итог «LEGION FIGURES: N/M OK»; код выхода 1, если что-то упало.
 ##
@@ -72,6 +78,7 @@ func _run() -> void:
 	_test_corpus()
 	_test_random()
 	_test_fast()
+	_test_charge()
 	_test_rite()
 	_test_square()
 	_test_hints()
@@ -240,11 +247,27 @@ func _test_corpus() -> void:
 	for name: String in squares:
 		var f := _fig(squares[name])
 		_check(f == &"square", "квадрат: %s → «%s» (%.0f px)" % [name, f, _len(squares[name])])
+	# D-1002: пятиугольник — «Комиссия», «D» (прямая + дуга) — «Неустойка», мелкий треугольник —
+	# мини-треугольник; шестиугольник остаётся линией (н>5 не фигура)
+	var d_shape := _open([o + Vector2(0, 70), o + Vector2(0, -70)])
+	d_shape.append_array(_arc(o, 70, 70, -PI * 0.5, PI, 0.0, 1.0))
+	var positives := {
+		"пятиугольник r85": _shape(_ngon(o, 5, 85, -PI * 0.5), 0.0, 0.0, 0, 1.5),
+		"пятиугольник рукой (дрожь 2 px)": _shape(_ngon(o, 5, 90, 0.7), 0.4, 8.0, 1, 2.0),
+		"пятиугольник против часовой": _shape(_ngon(o, 5, 88, 1.1, -1.0), 0.0, 0.0, 0, 1.5),
+		"полукруг «D»": d_shape,
+		"малый треугольник (~180 px)": _shape(_ngon(o, 3, 35, -PI * 0.5)),
+	}
+	for name: String in positives:
+		var want := &"d_shape" if name.begins_with("полукруг") else &"triangle" \
+			if name.begins_with("малый") else &"pentagon"
+		var f := _fig(positives[name])
+		_check(f == want, "%s → «%s» (ждали «%s»)" % [name, f, want])
 	var negatives := _negatives(o)
 	for name: String in negatives:
 		var f := _fig(negatives[name])
-		_check(f != &"triangle" and f != &"square" and f != &"?",
-			"не треугольник и не квадрат: %s → «%s»" % [name, f])
+		_check(f != &"triangle" and f != &"square" and f != &"pentagon" and f != &"d_shape" \
+			and f != &"?", "не угловая фигура: %s → «%s»" % [name, f])
 	# круг и восьмёрка — по-прежнему свои фигуры
 	_check(_fig(negatives["круг рукой"]) == &"ring", "круг рукой → «ring»")
 	_check(_fig(negatives["овал 2:1 рукой"]) == &"ring", "овал 2:1 рукой → «ring»")
@@ -309,12 +332,10 @@ func _negatives(o: Vector2) -> Dictionary:
 		"V": _open([o + Vector2(-90, -100), o + Vector2(0, 80), o + Vector2(90, -100)], 1.5),
 		"зигзаг": _open(zig, 1.0),
 		"замкнутый зигзаг-«молния»": _open(closed_zig, 1.0),
-		"«D»": d_shape,
 		"сильно скруглённый квадрат": squircle,
 		"ромб-«почти круг» (скруглён весь)": diamond_round,
 		"вытянутый клин 300 × 40": _shape([o + Vector2(-150, 20), o + Vector2(150, 20),
 			o + Vector2(0, -20)]),
-		"пятиугольник": _shape(_ngon(o, 5, 80, -PI * 0.5), 0.0, 0.0, 0, 1.5),
 		"шестиугольник": _shape(_ngon(o, 6, 80, 0.0), 0.0, 0.0, 0, 1.5),
 		"«бабочка» (перекрещенный четырёхугольник)": _shape([o + Vector2(-70, -70),
 			o + Vector2(70, 70), o + Vector2(70, -70), o + Vector2(-70, 70)]),
@@ -322,7 +343,8 @@ func _negatives(o: Vector2) -> Dictionary:
 			o + Vector2(0, -90), o + Vector2(80, 70), o + Vector2(0, 10)]),
 		"треугольник с незамкнутым концом (60 px)": _shape(_ngon(o, 3, 70, -PI * 0.5), 0.0,
 			60.0),
-		"малый треугольник (~180 px)": _shape(_ngon(o, 3, 35, -PI * 0.5)),
+		# D-1002: «D», пятиугольник и малый (~180 px, bbox 60) треугольник — уже фигуры: их
+		# проверяют положительные корпуса ниже (малый — мини-треугольник)
 	}
 	return negs
 
@@ -619,11 +641,49 @@ func _rites() -> int:
 
 # ── 2. «Обряд» треугольника ──────────────────────────────────────────────────
 
+## Заряд фигуры: держать порог порог не меньше FigureCfg.CHARGE_TIME боя.
+static func _charge_secs() -> float:
+	return float(FigureCfg.CHARGE_TIME)
+
+
+func _test_charge() -> void:
+	print("— подготовка фигуры (заряд)")
+	_fresh()
+	var c := _tri()
+	if c == null:
+		_check(false, "договор-треугольник собран")
+		return
+	_check(c.posts.size() == 3 and c.corners_only, "треугольник: 3 места на углах")
+	_check(c.charge_need() == 2, "заряд с двух мест (2/3): %d" % c.charge_need())
+	_man(c, 0.66)
+	_steps(_charge_secs() * 0.5)
+	_check(not c.charge_ready() and c.charge_t > 0.0,
+		"половина подготовки заряда — ульты нет (%.2f с)" % c.charge_t)
+	_steps(_charge_secs())
+	_check(c.charge_ready(), "полный срок непрерывного строя — заряд готов")
+	# недобор сбрасывает подготовку
+	var u: Legionnaire = c.posts[0]["unit"]
+	u.take_damage(99999.0, u.position + Vector2(5, 0))
+	_steps(0.1)
+	_check(not c.charge_ready() and c.charge_t == 0.0,
+		"потеря участника сбрасывает заряд (осталось %d из %d)" % [c.posted_posts(), c.charge_need()])
+	# ранний выпуск — обычный натиск без ульты
+	_fresh()
+	c = _tri()
+	if c == null:
+		return
+	_man(c, 0.66)
+	_steps(0.2)
+	w.contracts.release(c, 0)
+	_check(_rites() == 0, "ранний выпуск (заряд %.2f с) — без обряда" % c.charge_t)
+	_check(_live(c) == 0, "фигура всё равно сорвана")
+
+
 func _test_rite() -> void:
 	print("— «Обряд» треугольника")
 	var fill := float(_cfg("RITE_FILL", 0.7))
-	_check(absf(fill - 0.5) < 0.051, "хватает половины мест: RITE_FILL = %.2f" % fill)
-	# самотаяние, половина строя
+	_check(absf(fill - 2.0 / 3.0) < 0.01, "порог заряда — двое из трёх: RITE_FILL = %.2f" % fill)
+	# самотаяние заряженного строя
 	_fresh()
 	var c := _tri()
 	_check(c != null, "договор-треугольник собран")
@@ -632,17 +692,17 @@ func _test_rite() -> void:
 	var tips: PackedVector2Array = c.get("tips")
 	_check(tips.size() == 3 and c.center.distance_to(FC) < 15.0,
 		"3 вершины, центр у центра фигуры: %s" % c.center)
-	var squad := _man(c, 0.5)
+	var squad := _man(c, 0.66)
 	var tough := _still_foe(c.center + Vector2(12, 4))
 	var weak := _still_foe(c.center + Vector2(-20, 10), 20.0)
 	var corpse := _still_foe(c.center + Vector2(0, -20), 5.0)
 	corpse.take_damage(50.0, corpse.position)
 	var outside := _still_foe(c.center + Vector2(300, 0))
-	_steps(0.1)
+	_steps(_charge_secs() + 0.1)
 	var vassals0: int = w.hero.vassal_count()
 	var hp0 := tough.hp
 	_melt_all(c)
-	_check(_rites() == 1, "самотаяние при половине мест (%d из %d) — обряд"
+	_check(_rites() == 1, "самотаяние заряженного строя (%d из %d) — обряд"
 		% [squad.size(), c.posts.size()])
 	_check(hp0 - tough.hp >= float(_cfg("RITE_DMG", 45.0)) - 0.01 and tough.is_stunned(),
 		"удар в центре: урон %.0f и оглушение" % (hp0 - tough.hp))
@@ -666,15 +726,15 @@ func _test_rite() -> void:
 		inward = inward and u.state == Legionnaire.State.CHARGE \
 			and u._charge_dir.dot((c.center - u.position).normalized()) > 0.95
 	_check(buffed and inward, "участники усилены и бегут к центру")
-	# ПКМ (щелчок), рогатка и Таб — тоже обряд
+	# ПКМ (щелчок), рогатка и Таб — тоже обряд, но только у ЗАРЯЖЕННОГО строя
 	for how: String in ["ПКМ", "рогатка", "Таб"]:
 		_fresh()
 		c = _tri()
 		if c == null:
 			_check(false, "договор-треугольник собран (%s)" % how)
 			continue
-		_man(c, 0.55)
-		_steps(0.1)
+		_man(c, 0.66)
+		_steps(_charge_secs() + 0.1)
 		match how:
 			"ПКМ":
 				w.contracts.release(c, 1)
@@ -682,36 +742,39 @@ func _test_rite() -> void:
 				w.contracts.release_aimed(c, 1, Vector2.UP, 0.8, false)
 			"Таб":
 				w.contracts.erase(c, 1)
-		_check(_live(c) == 0 and _rites() == 1, "%s по треугольнику со строем — обряд (обрядов %d)"
+		_check(_live(c) == 0 and _rites() == 1, "%s по заряженному треугольнику — обряд (обрядов %d)"
 			% [how, _rites()])
-	# потери строя не срывают
+	# потеря ОДНОГО бойца порог заряда не рвёт (2 из 3 ещё стоят)
 	_fresh()
 	c = _tri()
 	if c == null:
 		return
-	squad = _man(c, 0.8)
-	_steps(0.1)
+	squad = _man(c, 1.0)
+	_steps(0.05)
 	squad[1].take_damage(99999.0, squad[1].position + Vector2(5, 0))
-	squad[4].take_damage(99999.0, squad[4].position + Vector2(5, 0))
 	_steps(DT * 2.0)
-	_check(_live(c) == c.seg_count(), "гибель двух бойцов строя треугольник не рвёт")
+	_check(_live(c) == c.seg_count(), "гибель бойца строя треугольник не рвёт")
+	_steps(_charge_secs() + 0.1)
+	_check(c.charge_ready(), "двое из трёх держат заряд после потери третьего")
 	_melt_all(c)
 	_check(_rites() == 1 and int(w.stats.get("rites_broken", 0)) == 0,
-		"после потерь — обряд всё равно (обрядов %d)" % _rites())
+		"после потери — обряд всё равно (обрядов %d)" % _rites())
 	# недобор
 	_fresh()
 	c = _tri()
 	if c == null:
 		return
 	_man(c, 0.3)
+	_steps(_charge_secs() + 0.2)
 	_melt_all(c)
-	_check(_live(c) == 0 and _rites() == 0, "занято 30 % мест — без обряда")
+	_check(_live(c) == 0 and _rites() == 0, "занят один угол из трёх — заряда нет, обряда нет")
 	_fresh()
 	c = _tri()
 	if c != null:
 		_man(c, 0.3)
+		_steps(_charge_secs() + 0.2)
 		w.contracts.release(c, 0)
-		_check(_rites() == 0, "ПКМ при 30 % мест — без обряда")
+		_check(_rites() == 0, "ПКМ при одном занятом угле — без обряда")
 
 
 # ── 3. «Каре» ────────────────────────────────────────────────────────────────
@@ -805,9 +868,27 @@ func _test_square() -> void:
 	# «Каре» — не «Обряд»: срыв без удара в центре
 	_fresh()
 	c = _sq()
+	if c == null:
+		return
 	_man(c)
 	_melt_all(c)
 	_check(_live(c) == 0 and _rites() == 0, "квадрат растаял — без обряда")
+	# заряженный выпуск каре: участники держат защиту (входящий урон ×SQUARE_GUARD_MULT)
+	_fresh()
+	c = _sq()
+	if c == null:
+		return
+	_check(c.posts.size() == 4 and c.corners_only and c.charge_need() == 3,
+		"каре: 4 угла, заряд с трёх")
+	var sq := _man(c, 1.0)
+	_steps(_charge_secs() + 0.1)
+	_check(c.charge_ready(), "каре заряжено")
+	w.contracts.release(c, 0)
+	var guarded := true
+	for u in sq:
+		guarded = guarded and u.alive and float(u.get("guard_dmg_mult")) < 1.0
+	_check(guarded and int(w.stats.get("guards", 0)) == 1,
+		"заряженный срыв каре даёт защиту участникам (%d)" % int(w.stats.get("guards", 0)))
 
 
 # ── 3а. Советы поля ──────────────────────────────────────────────────────────
@@ -828,9 +909,13 @@ func _test_hints() -> void:
 	_man(c, 0.3)
 	w.intuit.scan()
 	_check(_hints(&"rite") == 0, "треугольник недобран — совета «Обряд» нет")
-	_man(c, 0.55)
+	_man(c, 0.66)
 	w.intuit.scan()
-	_check(_hints(&"rite") == 1, "набрано полстроя — совет «сорви: «Обряд!»» (%d)" % _hints(&"rite"))
+	_check(_hints(&"rite") == 0, "двое из трёх, но без заряда — совета «Обряд» нет")
+	_steps(_charge_secs() + 0.1)
+	w.intuit.scan()
+	_check(_hints(&"rite") == 1, "набрано и заряжено — совет «сорви: «Обряд!»» (%d)"
+		% _hints(&"rite"))
 	_fresh()
 	var line := w.contracts.add_contract(_open([Vector2(1060, 300), Vector2(1060, 520)]), 1,
 		false)
@@ -894,23 +979,29 @@ func _test_unlocks() -> void:
 	var upto_maze := ["gatehouse", "fork", "archive", "bridge", "maze"]
 	Campaign._file().set_value("progress", "unlocked", upto_maze)
 	Campaign._mods_cache_valid = false
+	# D-1002: «Лабиринт» открывает ещё и «Комиссию» (пятиугольник) своим уроком
 	_check(Campaign.stat(&"shape_unlocked_triangle") > 0.5
+		and Campaign.stat(&"shape_unlocked_pentagon") > 0.5
 		and Campaign.stat(&"shape_unlocked_square") < 0.5
 		and Campaign.stat(&"shape_unlocked_star") < 0.5,
-		"«Лабиринт» открыт — треугольник есть, квадрата и звезды нет")
+		"«Лабиринт» открыт — треугольник и комиссия есть, квадрата и звезды нет")
 	# старое сохранение: звезду игроку уже показывали
 	Campaign._file().set_value("meta", "unlocks_seen",
 		["kind_guard", "aim", "rally", "ring", "hero_w", "hero_e", "eight", "kind_clerk", "items",
 		"star"])
 	var labels := Campaign.pending_unlock_labels()
-	_check(labels.size() == 1 and labels[0].contains("треугольник"),
+	_check(labels.size() == 2 and labels[0].contains("треугольник")
+		and labels[1].contains("пятиугольник"),
 		"старый ключ «star» не мешает: новое — %s" % str(labels))
 	Campaign.mark_unlocks_seen()
 	_check(Campaign.pending_unlock_labels().is_empty(), "отмечено показанным")
 	Campaign._file().set_value("progress", "unlocked", upto_maze + ["swamp"])
 	Campaign._mods_cache_valid = false
-	_check(Campaign.stat(&"shape_unlocked_square") > 0.5, "«Болото» открыто — квадрат есть")
-	_check(Campaign.pending_unlock_labels() == ["Фигура «Каре»: квадрат"],
+	_check(Campaign.stat(&"shape_unlocked_square") > 0.5
+		and Campaign.stat(&"shape_unlocked_d_shape") > 0.5,
+		"«Болото» открыто — квадрат и неустойка есть")
+	_check(Campaign.pending_unlock_labels() == ["Фигура «Каре»: квадрат",
+			"Фигура «Неустойка»: полукруг"],
 		"новое: %s" % str(Campaign.pending_unlock_labels()))
 	Campaign.reset()
 
@@ -928,13 +1019,13 @@ func _test_lessons() -> void:
 	print("— уроки фигур")
 	var tri := _lesson("bridge", "triangle")
 	var sq := _lesson("swamp", "square")
-	# D-1002-11: уроки фигур озвучены тем же голосом, что прежние уроки
-	_check(String(tri.get("done", "")) == "figure_made:triangle"
+	# D-1002: урок фигуры кончается ДЕЙСТВИЕМ — срывом заряженной фигуры, а не контуром
+	_check(String(tri.get("done", "")) == "figure_ult:triangle"
 		and String(tri.get("voice", "")) == "lg_tut_triangle",
-		"«Мост»: урок треугольника, голос lg_tut_triangle")
-	_check(String(sq.get("done", "")) == "figure_made:square"
+		"«Мост»: урок треугольника кончается заряженным срывом")
+	_check(String(sq.get("done", "")) == "figure_ult:square"
 		and String(sq.get("voice", "")) == "lg_tut_square",
-		"«Болото»: урок квадрата, голос lg_tut_square")
+		"«Болото»: урок квадрата кончается заряженным срывом")
 	for vid: String in ["lg_tut_triangle", "lg_tut_square"]:
 		var vs := load("res://assets/legion/voice/%s.ogg" % vid) as AudioStream
 		_check(vs != null and vs.get_length() > 3.0,
@@ -964,6 +1055,9 @@ func _test_lessons() -> void:
 		t += DT
 		if c.alive():
 			best = maxf(best, c.fill())
+	# зачёт урока приходит сигналом на том же шаге, что и ульта: движку нужен ещё кадр
+	for i in 5:
+		w._step(DT)
 	_check(tut.passed(&"triangle"), "урок треугольника засчитан")
 	_check(best >= float(_cfg("RITE_FILL", 0.7)),
 		"строй набран стартовой армией: %.0f %% из %d мест (армия %d)" % [best * 100.0,

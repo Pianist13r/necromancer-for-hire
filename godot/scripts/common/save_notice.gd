@@ -2,9 +2,14 @@ class_name SaveNotice
 extends CanvasLayer
 ## Ошибка диска должна быть видна игроку, а не только в консоли.
 
+## Маркер отказа ЗАПИСИ в тексте SafeConfig._failed — по нему плашка даёт кнопку повтора (J2/J8):
+## показанная награда не должна пропасть молча, а повтор кнопкой доводит запись до диска.
+const WRITE_FAILED := "Не удалось сохранить изменения"
+
 var _panel: PanelContainer
 var _text: Label
 var _dismiss: Button
+var _retry: Button
 var _paths: Array[String] = []
 var _last := ""
 
@@ -29,6 +34,11 @@ func _ready() -> void:
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_text)
+	_retry = Button.new()
+	_retry.text = "Повторить запись"
+	UiStyle.style_button(_retry)
+	_retry.pressed.connect(_retry_write)
+	row.add_child(_retry)
 	_dismiss = Button.new()
 	_dismiss.text = "Понятно"
 	UiStyle.style_button(_dismiss)
@@ -39,10 +49,20 @@ func _ready() -> void:
 	_panel.hide()
 
 
+## Повтор записи того, что уже лежит в памяти (награда, итог, настройки) — без выдачи чего-либо
+## второй раз. Успешная запись сама снимает плашку: SaveConfig.erase в save_file.
+func _retry_write() -> void:
+	if SafeConfig.notices.has(Campaign._path):
+		Campaign.save_now()
+	if SafeConfig.notices.has(Settings.path):
+		Settings.save_now()
+
+
 func _process(_delta: float) -> void:
 	_paths.clear()
 	var messages: PackedStringArray = []
 	var recoverable := true
+	var retriable := false
 	for path: String in [Campaign._path, Settings.path]:
 		if not SafeConfig.notices.has(path):
 			continue
@@ -51,10 +71,14 @@ func _process(_delta: float) -> void:
 		var label := "Настройки" if path == Settings.path else "Прогресс"
 		messages.append(label + ": " + message)
 		recoverable = recoverable and message.contains("резервной копии")
+		retriable = retriable or message.contains(WRITE_FAILED)
 	var combined := "\n".join(messages)
 	if combined == _last:
 		return
 	_last = combined
 	_text.text = combined
 	_panel.visible = not combined.is_empty()
+	# «Понятно» — только когда данные не пострадали (восстановление из копии); после отказа
+	# записи её место занимает «Повторить запись» (J2/J8).
 	_dismiss.visible = recoverable
+	_retry.visible = retriable

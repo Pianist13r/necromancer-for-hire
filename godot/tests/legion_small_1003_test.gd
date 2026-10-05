@@ -187,7 +187,11 @@ func _test_popup_then_hint() -> void:
 	w.intuit.scan()
 	_check(w.intuit.label_rect(&"rite") == Rect2(),
 		"пока всплывашка видна, совета «строй набран» нет")
-	for i in 70:   # PERFECT_POPUP_TIME 0,9 с
+	# Кадр боя — это И шаг мира, И real_tick (legion_world зовёт tick в _step, real_tick в
+	# _process): всплывашку гасит только real_tick, а заряд фигуры копит только tick. Кадров
+	# хватает на оба порога: PERFECT_POPUP_TIME 0,9 с и CHARGE_TIME 1,5 с (совет — заряженному).
+	for i in int(FigureCfg.CHARGE_TIME / (1.0 / 60.0)) + 6:
+		w._step(1.0 / 60.0)
 		w.contracts.real_tick(1.0 / 60.0)
 	_check(not w.contracts.fig_popup_alive(c), "всплывашка погасла")
 	w.intuit.scan()

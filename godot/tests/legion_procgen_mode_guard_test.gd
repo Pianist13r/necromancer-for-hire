@@ -137,8 +137,18 @@ func _test_tutorial_from_daily_pause() -> void:
 	for b in how.find_children("*", "Button", true, false):
 		has_tut = has_tut or (b as Button).text == "Обучение"
 	_check(not has_tut, "в бою дня кнопки «Обучение» в «Как играть» нет")
-	# кнопку убрали, но сигнал всё равно подаём — страховка флоу должна засчитать уход
+	# кнопку убрали, но сигнал всё равно подаём — страховка флоу должна засчитать уход.
+	# 14ac08a6: посреди боя «Обучение» сперва спрашивает подтверждение (бой будет прерван) —
+	# без него страховка не срабатывает, ровно как у выхода в меню (legion_endless_flow_test).
 	how.tutorial_pressed.emit()
+	await _frames(2)
+	var confirm: ConfirmationDialog = null
+	for c in how.get_children():
+		if c is ConfirmationDialog:
+			confirm = c
+	_check(confirm != null, "«Обучение» посреди боя просит подтверждение")
+	if confirm != null:
+		confirm.confirmed.emit()
 	await _frames(3)
 	_check(main.screen is Necrolog, "«Обучение» из боя дня — некролог самовольного ухода, не обучение")
 	_check(LegionRunStore.daily_attempt_done(today), "попытка дня засчитана оконченной")

@@ -95,6 +95,7 @@ func show_report(report: Dictionary, foe_type: String, map_title: String,
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD
 		text_col.add_child(l)
 
+	box.add_child(BattleDebrief.panel(report.get("debrief", {}), PAPER_INK))
 	var records := _record_lines(report)
 	if not records.is_empty():
 		var rec_box := VBoxContainer.new()
@@ -108,38 +109,11 @@ func show_report(report: Dictionary, foe_type: String, map_title: String,
 	box.add_child(_rule())
 	box.add_child(_signature_row())
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	box.add_child(row)
-
-	var restart_btn := Button.new()
-	restart_btn.text = "Новый забег"
-	restart_btn.custom_minimum_size = Vector2(170.0, 46.0)
-	restart_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	restart_btn.add_theme_font_size_override("font_size", 18)
-	UiStyle.style_button(restart_btn)
-	restart_btn.pressed.connect(func() -> void: restart.emit())
-	row.add_child(restart_btn)
-
+	LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
+		"" if daily else "Новый забег", func() -> void: restart.emit())
 	if show_collect:
-		var collect_btn := Button.new()
-		collect_btn.text = "В коллекцию"
-		collect_btn.custom_minimum_size = Vector2(170.0, 46.0)
-		collect_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-		collect_btn.add_theme_font_size_override("font_size", 18)
-		UiStyle.style_button(collect_btn)
-		collect_btn.pressed.connect(func() -> void: collect_pressed.emit())
-		row.add_child(collect_btn)
+		box.add_child(ProgressionUi.button("В коллекцию", func() -> void: collect_pressed.emit()))
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Меню"
-	menu_btn.custom_minimum_size = Vector2(150.0, 46.0)
-	menu_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	menu_btn.add_theme_font_size_override("font_size", 18)
-	UiStyle.style_button(menu_btn)
-	menu_btn.pressed.connect(func() -> void: menu.emit())
-	row.add_child(menu_btn)
 
 
 ## Лист бумаги в траурной рамке (двойная чёрная обводка, кремовый фон) — центр экрана, растёт от

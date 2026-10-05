@@ -20,6 +20,10 @@ var _item: StringName = &""
 var _k2_owned: Array[StringName] = []
 var _k2_bot := ""
 var _k2_seed := 0
+## Подготовка «Конторы» объекта 1, дошедшая до боя объекта 2 (world.battle_preparation), и
+## факт её потребления из сохранения после успешного старта (A1: consume только по старту).
+var _k2_prep: Dictionary = {}
+var _k2_prep_consumed := false
 
 
 func _initialize() -> void:
@@ -74,6 +78,10 @@ func _hook_wins(c: RefCounted, k: int) -> void:
 		_k2_owned = w.items.owned()
 		_k2_bot = String(w.bot.policy) if w.bot != null else ""
 		_k2_seed = w._base_seed
+		# хук зовётся сразу после старта боя: пакет объекта 1 уже скопирован в мир, а
+		# «Контора» его уже потребила (consume_preparation — только после успешного start_map)
+		_k2_prep = w.battle_preparation.duplicate()
+		_k2_prep_consumed = RunProgression.preparation() == ""
 	w.force_end(true)
 	await process_frame
 
@@ -106,18 +114,28 @@ func _test_two_victories() -> void:
 	rng.seed = hash([RUN_SEED, 91, 1])
 	_check(r1["upgrade"] == offered[rng.randi_range(0, offered.size() - 1)],
 		"случайная поправка — от (сид забега, сид бота, k)")
-	# премия: победа 3★ = 30 + 15×3 = 75; жадно: 40 (дальность подрядчика) → 35, дальше не на что
-	_check(int(r1["bounty_before"]) == LegionMetaCfg.bounty_for_result(true, 3, 0),
+	# премия: победа 3★ = 30 + 15×3 = 75. Новая «Контора» (A1): один пакет на объект — жадно
+	# берёт «Подъёмные» (35) → 40; второй пакет на тот же объект недоступен даже при деньгах,
+	# переброски политика раннера не берёт. Постоянных покупок больше нет.
+	var bounty_win := LegionMetaCfg.bounty_for_result(true, 3, 0)
+	var souls_cost := int(AmendmentDb.PREPARATIONS["souls"]["cost"])
+	_check(int(r1["bounty_before"]) == bounty_win,
 		"премия за объект начислена (%d)" % int(r1["bounty_before"]))
-	_check(r1["bought"] == ["range:laborer"] and int(r1["bounty_after"]) == 35,
-		"жадная «Контора»: самая дешёвая по порядку (%s, осталось %d)"
+	_check(r1["bought"] == ["preparation:souls"]
+			and int(r1["bounty_after"]) == bounty_win - souls_cost,
+		"жадная «Контора»: один пакет на объект (%s, осталось %d)"
 			% [r1["bought"], r1["bounty_after"]])
-	_check(int(r2["bounty_before"]) == 35 + 75,
+	_check(int(r2["bounty_before"]) == int(r1["bounty_after"]) + bounty_win,
 		"премия переносится между объектами (%d)" % int(r2["bounty_before"]))
-	_check(_no_affordable(int(r2["bounty_after"])),
-		"после покупок не осталось доступной покупки по карману (премия %d)" % int(r2["bounty_after"]))
-	_check((r2["shop"] as Dictionary).get("range:laborer", 0) >= 1,
-		"покупка объекта 1 на месте у объекта 2")
+	_check(r2["bought"] == ["preparation:souls"]
+			and int(r2["bounty_after"]) == int(r2["bounty_before"]) - souls_cost
+			and int(r2["bounty_after"]) >= souls_cost,
+		"ровно один пакет, хотя премия ещё позволяет: второй на объект нельзя (%d)"
+			% int(r2["bounty_after"]))
+	var souls_mod := float(AmendmentDb.PREPARATIONS["souls"]["mods"]["start_souls"])
+	_check(float(_k2_prep.get("start_souls", 0.0)) == souls_mod and _k2_prep_consumed,
+		"пакет объекта 1 подействовал на объект 2: подготовка боя %s, потреблён после старта"
+			% [_k2_prep])
 	_check((r1["items"] as Array).has(String(_item)), "артефакт боя 1 записан в забег")
 	_check(_k2_owned.has(_item), "артефакт боя 1 перенесён в бой объекта 2 (%s)" % [_k2_owned])
 	_check(_k2_bot == "selective", "бот мира — из опций раннера (%s)" % _k2_bot)
@@ -130,13 +148,6 @@ func _test_two_victories() -> void:
 		"после «Конторы» — брифинг объекта 3")
 	c.cleanup()
 	await process_frame
-
-
-func _no_affordable(bounty: int) -> bool:
-	for cnd: Dictionary in Chain.shop_candidates():
-		if int(cnd["cost"]) <= bounty:
-			return false
-	return true
 
 
 func _hook_win_then_lose(c: RefCounted, k: int) -> void:

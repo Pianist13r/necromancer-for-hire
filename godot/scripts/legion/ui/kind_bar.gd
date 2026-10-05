@@ -18,6 +18,7 @@ var buttons: Array[Button] = []
 var _refresh_t := 0.0
 var _styles: Array[Dictionary] = []
 var _state: Array[int] = []
+var _keys: Array[int] = [0, 0, 0]
 
 
 static func attach(hud: LegionHud, w: LegionWorld) -> LegionKindBar:
@@ -82,9 +83,9 @@ func _ready() -> void:
 			LegionUi.TEXT_DIM)
 		price.name = "Price"
 		col.add_child(price)
-		var key := str(i + 1)
 		badge.draw.connect(func() -> void:
-			LegionUi.draw_stamp(badge, badge.size * 0.5 + Vector2(2.0, 0.0), key,
+			LegionUi.draw_stamp(badge, badge.size * 0.5 + Vector2(2.0, 0.0),
+				Controls.label([&"rune_normal", &"rune_frost", &"rune_ash"][i]),
 				LegionUi.STAMP if not button.disabled else Color(LegionUi.TEXT_DIM, 0.5), 16, -0.14,
 				20.0))
 		button.draw.connect(func() -> void:
@@ -118,8 +119,10 @@ func _process(dt: float) -> void:
 		button.disabled = not bool(world.my_field().unlocked.get(kind, true)) or world.paused
 		var selected := not button.disabled and world.my_field().current_kind == kind
 		var state := 2 if selected else (0 if button.disabled else 1)
-		if state == _state[i]:
+		var key := Controls.key([&"rune_normal", &"rune_frost", &"rune_ash"][i])
+		if state == _state[i] and key == _keys[i]:
 			continue
+		_keys[i] = key
 		_state[i] = state
 		var st: Dictionary = _styles[i]
 		button.add_theme_stylebox_override("normal", st["sel"] if selected else st["normal"])

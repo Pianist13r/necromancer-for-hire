@@ -463,7 +463,10 @@ func _test_screens_cover() -> void:
 func _test_plot_menu_staff() -> void:
 	print("— B-094: меню пустой площадки пишет штат, который получит постройка")
 	Campaign.reset()
-	Campaign.add_upgrade(&"outstaff_partner")
+	# Пул поправок переехал в AmendmentDb: «Партнёр» (outstaff_partner) мигрирует в «Живую
+	# очередь» (LEGACY_MAP), а она штат УМЕНЬШАЕТ (−20 %) — прибавляющих карт в новом пуле
+	# нет. Контракт меню тот же: пишет фактический штат с поправками, постройка ему равна.
+	Campaign.add_upgrade(&"living_queue")
 	w.in_campaign = true
 	w.mods = Campaign.active_mods()
 	w.dev = {"no_waves": "1", "spawn_units": "0"}
@@ -479,7 +482,7 @@ func _test_plot_menu_staff() -> void:
 	var built := w.staff.build(plot, LegionCfg.KIND_LABORER)
 	var got := built.cap if built != null else -1
 	var base := LegionStaff.paced(int(LegionCfg.BUILDINGS[LegionCfg.KIND_LABORER]["cap"][0]))
-	_check(got > base, "поправка «Партнёр» прибавляет штат (%d > %d)" % [got, base])
+	_check(got < base, "поправка «Живая очередь» меняет штат (%d < %d)" % [got, base])
 	_check(shown == got, "меню обещало штат %d — построенная получила %d" % [shown, got])
 	w.in_campaign = false
 	w.mods = {}
@@ -490,8 +493,10 @@ func _test_plot_menu_staff() -> void:
 # ── B-096: поправки — только про открытое ────────────────────────────────────
 
 ## После «Пустыря» (открыта «Проходная»: Ку, вахтёр, стрелка, «Сбор») 300 розыгрышей поправок не
-## дают ни Дубль-вэ, ни Е, ни предметов; после «Проходной» (открыты «Два отдела»: W и Е) —
-## «Квота на бригаду» и «Премия за аврал» снова в пуле.
+## дают карт про закрытые Дубль-вэ и Е («Агентство однодневок», «Ненормированный день» — пул
+## теперь AmendmentDb); про открытое Ку карты есть. После «Проходной» (открыты «Два отдела»:
+## W и Е) обе снова в пуле. offer() запоминает розыгрыш липким драфтом (draft_options), поэтому
+## драфт сбрасывается каждую итерацию — иначе все 300 розыгрышей вернули бы первый.
 func _test_upgrade_offers() -> void:
 	print("— B-096: поправки не предлагаются до открытия навыка")
 	Campaign.reset()
@@ -500,50 +505,51 @@ func _test_upgrade_offers() -> void:
 	var rng := RandomNumberGenerator.new()
 	for s in 300:
 		rng.seed = s
+		Campaign.clear_pending_reward()
 		for id in Campaign.offer_upgrades(rng):
 			early[String(id)] = true
 	var wrong: Array[String] = []
-	for id: String in ["brigade_quota", "rush_premium", "headhunters", "lost_property"]:
+	for id: String in ["temp_agency", "overtime_cycle"]:
 		if early.has(id):
 			wrong.append(id)
 	_check(wrong.is_empty(), "после «Пустыря» нет поправок про закрытое (%s)" % ", ".join(wrong))
-	_check(early.has("hazard_pay") and early.has("loud_hailer"),
-		"про открытое (Ку, «Сбор» — с «Проходной») поправки есть")
+	_check(early.has("high_voltage") and early.has("carbon_copy"),
+		"про открытое Ку (с «Проходной») поправки есть")
 	Campaign.record_result("gatehouse", true, 1.0)
 	var later := {}
 	for s in 300:
 		rng.seed = s
+		Campaign.clear_pending_reward()
 		for id in Campaign.offer_upgrades(rng):
 			later[String(id)] = true
-	_check(later.has("brigade_quota") and later.has("rush_premium"),
+	_check(later.has("temp_agency") and later.has("overtime_cycle"),
 		"открыты «Два отдела» (Дубль-вэ, Е) — поправки про них в пуле")
 	Campaign.reset()
 
 
 # ── B-097: слово «расчёт» объяснено ──────────────────────────────────────────
 
-## «Контора» и перк героя говорят, что такое расчёт (прибавка здоровья отстоявшим срок), и
-## «Как играть» объясняет его отдельной строкой.
+## Расчёт объяснён там, где игрок теперь с ним встречается: поправка «Бумажная броня» умножает
+## расчёт за срок, «Как играть» даёт отдельную строку о прибавке здоровья. Новая «Контора»
+## продаёт пакеты на следующий объект и расчёта не касается; перки героя заменены поправками.
 func _test_settlement_word() -> void:
-	print("— B-097: «расчёт» объяснён там, где его покупают")
-	var office := String(LegionMetaCfg.OFFICE_SHOP["settlement"]["desc"])
-	var perk := String(LegionMetaCfg.HERO_PERKS["perk_settlement_on_time"]["desc"])
-	var line := String(OfficeShop.EFFECT_TEXT["settlement"])
-	var texts := [["«Контора»", office], ["перк «Расчёт в срок»", perk], ["строка уровня", line]]
-	for pair: Array in texts:
-		_check(String(pair[1]).contains("здоров"),
-			"%s: что такое расчёт — «%s»" % [pair[0], pair[1]])
+	print("— B-097: «расчёт» объяснён там, где встречается")
+	var card := String(AmendmentDb.card(&"paper_shield").get("text", ""))
+	_check(card.contains("расчёт"), "поправка «Бумажная броня»: расчёт за срок — «%s»" % card)
 	var howto := HowtoLegion.new()
 	root.add_child(howto)
 	await process_frame
-	var found := false
+	var line := ""
 	for l: Node in howto.find_children("*", "Label", true, false):
 		if (l as Label).text.begins_with("Расчёт:"):
-			found = true
+			line = (l as Label).text
 	for l: Node in howto.find_children("*", "RichTextLabel", true, false):
 		if (l as RichTextLabel).text.begins_with("Расчёт:"):
-			found = true
-	_check(found, "«Как играть»: строка «Расчёт: …»")
+			line = (l as RichTextLabel).text
+	_check(not line.is_empty(), "«Как играть»: строка «Расчёт: …»")
+	_check(line.contains("здоров"), "«Как играть»: что такое расчёт — «%s»" % line)
+	_check(line.contains("Бумажная броня") and not line.contains("перком"),
+		"«Как играть»: расчёт усиливает поправка, а не убранная покупка — «%s»" % line)
 	howto.queue_free()
 
 

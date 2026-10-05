@@ -86,6 +86,7 @@ static func _reset_run_meta(sec: String) -> void:
 	f.set_value(sec, CfgItems.SAVE_KEY, [])
 	f.set_value(sec, "bounty", 0)
 	f.set_value(sec, "pending_reward", "")
+	RunProgression.reset_run(sec)
 	for id in LegionMetaCfg.OFFICE_SHOP_ORDER:
 		f.set_value(sec, "shop_%s" % id, 0)
 		if bool(LegionMetaCfg.OFFICE_SHOP[id].get("per_kind", false)):

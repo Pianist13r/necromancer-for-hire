@@ -76,7 +76,7 @@ func _draw() -> void:
 			var c := tut.line_target()
 			if c != null:
 				_draw_swing(c, pulse)
-				_draw_key(_key_above(c.point_at(c.length * 0.5), bob), "Пробел")
+				_draw_key(_key_above(c.point_at(c.length * 0.5), bob), Controls.label(&"aim_contract", true))
 		&"refresh":
 			var c := tut.line_target()
 			if c != null:
@@ -88,7 +88,7 @@ func _draw() -> void:
 			if not hit.is_empty():
 				var at := (hit["contract"] as Contract).seg_center(int(hit["seg"]))
 				_draw_ring(at, RING_R + 4.0 * pulse, 1.0, pulse)
-				_draw_key(_key_above(at, bob), "Таб")
+				_draw_key(_key_above(at, bob), Controls.label(&"erase_piece", true))
 		&"spring":
 			_draw_rmb(tut.spring_target(), pulse, bob)
 		&"stun_hit":
@@ -100,7 +100,7 @@ func _draw() -> void:
 			var at := tut.rally_target()
 			if at != Vector2.INF:
 				_draw_area(at, LegionCfg.RALLY_R, pulse)
-				_draw_key(_key_on_area(at, LegionCfg.RALLY_R, bob), "R")
+				_draw_key(_key_on_area(at, LegionCfg.RALLY_R, bob), Controls.label(&"rally"))
 		&"build":
 			var p := tut.target_plot()
 			if not p.is_empty():
@@ -112,17 +112,17 @@ func _draw() -> void:
 			if f != null:
 				_draw_ring(f.position, FOE_RING_R + 4.0 * pulse, PLOT_RING_SQUASH, pulse)
 				if tut.step_kind() == &"hero_q":
-					_draw_key(_key_above(f.position, bob), "Q")
+					_draw_key(_key_above(f.position, bob), Controls.label(&"cast_q"))
 		&"hero_w":
 			var corpse := tut.target_corpse()
 			if corpse != null:
 				_draw_ring(corpse.position, FOE_RING_R + 4.0 * pulse, PLOT_RING_SQUASH, pulse)
-				_draw_key(_key_above(corpse.position, bob), "W")
+				_draw_key(_key_above(corpse.position, bob), Controls.label(&"cast_w"))
 		&"hero_e":
 			var at := tut.aura_target()
 			if at != Vector2.INF:
 				_draw_area(at, LegionCfg.E_RADIUS, pulse)
-				_draw_key(_key_on_area(at, LegionCfg.E_RADIUS, bob), "E")
+				_draw_key(_key_on_area(at, LegionCfg.E_RADIUS, bob), Controls.label(&"cast_e"))
 		&"figure":
 			_draw_template(tut.figure_points(), pulse)
 

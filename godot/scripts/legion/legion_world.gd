@@ -37,6 +37,11 @@ signal contract_refreshed(c: Contract, segs: PackedInt32Array)
 signal segment_released(c: Contract, seg: int, n_units: int)
 ## Таб стёр линию или фигуру (ContractField.erase): сорвано участков и ушло в натиск бойцов.
 signal tab_erased(c: Contract, n_segs: int, n_units: int)
+## Угловая фигура выпущена ЗАРЯЖЕННОЙ (ульта/специальный выпуск) — зачёт урока фигуры
+## (LegionTutorial: «сорви заряженную»).
+signal figure_ult(c: Contract)
+## Фигура выпущена рогаткой по ОБЩЕЙ оси оттяжки — зачёт урока «выпусти одну группу».
+signal figure_slung(c: Contract)
 ## v17 LAW: Юрист расторг участок (tear_segment) — натиска нет, n_units бойцов стали свободны.
 signal segment_torn(c: Contract, seg: int, n_units: int)
 signal contract_removed(c: Contract)
@@ -281,6 +286,14 @@ var intuit: LegionIntuit = null
 ## Постройки, склепы, Котёл и тени бойцов собранной карты встают в землю (D-CX-08): проба итоговой
 ## картинки PgArt; null — карта с нарисованным фоном (кампания) или картинка ещё не готова.
 var harmony: PgArtHarmony = null
+## Поправки-правила забега (A1): AmendmentRuntime висит на сигналах боя и ведёт queue/echo/ghost/
+## vassal_march/dividend. Создаётся в _build(), переставляется на каждую карту в start_map();
+## helper сам отсекает standalone/PvP (setup без подписок, tick нейтрален), поэтому PvP как раньше.
+var amendment_runtime: AmendmentRuntime = null
+## Подготовка «Конторы» на следующий объект (start_souls / mana_max_bonus): копия
+## RunProgression.preparation_mods() ДО старта боя. Эти моды НЕ в active_mods; складываются сюда же,
+## в camp_stat(), чтобы выживать последующие пересчёты маны (артефакты не убирают купленную ману).
+var battle_preparation: Dictionary = {}
 
 ## Сторона 0: хранит поля одиночки (cauldron_hp, souls… — свойства выше читают её).
 var _pvp_item_stage := 0
@@ -454,8 +467,9 @@ static func parse_args() -> Dictionary:
 	return out
 
 
-## Пакет flow: множитель для поправок-процентов (1.0 + сумма value); нет поправки — 1.0, эффекта
-## нет. Читают системы, которые применяют бонус САМИ (contract.gd/contract_field.gd не трогаем —
+## Пакет flow: множитель поправок по ключу (1.0 + свод active_mods()); нет поправки — 1.0. Свод для
+## ключа-множителя — уже произведение источников (MetaMods.combine), а не сумма процентов.
+## Читают системы, которые применяют бонус САМИ (contract.gd/contract_field.gd не трогаем —
 ## их владеют параллельные пакеты, поэтому применение — здесь и в unit.gd минимально).
 func mod_mult(key: String) -> float:
 	return 1.0 + float(mods.get(key, 0.0))
@@ -466,8 +480,8 @@ func mod_add(key: String) -> float:
 	return float(mods.get(key, 0.0))
 
 
-## Предметы: множитель по ключу реестра (item_db.gd) — 1 + сумма предметов и синергий боя
-## + поправки к договору с тем же ключом (новые поправки кампании ложатся в тот же канал).
+## Предметы: множитель по ключу реестра (item_db.gd) — 1 + свод артефактов и синергий боя с
+## поправками кампании (item_add). Ключ-множитель перемножает источники, прибавочный складывает.
 func item_mult(key: StringName, side := 0) -> float:
 	return 1.0 + item_add(key, side)
 
@@ -477,12 +491,14 @@ func items_of(side: int) -> LegionItems:
 	return items if side == 0 else sides[side].items
 
 
+## Поправки и артефакты — РАЗНЫЕ источники одного ключа, сводятся тем же правилом, что и всё
+## остальное (MetaMods.combine, E-1005): ключ-множитель перемножается, прибавочный складывается.
+## Раньше сумма в одном числе давала взаимное гашение («Опасное напряжение» −0,5 с «Скрепкой» +0,5
+## в q_stun превращались в ровно базовое оглушение — артефакт молчал).
 func item_add(key: StringName, side := 0) -> float:
-	var v := mod_add(String(key))
 	var owned := items_of(side)
-	if owned != null:
-		v += owned.value(key)
-	return v
+	var artifact := 0.0 if owned == null else owned.value(key)
+	return MetaMods.combine(key, [mod_add(String(key)), artifact])
 
 
 ## Числа предметов, которые мир держит в полях (реген и цена линии), — пересчёт при каждом
@@ -512,10 +528,15 @@ func rally_cd_total(side := 0) -> float:
 
 
 ## D-0927-140: цена способности в мане (0–2 — Ку/Дубль-вэ/Е, LegionCfg.RALLY_SLOT — «Сбор»).
+## A1: поправка ability_mana_mult («Копия верна») удорожает способности, но только в кампании/
+## забеге — в «Схватке» цены прежние (там поправки забега не читаются).
 func ability_mana(slot: int) -> float:
 	if slot == LegionCfg.RALLY_SLOT:
 		return LegionCfg.RALLY_MANA
-	return PvpRules.ABILITY_MANA[slot] if pvp else LegionCfg.ABILITY_MANA[slot]
+	var base := PvpRules.ABILITY_MANA[slot] if pvp else LegionCfg.ABILITY_MANA[slot]
+	if in_campaign:
+		base *= camp_stat(&"ability_mana_mult")
+	return base
 
 
 ## Хватает ли маны на способность (с запасом бота на линии; у человека запас 0).
@@ -547,7 +568,11 @@ func effective_army_cap() -> int:
 ## Campaign кэширует сумму, поэтому звать можно и в кадре (панель способностей так и делает).
 func camp_stat(key: StringName) -> float:
 	if in_campaign:
-		return Campaign.stat(key)
+		# подготовка «Конторы» (start_souls / mana_max_bonus) — отдельный источник сверх поправок;
+		# сводится тем же правилом ключа, что и всё (MetaMods.combine внутри stat: множитель
+		# умножается, прибавочный складывается).
+		var prep := float(battle_preparation.get(String(key), 0.0))
+		return Campaign.stat(key) if prep == 0.0 else Campaign.stat(key, [prep])
 	if Campaign.is_mult_key(key) or String(key).contains("_unlocked_"):
 		return 1.0
 	return 0.0
@@ -616,6 +641,12 @@ func _build() -> void:
 	add_child(intuit)
 	move_child(intuit, item_look.get_index() + 1)
 	intuit.setup(self)
+	# поправки-правила (A1): призрачные линии, эхо-разряды и вспышки — над полем, под подсказками
+	# intuit и под HUD; подписки ставит start_map() (setup), узел живёт весь сеанс как и intuit.
+	amendment_runtime = AmendmentRuntime.new()
+	amendment_runtime.name = "AmendmentRuntime"
+	add_child(amendment_runtime)
+	move_child(amendment_runtime, intuit.get_index() + 1)
 	var bar := LegionItemBar.new()
 	bar.name = "ItemBar"
 	hud.add_child(bar)
@@ -774,6 +805,10 @@ func start_map(id: String, map_data: Dictionary = {}) -> void:
 	# --dev items=id,id — артефакты с начала боя (кадры приёмки, серии «с артефактами»)
 	for item_id in String(dev.get("items", "")).split(",", false):
 		items.grant(StringName(item_id))
+	# поправки-правила (A1): после staff/hero/items — подписки уже видят итоговое поле, но враги
+	# из этой карты спавнятся выше, поэтому «kill» на старте в них не считается; reset() внутри
+	# снимает прошлую карту без двойных подписок. Helper сам уходит на standalone/PvP.
+	amendment_runtime.setup(self)
 	wave_runner = WaveRunner.new()
 	wave_runner.setup(self, {} if dev.has("no_waves") else map)
 	items.plan_battle(wave_runner.total())
@@ -1065,6 +1100,7 @@ func start_net_match(map_id: String, seed_value: int, side: int) -> void:
 	mods = {}
 	in_campaign = false
 	carry_items = false
+	battle_preparation = {}   # сетевой матч — без поправок забега и подготовки «Конторы»
 	net_mode = true
 	local_side = side
 	net_tick = 0
@@ -1330,6 +1366,10 @@ func _clear() -> void:
 		ability_aim.clear()
 	projectiles.clear()
 	items.reset()
+	# поправки-правила (A1): снять подписки прошлой карты, пока герой/враги ещё в дереве или уже
+	# удаляются — чтобы не висели на удалённых объектах до следующего setup().
+	if amendment_runtime != null:
+		amendment_runtime.reset()
 	_pvp_item_stage = 0
 	_pvp_carrier_serial = 0
 	_pvp_carrier_hits.clear()
@@ -1684,6 +1724,10 @@ func _step(dt: float) -> void:
 		_tick_pvp_carriers()
 	if tutorial != null:
 		tutorial.tick(dt)
+	# поправки-правила (A1): раньше hero.tick — эхо-разряд должен сработать до хода героя в этом
+	# же шаге (а не отстать на кадр); helper без подписок (standalone/PvP) возвращается сразу.
+	if amendment_runtime != null:
+		amendment_runtime.tick(dt)
 	if hero != null:
 		hero.tick(dt)
 		if dev.has("hero_cast"):
@@ -1760,6 +1804,17 @@ func _input(event: InputEvent) -> void:
 	if m != null:
 		_mouse_pos = m.position
 		_mouse_seen = true
+	# Remapped Tab/Enter/arrows must reach battle actions before GUI navigation.
+	# Modal screens own these keys while paused or in the PvP menu.
+	if event is InputEventKey and phase == Phase.BATTLE and not paused \
+			and not is_ground_loading() and not pvp_menu_open():
+		for ui_action: StringName in [&"ui_accept", &"ui_focus_next", &"ui_focus_prev",
+				&"ui_up", &"ui_down", &"ui_left", &"ui_right"]:
+			if event.is_action(ui_action):
+				my_field()._unhandled_input(event)
+				if not get_viewport().is_input_handled():
+					_unhandled_input(event)
+				break
 
 
 ## Точка прицела способностей В МИРЕ: последняя позиция мыши из события (см. _mouse_pos),
@@ -1848,6 +1903,10 @@ func _apply_view() -> void:
 
 # gdlint: disable=max-returns
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"mute"):
+		Settings.set_muted(not Settings.is_muted())
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed(&"pause"):
 		# clarity: Esc посреди прицела Ку/Дубль-вэ/Е — «передумал», как отмена черновика
 		if ability_aim.is_aiming() and phase == Phase.BATTLE:
@@ -1870,12 +1929,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var k := event as InputEventKey
 		# v18: F — вызвать волну (левая рука не уходит с Q W E R); N — как раньше
-		if k.pressed and not k.echo and k.physical_keycode in [KEY_F, KEY_N]:
+		if event.is_action_pressed(&"call_wave"):
 			if call_wave() >= 0:
 				get_viewport().set_input_as_handled()
 			return
 		# одиночка: Дэ — «Касса» (D-1001-01), сток душ; в «Схватке» Дэ ничего не делает
-		if not pvp and k.pressed and not k.echo and k.physical_keycode == KEY_D \
+		if not pvp and event.is_action_pressed(&"kassa") \
 				and phase == Phase.BATTLE and not paused:
 			request_kassa()
 			get_viewport().set_input_as_handled()
@@ -1884,7 +1943,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		# партию) убран — «Заново» есть в паузе.
 		# v19 (B-038): R зажата — круг «Сбора» и отметки, кого позовёт; отпустил — «Сбор».
 		# Быстрое нажатие работает, как раньше: нажал-отпустил — побежали.
-		if k.physical_keycode == KEY_R and not k.echo and rally_unlocked():
+		if event.is_action(&"rally") and not k.echo and rally_unlocked():
 			if k.pressed and phase == Phase.BATTLE and not paused:
 				rally_aiming = true
 				ability_aim.cancel()   # прицел один: «Сбор» перебивает Ку/Дубль-вэ/Е
@@ -2443,8 +2502,9 @@ func _release(c: Contract, seg: int, cause: StringName, volley: Dictionary) -> v
 			if sealed:
 				u.grant_seal()
 			if c.figure != &"":
-				# восьмёрка и треугольник: у каждого бойца своя цель (LegionFigures.charge_for)
-				var aim := figures.charge_for(c, p, u)
+				# восьмёрка и треугольник: у каждого бойца своя цель; рогатка задаёт общую ось
+				# оттяжки (LegionFigures.charge_for)
+				var aim := figures.charge_for(c, p, u, volley.get("axis", Vector2.ZERO))
 				u.start_charge(aim[0], volley, aim[1])
 			else:
 				u.start_charge(volley["dir"], volley)
@@ -2475,6 +2535,10 @@ func on_charge_contact(u: Legionnaire, foe: Node2D, volley: Dictionary) -> void:
 		var group_first := group.is_empty() or not bool(group["hit"])
 		if not group.is_empty():
 			group["hit"] = true
+		# ульты «первым касанием» решаются ДО отсечки (ctl_off и PvP глушат только комбо и
+		# отброс): «Комиссия» метит цель, «Неустойка» замедляет врагов вокруг удара
+		if group_first:
+			_ult_contact(foe, volley, u.side)
 		if bool(volley["manual"]) and not off:
 			if group_first:
 				_set_combo(combo + 1 if combo > 0 and now - _combo_hit_t <= LegionCfg.COMBO_WINDOW else 1)
@@ -2488,6 +2552,48 @@ func on_charge_contact(u: Legionnaire, foe: Node2D, volley: Dictionary) -> void:
 	var knock := LegionCfg.PERFECT_KNOCK if perfect else LegionCfg.CHARGE_KNOCK
 	var spring := float(volley.get("spring", 0.0))
 	_knock(foe as Foe, volley["dir"], knock * (1.0 + LegionCfg.SPRING_KNOCK * spring))
+
+
+## Ульты фигур «первым касанием готовой группы» (D-1002 §4): «Комиссия» помечает цель, и её
+## участники бьют помеченную сильнее; «Неустойка» замедляет врагов в D_SLOW_R px вокруг удара.
+## Оба — один раз на ГРУППУ залпа (group_first), боссу замедление идёт по общей политике резистов.
+## В «Схватке» (J6) обе ульты действуют и на АРМИЮ СОПЕРНИКА: цель метки — чужой боец, замедление
+## ловит чужих бойцов теми же числами, что врагов PvE. Обход — списки мира в их порядке, а не
+## порядок касаний: состояние у обоих клиентов одинаково (lockstep).
+func _ult_contact(foe: Node2D, volley: Dictionary, side: int) -> void:
+	if volley.has("mark_group"):
+		var group_id := int(volley["mark_group"])
+		if foe is Foe:
+			var f := foe as Foe
+			f.mark_group_id = group_id
+			f.mark_t = FigureCfg.PENTA_MARK_T
+		elif foe is Legionnaire:
+			var t := foe as Legionnaire
+			t.mark_hit_group = group_id
+			t.mark_hit_t = FigureCfg.PENTA_MARK_T
+	if volley.has("slow"):
+		_ult_slow(foe.position, volley["slow"], side)
+
+
+## Замедление «Неустойки» вокруг первого касания залпа: враги PvE и — в «Схватке» — чужие бойцы.
+## side — сторона залпа: замедляем всех бойцов, кто не с ней. В одиночке бойцов-противников нет,
+## список не смотрим вовсе.
+func _ult_slow(at: Vector2, spec: Dictionary, side: int) -> void:
+	var r := float(spec["r"])
+	var mult := float(spec["mult"])
+	var t := float(spec["t"])
+	for other in foes:
+		if other.is_active() and other.position.distance_to(at) <= r + other.radius:
+			other.slow_mult = mult
+			other.slow_t = maxf(other.slow_t, t)
+	if not pvp:
+		return
+	for u in units:
+		if not u.alive or u.side == side:
+			continue
+		if u.position.distance_to(at) <= r + LegionCfg.UNIT_RADIUS:
+			u.ult_slow_mult = mult
+			u.ult_slow_t = maxf(u.ult_slow_t, t)
 
 
 ## Боец залпа перестал бежать. Залп игрока, кончившийся без касания, — натиск впустую: сброс комбо.
@@ -2989,7 +3095,7 @@ func foe_reached_cauldron(f: Foe) -> void:
 		return
 	if pvp:
 		sides[f.goal_side].leaked_waves[int(f.origin.get("wave", 0))] = true
-	damage_cauldron(float(f.def.get("cauldron", 10.0)), f.type_id, f.goal_side)
+	damage_cauldron(float(f.def.get("cauldron", 10.0)), f.type_id, f.goal_side, f.origin)
 	f.vanish()
 
 
@@ -3000,14 +3106,17 @@ func foe_reached_cauldron(f: Foe) -> void:
 ## не трогаем — прежнее значение (если было) остаётся.
 ## side — чей Котёл (PvP); сигнал и счёт stats — только Котла стороны 0 (интерфейс игрока).
 ## PvP: урон по источникам — PvpSide.cauldron_dmg.
-func damage_cauldron(dmg: float, foe_type: String = "", side := 0) -> void:
+func damage_cauldron(dmg: float, foe_type: String = "", side := 0, source: Dictionary = {}) -> void:
 	var s := sides[side]
+	var before := s.cauldron_hp
 	if pvp:
 		dmg *= PvpRules.cauldron_mult(now)
 		var src := "units" if foe_type == "" else "waves"
 		s.cauldron_dmg[src] = float(s.cauldron_dmg.get(src, 0.0)) + minf(dmg, s.cauldron_hp)
 	if not dev_invuln:
 		s.cauldron_hp = maxf(0.0, s.cauldron_hp - dmg)
+	if not pvp and side == 0:
+		BattleDebrief.record(stats, maxf(0.0, before - s.cauldron_hp), foe_type, source, now)
 	if pvp:
 		items_of(side).on(&"cauldron_hit", [dmg])
 	if side != 0:
@@ -3168,6 +3277,14 @@ func final_stats(victory: bool) -> Dictionary:
 		"hp": snappedf(cauldron_hp, 0.1), "army": army_alive(), "difficulty": difficulty,
 	}
 	out.merge(stats)
+	if out.has("debrief"):
+		var report: Dictionary = Dictionary(out["debrief"]).duplicate(true)
+		var titles := {}
+		var labels := PgLayout.road_labels(map)
+		for road: String in labels:
+			titles[road] = String(Dictionary(labels[road]).get("title", "подход к Котлу"))
+		report["road_titles"] = titles
+		out["debrief"] = report
 	out.merge(pace_stats())
 	out["boss_killed"] = int(stats.get("boss_killed", 0))
 	out["mana_spent"] = snappedf(float(stats["mana_spent"]), 0.1)

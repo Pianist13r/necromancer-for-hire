@@ -125,6 +125,9 @@ func _test_rite_hint() -> void:
 	if c == null:
 		return
 	_man(c, 0.6)
+	# D-1002: ульта только у ЗАРЯЖЕННОГО строя — держим порог 1,5 с боя
+	for i in int(FigureCfg.CHARGE_TIME / (1.0 / 60.0)) + 2:
+		w._step(1.0 / 60.0)
 	w.intuit.scan()
 	var base := _hint_base(&"rite")
 	var top := _crowd_top(c)
@@ -148,7 +151,9 @@ func _test_gold_hint() -> void:
 	if c == null:
 		return
 	_man(c)
-	for off: Vector2 in [Vector2(-110, 0), Vector2(110, 20), Vector2(0, 115)]:
+	# D-1002: бойцы каре стоят ТОЛЬКО на углах — врага ловят зоны угловых участков, а не
+	# середины рёбер (пустое ребро больше не даёт широкую зону попадания)
+	for off: Vector2 in [Vector2(-95, -95), Vector2(95, -70), Vector2(80, 100), Vector2(-80, 100)]:
 		var f := w.spawn_foe_on_path("zombie", PackedVector2Array([FC + off, FC + off
 			+ Vector2(0, 400)]), FC + off)
 		f.speed = 0.0

@@ -36,6 +36,9 @@ var allow_reset := false
 ## клавиатуру ему — иначе Tab/Enter после закрытия терялись бы в никуда.
 var _focus_before: Control = null
 var _closing := false
+var _capture: StringName = &""
+var _binding_buttons: Dictionary = {}
+var _binding_note: Label
 
 
 func _ready() -> void:
@@ -146,6 +149,7 @@ func _ready() -> void:
 	sling_check.add_theme_font_size_override("font_size", 18)
 	_style_check(sling_check)
 	content.add_child(sling_check)
+	_build_bindings(content)
 
 	# slow/intuit: советы боя — когда жать Ку/Дубль-вэ/Е, «щёлкни золотой», «сорви пружину»
 	var hints_check := CheckBox.new()
@@ -179,16 +183,9 @@ func _ready() -> void:
 	privacy_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(privacy_note)
 
-	var close_btn := Button.new()
+	var nav := LegionUi.nav_bar(self, "← Назад", _close)
+	var close_btn := nav.get_node("NavBack") as Button
 	close_btn.name = "SettingsClose"
-	close_btn.text = "Готово"
-	close_btn.custom_minimum_size = Vector2(180.0, 44.0)
-	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	close_btn.add_theme_font_size_override("font_size", 20)
-	UiStyle.style_button(close_btn)
-	close_btn.pressed.connect(func() -> void: _close())
-	outer.add_child(close_btn)
 
 	# «Лицензии»: тексты лицензий третьих сторон внутри игры (exe раздаётся один). Открывается
 	# дочерним модальным оверлеем; пока он открыт, этот экран на ввод не реагирует (_input).
@@ -234,6 +231,39 @@ func _close() -> void:
 	closed.emit()
 
 
+func _capture_input(event: InputEvent) -> void:
+	if _capture != &"":
+		# Capture before GUI: Tab, Space and Enter must become bindings, not navigation.
+		if event is InputEventKey:
+			get_viewport().set_input_as_handled()
+			var key_event := event as InputEventKey
+			if not key_event.pressed or key_event.echo:
+				return
+			if key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE:
+				_finish_capture("Назначение отменено.")
+				return
+			if key_event.ctrl_pressed or key_event.alt_pressed or key_event.meta_pressed \
+					or (key_event.shift_pressed and key_event.physical_keycode != KEY_SHIFT):
+				_binding_note.text = "Нажмите одну клавишу без сочетания. Эскейп — отмена."
+				return
+			var code := int(key_event.physical_keycode)
+			if code == 0:
+				code = int(key_event.keycode)
+			var error := Controls.rebind(_capture, code)
+			if error.is_empty():
+				_finish_capture("Клавиша сохранена.")
+			elif error == Controls.SAVE_FAILED:
+				# Клавиша назначена и уже работает — врать «сохранено» нельзя, но и просить
+				# другую клавишу незачем: захват заканчиваем с честной причиной (J8).
+				_finish_capture(error)
+			else:
+				_binding_note.text = error + " Эскейп — отмена."
+		elif event.is_action_pressed(&"ui_cancel"):
+			get_viewport().set_input_as_handled()
+			_finish_capture("Назначение отменено.")
+		return
+
+
 ## Esc закрывает только этот экран. _input с потреблением: мир и экран паузы под нами слушают
 ## «pause» (Esc и P) ниже по цепочке — без потребления одно нажатие ушло бы дальше и следом
 ## сняло бы паузу боя. echo гасим: автоповтор Esc не должен захлопнуть то, что откроется на этом
@@ -247,11 +277,69 @@ func _input(event: InputEvent) -> void:
 	if _closing:
 		get_viewport().set_input_as_handled()
 		return
+	if _capture != &"":
+		_capture_input(event)
+		return
 	if event is InputEventKey or event is InputEventJoypadButton or event is InputEventJoypadMotion:
 		ModalFocus.contain(self)
 	if event.is_action_pressed(&"ui_cancel"):
 		get_viewport().set_input_as_handled()
 		_close()
+
+
+func _build_bindings(content: VBoxContainer) -> void:
+	_binding_note = UiStyle.label("Нажмите клавишу справа, затем новую клавишу. Эскейп — отмена.", 16)
+	_binding_note.name = "BindingNote"
+	_binding_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_binding_note)
+	for action: StringName in Controls.ACTIONS:
+		var row := HBoxContainer.new()
+		var title := UiStyle.label(Controls.TITLES[action], 16)
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(title)
+		var button := _small_button(Controls.label(action))
+		button.name = "Bind_" + String(action)
+		button.custom_minimum_size = Vector2(120, 38)
+		button.pressed.connect(_begin_capture.bind(action))
+		_binding_buttons[action] = button
+		row.add_child(button)
+		content.add_child(row)
+	var reset := _small_button("Вернуть стандартные клавиши")
+	reset.name = "ResetBindings"
+	reset.pressed.connect(func() -> void:
+		_capture = &""
+		var error := Controls.reset()
+		_refresh_bindings()
+		_binding_note.text = error if not error.is_empty() \
+			else "Стандартные клавиши восстановлены.")
+	content.add_child(reset)
+	var cancel := _small_button("Отменить назначение")
+	cancel.name = "CancelBinding"
+	cancel.pressed.connect(func() -> void: _finish_capture("Назначение отменено."))
+	content.add_child(cancel)
+
+
+func _begin_capture(action: StringName) -> void:
+	if _capture != &"":
+		_refresh_bindings()
+	_capture = action
+	(_binding_buttons[action] as Button).text = "Нажмите…"
+	_binding_note.text = "%s: нажмите новую клавишу. Эскейп — отмена." % Controls.TITLES[action]
+
+
+func _refresh_bindings() -> void:
+	for action: StringName in _binding_buttons:
+		(_binding_buttons[action] as Button).text = Controls.label(action)
+
+
+func _finish_capture(note: String) -> void:
+	var previous := _capture
+	_capture = &""
+	_refresh_bindings()
+	_binding_note.text = note
+	if _binding_buttons.has(previous):
+		(_binding_buttons[previous] as Button).grab_focus()
 
 
 func _licenses_open() -> bool:
@@ -310,7 +398,7 @@ func _card_panel() -> PanelContainer:
 	panel.offset_left = side
 	panel.offset_right = -side
 	panel.offset_top = MARGIN
-	panel.offset_bottom = -MARGIN
+	panel.offset_bottom = -maxf(MARGIN, 92.0)
 	var st := StyleBoxTexture.new()
 	st.texture = load("res://assets/legion/ui/panel_frame.svg") as Texture2D
 	st.texture_margin_left = 24.0

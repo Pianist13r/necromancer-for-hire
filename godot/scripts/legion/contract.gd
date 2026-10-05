@@ -61,8 +61,25 @@ var figure: StringName = &""
 ## Восьмёрка: центры петель A и B; петля A — места с along в [lobe_span.x, lobe_span.y].
 var lobes := PackedVector2Array()
 var lobe_span := Vector2.ZERO
-## Треугольник и квадрат: вершины по порядку штриха.
+## Треугольник, квадрат, пятиугольник и «D»: вершины по порядку штриха (у «Комиссии» — четыре
+## выбранных из пяти, у «Неустойки» — два угла между прямой и дугой).
 var tips := PackedVector2Array()
+## Бойцы стоят ТОЛЬКО на углах, по одному на угол (ContractShape.CORNER_FIGURES). Пустые рёбра
+## не стена: мест на них нет, давка их прогибает и рвёт, как обычную линию (D-1002 §1).
+var corners_only := false
+## Углы, вставшие в воду/скалу: фигура с таким углом НЕ заключается (D-1002 §2 — нельзя молча
+## потерять угол и считать два оставшихся полным треугольником). Пусто — все углы на месте.
+var blocked_tips := PackedVector2Array()
+## Мини-размер (ContractShape.SIZE_MINI): та же фигура с ослабленными числами и меньшим числом
+## мест (круг и восьмёрка — 4 места). Ставит build_figure по D штриха.
+var size_mini := false
+## Заряд подготовки, с боя: растёт, пока занято не меньше FigureCfg.CHARGE_FILL[figure] мест,
+## и обнуляется, как только строй просел. Ульта/специальный выпуск — только при заряде
+## (FigureCfg.CHARGE_TIME).
+var charge_t := 0.0
+## Пассив фигуры уже выдан («Комиссия» — щиты участникам): после загрузки снимка щит не
+## выдаётся второй раз, а новый приход его не получает.
+var ult_armed := false
 var id := 0
 var release_causes: Dictionary = {}
 
@@ -120,6 +137,9 @@ func build(
 			box = box.expand(q)
 		seg_press_box.append(box.grow(LegionCfg.PRESS_BAND))
 	posts.clear()
+	if size_mini:
+		_mini_posts(walkable)
+		return self
 	var n_slots := int(length / step)
 	for k in n_slots:
 		var d := (k + 0.5) * step
@@ -145,6 +165,32 @@ func build(
 	return self
 
 
+## Мини-фигура: у кольца и восьмёрки мест всего четыре — прежний многоместный строй на таком
+## размере не читается (D-1002 §3). Кольцо: четыре точки через четверть длины. Восьмёрка: по два
+## места на каждой петле (0,3 и 0,7 её длины) — вне перетяжки, чтобы бойцы не вставали в узел.
+func _mini_posts(walkable: Callable) -> void:
+	var along := PackedFloat32Array()
+	if figure == ContractShape.EIGHT and lobe_span.y > lobe_span.x and length > 0.0:
+		var b0 := lobe_span.y
+		var b1 := length + lobe_span.x
+		along.append(lerpf(lobe_span.x, lobe_span.y, 0.3))
+		along.append(lerpf(lobe_span.x, lobe_span.y, 0.7))
+		along.append(fposmod(lerpf(b0, b1, 0.3), length))
+		along.append(fposmod(lerpf(b0, b1, 0.7), length))
+	else:
+		for k in 4:
+			along.append(length * (float(k) + 0.5) / 4.0)
+	for d in along:
+		var at := point_at(d)
+		if walkable.is_valid() and not bool(walkable.call(at)):
+			continue
+		var front := _front(at, d)
+		posts.append({
+			"pos": at, "normal": front, "seg": segment_at(d), "row": 0,
+			"offset": Vector2.ZERO, "along": d, "unit": null, "dead": false,
+		})
+
+
 ## «Оцепление»: собрать договор-кольцо по штриху, признанному ContractShape.is_ring(). Зазор
 ## недотянутого круга закрывается, центр — центр масс фигуры, передний ряд — внутри.
 func build_ring(
@@ -154,6 +200,8 @@ func build_ring(
 	var loop := ContractShape.closed(pts)
 	ring = true
 	ring_out = false
+	# мини-кольцу четыре места (D-1002 §3): размер — по исходному штриху, как у фигур
+	size_mini = ContractShape.size_class(pts) == ContractShape.SIZE_MINI
 	center = ContractShape.centroid(loop)
 	return build(loop, 1, walkable, new_kind)
 
@@ -166,11 +214,17 @@ func build_figure(
 	pts: PackedVector2Array, fig: StringName, walkable: Callable = Callable(),
 	new_kind: StringName = LegionCfg.KIND_LABORER
 ) -> Contract:
-	var corners := 3 if fig == ContractShape.TRIANGLE else 4 if fig == ContractShape.SQUARE else 0
+	var corners := _figure_corners(fig)
 	var stroke := ContractShape.trim_overshoot(pts) if corners > 0 else pts
 	var loop := ContractShape.closed(stroke)
 	var rs := ContractShape.resample_closed(stroke)
 	var total := ContractShape.poly_len(loop)
+	# размер — по ИСХОДНОМУ штриху (как classify): обрезка перелёта его не меняет заметно.
+	# Восьмёрке мало общей нижней границы мини: четыре места по два на петлю слиплись бы, ей
+	# нужно D ≥ EIGHT_MINI_MIN_D — ниже этого она остаётся прежней многоместной (D-1002 §3).
+	size_mini = ContractShape.size_class(pts) == ContractShape.SIZE_MINI
+	if fig == ContractShape.EIGHT and ContractShape.fig_span(pts) < ContractShape.EIGHT_MINI_MIN_D:
+		size_mini = false
 	figure = fig
 	if fig == ContractShape.EIGHT:
 		var split := ContractShape.eight_lobes(rs)
@@ -180,8 +234,24 @@ func build_figure(
 			lobes = split["centers"]
 			lobe_span = Vector2(float(split["a"]), float(split["b"])) * total
 			center = lobes[0].lerp(lobes[1], 0.5)
+	elif fig == ContractShape.PENTAGON:
+		var all := ContractShape.polygon_tips(stroke, 5, size_mini)
+		if all.size() != 5:
+			figure = &""
+		else:
+			tips = ContractShape.selected_tips(all, FigureCfg.PENTA_SEATS)
+			center = Vector2.ZERO
+			for t in all:
+				center += t
+			center /= float(all.size())
+	elif fig == ContractShape.D_SHAPE:
+		tips = ContractShape.d_corners(stroke, size_mini)
+		if tips.size() != FigureCfg.D_SEATS:
+			figure = &""
+		else:
+			center = tips[0].lerp(tips[1], 0.5)
 	elif corners > 0:
-		tips = ContractShape.polygon_tips(stroke, corners)
+		tips = ContractShape.polygon_tips(stroke, corners, size_mini)
 		if tips.size() != corners:
 			figure = &""
 		else:
@@ -193,7 +263,50 @@ func build_figure(
 				ttl = LegionCfg.SEG_TTL * FigureCfg.SQUARE_TTL_MULT
 	else:
 		figure = &""
-	return build(loop, 1, walkable, new_kind)
+	build(loop, 1, walkable, new_kind)
+	if figure != &"" and _corner_fig():
+		corner_posts(walkable)
+	return self
+
+
+## Сколько углов у фигуры по её виду (0 — не угловая: восьмёрка и кольцо).
+static func _figure_corners(fig: StringName) -> int:
+	match fig:
+		ContractShape.TRIANGLE:
+			return 3
+		ContractShape.SQUARE:
+			return 4
+		ContractShape.PENTAGON:
+			return 5
+		ContractShape.D_SHAPE:
+			return FigureCfg.D_SEATS
+	return 0
+
+
+## Фигура с местами ТОЛЬКО на углах.
+func _corner_fig() -> bool:
+	return ContractShape.CORNER_FIGURES.has(figure)
+
+
+## Строй угловой фигуры: по одному месту на вершину, без рёбер и второго ряда. Место угла несёт
+## прежний формат словаря (pos, normal, seg, row, offset, along), поэтому раздача, давка и
+## выпуск читают его как любое другое: pos — сама вершина, seg и along — куда она проецируется
+## на штрих (у вершины проекция — она сама, offset ≈ 0). Вершина в воде или скале место не даёт:
+## туда никто не дойдёт.
+func corner_posts(walkable: Callable = Callable()) -> void:
+	posts.clear()
+	blocked_tips.clear()
+	corners_only = true
+	for t in tips:
+		if walkable.is_valid() and not bool(walkable.call(t)):
+			blocked_tips.append(t)
+			continue
+		var pr := project(t)
+		var along := pr.y
+		posts.append({
+			"pos": t, "normal": _front(t, along), "seg": segment_at(along), "row": 0,
+			"offset": t - point_at(along), "along": along, "unit": null, "dead": false,
+		})
 
 
 func shaped() -> bool:
@@ -212,10 +325,49 @@ func _front(at: Vector2, along: float) -> Vector2:
 	if figure == ContractShape.EIGHT:
 		var to := lobes[1 - lobe_at(along)] - at
 		return to.normalized() if to != Vector2.ZERO else Vector2.DOWN
-	if figure == ContractShape.TRIANGLE or figure == ContractShape.SQUARE:
-		var v := center - at if figure == ContractShape.TRIANGLE else at - center
+	if figure == ContractShape.TRIANGLE:
+		# к центру: обряд бьёт там
+		var v := center - at
 		return v.normalized() if v != Vector2.ZERO else Vector2.DOWN
+	if figure == ContractShape.SQUARE or figure == ContractShape.PENTAGON \
+			or figure == ContractShape.D_SHAPE:
+		# от центра наружу: каре держит оборону, комиссия и неустойка выходят от контура
+		var w := at - center
+		return w.normalized() if w != Vector2.ZERO else Vector2.DOWN
 	return dir
+
+
+## Сколько мест нужно для ЗАРЯДА фигуры (FigureCfg.CHARGE_FILL): 0 — фигура без заряда (кольцо,
+## восьмёрка). У «Комиссии» и «Каре» — три места из четырёх, у Обряда два из трёх, у Неустойки
+## оба.
+func charge_need() -> int:
+	var frac := float(FigureCfg.CHARGE_FILL.get(figure, 0.0))
+	return 0 if frac <= 0.0 else ceili(posts.size() * frac - 0.0001)
+
+
+## Сколько мест занято СТОЯЩИМИ бойцами (POSTED): MARCH — бронь места, но ещё не участник
+## фигуры (D-1002 §1), заряд по нему не идёт.
+func posted_posts() -> int:
+	var n := 0
+	for p in posts:
+		var u: Legionnaire = p["unit"]
+		if not p["dead"] and u != null and u.state == Legionnaire.State.POSTED:
+			n += 1
+	return n
+
+
+## Занято ли мест не меньше, чем нужно заряду (по ним и копится charge_t).
+func charge_filled() -> bool:
+	var need := charge_need()
+	return need > 0 and posted_posts() >= need
+
+
+## Заряд набран — ульта/специальный выпуск сработает. Строй обязан держать нужную долю углов
+## ПРЯМО СЕЙЧАС, а не только на прошлом тике поля (J4): поле обнуляет charge_t на своём тике, а
+## участник, убитый после него, оставлял заряд «готовым» до конца шага — ручной выпуск и пассив
+## «Комиссии» получали ульту при уже сорванной подготовке.
+func charge_ready() -> bool:
+	return charge_need() > 0 and charge_filled() and charge_t >= FigureCfg.CHARGE_TIME
 
 
 ## Доля мест фигуры, где боец стоит в строю (POSTED): порог «Сверхурочных» и «Обряда».
@@ -461,7 +613,11 @@ func bend_frac(seg: int) -> float:
 
 
 ## v18: где стоит боец места p с учётом прогиба участка — середина гнётся сильнее краёв.
+## У угловых фигур (крыша, каре, комиссия, неустойка) места НЕ ездят вдоль прогиба (D-1002 §2
+## «Давка»): пустые рёбра давка прогибает и рвёт, как обычную линию, а углы остаются на месте.
 func bent_pos(p: Dictionary) -> Vector2:
+	if corners_only:
+		return p["pos"]
 	var s := int(p["seg"])
 	var b := seg_bend[s]
 	if b <= 0.0:

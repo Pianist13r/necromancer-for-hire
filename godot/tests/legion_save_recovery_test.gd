@@ -74,6 +74,11 @@ func _run() -> void:
 	_test_unreadable()
 
 
+## Транзакции записи (сбой не оставляет полузаписи, повтор после снятия барьера работает) —
+## проверка прежняя, но покупки теперь другие: уровни «Конторы» заменены услугами подготовки
+## (RunProgression.buy_service: souls/mana/reroll) и поправками-карточками AmendmentDb, которые
+## забирают через Campaign.claim_reward (OVERHAUL 05.10). Старого shop_buy с уровнями в игре
+## больше нет, поэтому проверка идёт по новым покупкам — сами гарантии те же.
 func _test_transactions() -> void:
 	Campaign.set_save_path(SAVE)
 	Campaign.reset()
@@ -90,14 +95,29 @@ func _test_transactions() -> void:
 	# Каталог вместо временного файла надёжно имитирует отказ записи без прав администратора.
 	var before_buy := FileAccess.get_file_as_string(SAVE)
 	_check(DirAccess.make_dir_absolute(SAVE + ".tmp") == OK, "создан барьер записи")
-	_check(not Campaign.shop_buy("range", "laborer"), "неудачная запись не выдаёт успешную покупку")
-	_check(Campaign.bounty() == 120 and Campaign.shop_level("range", "laborer") == 0,
-		"неудачная покупка не отнимает деньги и не выдаёт улучшение")
+	_check(not RunProgression.buy_service("souls"), "неудачная запись не выдаёт успешную покупку")
+	_check(Campaign.bounty() == 120 and RunProgression.preparation() == "",
+		"неудачная покупка подготовки не отнимает премию и не выдаёт услугу")
 	_check(FileAccess.get_file_as_string(SAVE) == before_buy, "отказ записи не портит основной профиль")
 	DirAccess.remove_absolute(SAVE + ".tmp")
-	_check(Campaign.shop_buy("range", "laborer"), "повтор покупки после устранения сбоя работает")
+	_check(RunProgression.buy_service("souls"), "повтор покупки после устранения сбоя работает")
 	Campaign.set_save_path(SAVE)
-	_check(Campaign.shop_level("range", "laborer") == 1, "купленный уровень пережил загрузку")
+	_check(RunProgression.preparation() == "souls"
+			and is_equal_approx(float(RunProgression.preparation_mods().get("start_souls", 0.0)), 45.0),
+		"купленная подготовка пережила загрузку")
+	# Вторая половина прежней проверки — про улучшение, которое остаётся в профиле. Теперь это
+	# взятая поправка к договору: тот же путь транзакции (claim_reward).
+	_check(DirAccess.make_dir_absolute(SAVE + ".tmp") == OK, "создан барьер записи для поправки")
+	var before_card := FileAccess.get_file_as_string(SAVE)
+	_check(not Campaign.claim_reward(&"bulk_ink"), "неудачная запись не выдаёт поправку")
+	_check(Campaign.upgrades().is_empty() and not Campaign.reward_claimed(),
+		"отказ записи не выдаёт поправку и не закрывает награду")
+	_check(FileAccess.get_file_as_string(SAVE) == before_card, "отказ записи не портит профиль")
+	DirAccess.remove_absolute(SAVE + ".tmp")
+	_check(Campaign.claim_reward(&"bulk_ink"), "повтор взятия поправки после устранения сбоя работает")
+	Campaign.set_save_path(SAVE)
+	_check(Campaign.upgrades().size() == 1 and Campaign.upgrades().has(&"bulk_ink"),
+		"взятая поправка пережила загрузку")
 
 
 func _test_unreadable() -> void:

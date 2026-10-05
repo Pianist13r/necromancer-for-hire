@@ -277,7 +277,9 @@ func _test_limits() -> void:
 	_motion(Vector2(400, 200))
 	f._wall_ms -= 600
 	f._wall_fx[0]["ms"] -= 600
-	f._draw_wall_fx()
+	# contract-render: отрисовка переехала из ContractField в ContractRenderer — гашение
+	# вспышки о стену проверяем по новому адресу (метод поля больше не возвращаем).
+	f._renderer_view()._draw_wall_fx()
 	_check(f._wall_fx.is_empty(), "вспышка столкновения погасла раньше cooldown")
 	_button(Vector2(400, 200), false)
 	_check(f.contracts.is_empty() and f._wall_fx.size() == 1 \

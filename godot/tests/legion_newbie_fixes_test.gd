@@ -8,8 +8,10 @@ extends SceneTree
 ##
 ## 1) натиск своих не выносит бойцов за край карты (на «Архиве» уносил до 13 за бой), а в
 ##    середине карты бежит на прежнюю дальность;
-## 2) текст поправок «Партнёр по аутстаффу» и «Подъёмные при найме» называет ту прибавку штата,
-##    которую поправка даёт на деле (Campaign._legacy_army_mods), а не «+20 бойцов» / «+15»;
+## 2) текст карточки AmendmentDb, трогающей штат построек, называет ту же долю, что лежит в её
+##    mods, а не число бойцов (находка 27.09 переехала на новый пул рогалика: старых поправок
+##    постоянных процентов и Campaign._legacy_army_mods в бою больше нет — держим надёжность
+##    текста уже на карточках);
 ## 3) слот «Сбор» закрыт, пока R закрыт (кампания, «Пустырь»), и открыт вне кампании.
 ## Итог «LEGION NEWBIE FIXES: N/M OK»; код выхода 1, если что-то упало.
 ##
@@ -115,19 +117,30 @@ func _test_charge_edge() -> void:
 		"в середине натиск бежит без помех: x = %.0f" % mid.position.x)
 
 
+## 26.09 старая находка звучала так: текст «Партнёра по аутстаффу» обещал «+20 бойцов», а давал
+## долю штата. Пул постоянных процентов заменён колодой AmendmentDb (OVERHAUL 05.10), старого
+## ключа effect и Campaign._legacy_army_mods в бою нет — проверка переехала на карточки: у каждой,
+## трогающей штат/возрождение построек, названные в тексте доли обязаны совпасть с её mods.
 func _test_upgrade_texts() -> void:
-	print("— тексты поправок про штат")
-	for id: String in ["outstaff_partner", "signing_bonus"]:
-		Campaign.reset()
-		Campaign.add_upgrade(StringName(id))
-		var mods := Campaign._legacy_army_mods()
-		var add := float(mods.get("cap_mult_laborer", 0.0))
-		var text := String(LegionMetaCfg.UPGRADE_POOL[id]["text"])
-		var pct := "+%d %%" % roundi(add * 100.0)
-		_check(add > 0.0, "%s даёт прибавку штата подрядчиков (%.2f)" % [id, add])
-		_check(text.contains(pct), "%s: текст называет %s — «%s»" % [id, pct, text])
+	print("— тексты карточек: доля штата в тексте = доля в mods")
+	var checked := 0
+	for id: String in AmendmentDb.ORDER:
+		var card := AmendmentDb.card(StringName(id))
+		var mods: Dictionary = card.get("mods", {})
+		var pcts := {}
+		for key: String in mods:
+			if key.begins_with("cap_mult_") or key.begins_with("respawn_mult_"):
+				pcts[roundi(absf(float(mods[key])) * 100.0)] = true
+		if pcts.is_empty():
+			continue
+		checked += 1
+		var text := String(card.get("tradeoff", "")) + " " + String(card.get("text", ""))
+		for pct: int in pcts:
+			_check(text.contains("%d %%" % pct),
+				"«%s»: текст называет %d %% — «%s»" % [card["title"], pct, card.get("tradeoff", "")])
 		_check(not text.contains("бойцов.") and not text.contains("армия +"),
-			"%s: текст не обещает число бойцов" % id)
+			"«%s»: текст не обещает число бойцов" % card["title"])
+	_check(checked >= 3, "карточек со штатом проверено: %d" % checked)
 	Campaign.reset()
 
 

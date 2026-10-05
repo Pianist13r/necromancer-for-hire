@@ -82,9 +82,15 @@ func _data_and_flags() -> void:
 	_check(not lessons.is_empty() and lessons[0]["id"] == &"triangle"
 		and lessons[0]["start"], "треугольник учится в начале Моста")
 	var mark: Dictionary = lessons[0].get("mark", {}) if not lessons.is_empty() else {}
-	_check(mark.get("at", []) == [CENTER.x, CENTER.y] and mark.get("r", 0) == 60,
+	# D-1002: шаблон треугольника вырос до r75 — на r60 его bbox 104 px попадал в мини-размер
+	_check(mark.get("at", []) == [CENTER.x, CENTER.y] and mark.get("r", 0) == 75,
 		"жесты проверяют действительное место и радиус учебного шаблона")
-	_check(LegionTutorial.parse(maze).is_empty(), "Лабиринт проверяет навыки без нового урока")
+	var maze_ids: Array[StringName] = []
+	for l in LegionTutorial.parse(maze):
+		maze_ids.append(l["id"])
+	var maze_want: Array[StringName] = [&"pentagon", &"mini"]
+	_check(maze_ids == maze_want,
+		"Лабиринт учит «Комиссии» и мини-фигуре: %s" % str(maze_ids))
 	_check(not (maze.get("walls", []) as Array).is_empty(), "стены Лабиринта сохранены")
 	Campaign.reset()
 	for map_id: String in ["wasteland", "gatehouse", "fork", "archive"]:
@@ -138,13 +144,20 @@ func _gesture(r: float, offset: Vector2,
 		c = w.contracts.contracts[w.contracts.contracts.size() - 1]
 	_check(c != null and c.figure == ContractShape.TRIANGLE,
 		"настоящая мышь рисует треугольник r%.0f, сдвиг %s" % [r, str(offset)])
-	_check(Campaign.hint_seen(&"lesson_maze_triangle"), "созданная фигура засчитывает урок")
-	if r == 60.0 and offset == Vector2.ZERO and c != null:
-		for i in FPS * 6:
-			w._step(1.0 / FPS)
-		_check(c.fill() >= FigureCfg.RITE_FILL and w.army_alive() == ContractField.fig_need(c),
-			"учебный шаблон набирает полстроя ровно достаточным подкреплением")
+	# Урок фигуры кончается ДЕЙСТВИЕМ (D-1002 §7 п.10): строй набирает заряд (1,5 с), игрок
+	# срывает заряженную — и только тогда урок зачтён.
+	for i in FPS * 8:
+		if c == null or c.charge_ready():
+			break
+		w._step(1.0 / FPS)
+	var full := c != null and c.posted_posts() >= c.charge_need()
+	if c != null and c.charge_ready():
 		w.contracts.release(c, 0)
+	# удар обряда даёт стоп-кадр мира: движку нужен не один кадр, чтобы зачесть урок
+	await _frames(30)
+	_check(Campaign.hint_seen(&"lesson_maze_triangle"), "заряженная фигура засчитывает урок")
+	if r == 60.0 and offset == Vector2.ZERO and c != null:
+		_check(full and c.charge_need() == 2, "учебный строй набирает порог заряда (2 из 3 углов)")
 		_check(int(w.stats.get("rites", 0)) == 1, "сорванный учебный треугольник даёт Обряд")
 	if r == 100.0 and offset == Vector2(40, 0):
 		await _shot("bridge_triangle_r100_dx40")

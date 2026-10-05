@@ -38,6 +38,16 @@ const RING := &"ring"
 const EIGHT := &"eight"
 const TRIANGLE := &"triangle"
 const SQUARE := &"square"
+## «Комиссия по упокоению» — пятиугольник: пять углов, бойцы на четырёх выбранных (выбор —
+## choose_corners). Шестиугольники и больше НЕ фигуры: у них внешний поворот ≈60° и 50° не
+## отличить от огрублённой дуги окружности, а ложное срабатывание хуже пропуска.
+const PENTAGON := &"pentagon"
+## «Неустойка» — замкнутый полукруг (форма «D»): прямая сторона и дуга, два угла между ними.
+const D_SHAPE := &"d_shape"
+## Фигуры, у которых бойцы стоят ТОЛЬКО на углах (по одному на угол): крыша, каре, комиссия и
+## неустойка. У них нет мест на рёбрах и второго ряда — пустое ребро не стена
+## (Contract.corners_only).
+const CORNER_FIGURES: Array[StringName] = [TRIANGLE, SQUARE, PENTAGON, D_SHAPE]
 
 ## Восьмёрка, треугольник и квадрат тоже замкнуты: конец у начала (как у кольца, чуть щедрее —
 ## у фигуры длиннее штрих и рука дальше уходит от начала).
@@ -112,14 +122,67 @@ const POLY_TURN_TOL := 0.2
 const POLY_STRAIGHT_K := 0.06
 const POLY_STRAIGHT_MIN := 4.5
 const POLY_EDGE_RATIO := 0.35
+## Пятиугольник: внешний поворот вершины не больше этого (у ровного 72°, ~2,44 рад = 140° —
+## дальше это уже не выпуклый пятиугольник, а вырожденная звезда).
+const PENTA_TIP_MAX := 2.44
+## Допуск «равенства» в выборе углов «Комиссии» (choose_corners), мировые px: расстояния и
+## координаты, разошедшиеся меньше этого, считаются равными — тай-брейк (y, x) решает выбор,
+## а не дрожь руки.
+const CORNER_TIE_PX := 1.0
+
+## ── Размер (D-1002 §3): D — большая сторона bbox исходного штриха, мировые px ────────────────
+## Мини — ТА ЖЕ фигура, а не отдельный вид: у неё ослабленные числа и меньше мест. Порог формы
+## считается по D: штрих мельче MINI_MIN_D фигурой не считается вовсе (это росчерк), 48…112 —
+## мини, больше — обычная фигура. Пороги длины у мини свои: у мини-круга D = 48 даёт периметр
+## ≈151 px, а обычный порог кольца 220 такой круг отверг бы.
+const MINI_MIN_D := 48.0
+const MINI_MAX_D := 112.0
+const RING_MIN_LEN_MINI := 140.0
+const POLY_MIN_LEN_MINI := 150.0
+const EIGHT_MIN_LEN_MINI := 200.0
+## Мини-восьмёрке мало общего порога: четыре места (по два на петлю) слиплись бы — по D ей нужно
+## не меньше 96 (D-1002 §3).
+const EIGHT_MINI_MIN_D := 96.0
+## Классы размера штриха (size_class).
+const SIZE_MINI := &"mini"
+const SIZE_NORMAL := &"normal"
+const SIZE_NONE := &""
+
+## ── «Неустойка» — замкнутый полукруг (форма «D») ────────────────────────────────────────────
+## Признаки (все разом): штрих замкнут; длина не меньше D_MIN_LEN; среди рёбер упрощения есть
+## РОВНО ОДНО длинное (≥ D_STRAIGHT_MIN периметра) и прямое (прогиб точек штриха от его хорды не
+## больше max(D_STRAIGHT_DEV_MIN, D_STRAIGHT_DEV_K·длина)); на обоих его концах угол ≥ D_CORNER_MIN;
+## все прочие рёбра КРИВЫЕ (прогиб ≥ D_ARC_DEV_K их длины) — дуга, а не рёбра многоугольника;
+## оставшаяся дуга занимает не меньше D_ARC_MIN периметра. Так «D» не путается ни с кругом (у
+## того нет длинного прямого ребра при таком допуске), ни с треугольником/квадратом/пятиугольником
+## (их берёт polygon_kind раньше — там все рёбра прямые), ни с шестиугольником (у него рёбра
+## прямые — D_ARC_DEV_K не проходит).
+const D_MIN_LEN := 240.0
+const D_MIN_LEN_MINI := 150.0
+const D_RDP_K := 0.02
+const D_RDP_MIN := 4.0
+const D_STRAIGHT_MIN := 0.24
+## Прогиб «прямого» ребра — доля его длины. У хорды круга прогиб L/(8R), а хорда тут не короче
+## четверти периметра (~1,26R), то есть ≈0,157·L — втрое выше этого допуска; у настоящей прямой
+## стороны прогиб даёт только дрожь руки. Поэтому K строгий, а MIN — запас на дрожь.
+const D_STRAIGHT_DEV_K := 0.05
+const D_STRAIGHT_DEV_MIN := 3.0
+const D_CORNER_MIN := 0.87
+const D_ARC_DEV_K := 0.03
+const D_ARC_MIN := 0.45
+## Больше этого числа рёбер упрощения «D» не бывает: прямая сторона плюс 1–4 хорды дуги. Шести- и
+## восьмиугольники дают столько же рёбер, но их отсекает D_ARC_DEV_K (рёбра прямые).
+const D_MAX_EDGES := 8
 
 
-## Кольцо ли штрих (см. заголовок). pts — ломаная как нарисована, без замыкания.
-static func is_ring(pts: PackedVector2Array) -> bool:
+## Кольцо ли штрих (см. заголовок). pts — ломаная как нарисована, без замыкания. mini — порог
+## длины снижен под мини-размер (в игре его считает size_class; корпуса зовут без него —
+## прежнее поведение).
+static func is_ring(pts: PackedVector2Array, mini := false) -> bool:
 	if pts.size() < RING_MIN_POINTS:
 		return false
 	var length := poly_len(pts)
-	if length < RING_MIN_LEN:
+	if length < (RING_MIN_LEN_MINI if mini else RING_MIN_LEN):
 		return false
 	var gap := pts[0].distance_to(pts[pts.size() - 1])
 	if gap > maxf(RING_GAP_MIN, RING_GAP_FRAC * length):
@@ -131,9 +194,16 @@ static func is_ring(pts: PackedVector2Array) -> bool:
 	var turn := absf(total_turn(pts))
 	if absf(turn - TAU) > TAU * RING_TURN_TOL:
 		return false
-	# многоугольник с 3–4 прямыми рёбрами — треугольник или квадрат (или их недобор по углам и
-	# пропорциям), а не круг (D-1002-03); круг с рывками сюда не попадает — у него рёбра не прямые
-	return polygon_fit(pts).is_empty()
+	# многоугольник с 3–5 прямыми рёбрами — треугольник, квадрат или пятиугольник (или их недобор
+	# по углам и пропорциям), а не круг (D-1002-03); круг с рывками сюда не попадает — у него
+	# рёбра не прямые. Пятиугольник вето накладывает только НАСТОЯЩИЙ (углы и пропорции сошлись):
+	# иначе грубый круг, у которого упрощение дало ровно пять изломов, перестал бы быть кольцом
+	# (находка прогона 05.10: 2 круга из 9000 на быстром шаге 30).
+	var fit := polygon_fit(pts, mini)
+	if fit.is_empty():
+		return true
+	var n := (fit["tips"] as PackedVector2Array).size()
+	return false if n <= 4 else not _kind_ok(fit, n)
 
 
 ## Замкнуть ломаную: дотянуть конец до начала (зазор недотянутого круга закрывается бесплатно —
@@ -204,18 +274,105 @@ static func inside(p: Vector2, pts: PackedVector2Array) -> bool:
 
 # ── Восьмёрка (просьба Игоря 26.09), треугольник и квадрат (D-1002-03) ──────────
 
-## Что за фигура штрих: EIGHT / TRIANGLE / SQUARE / RING или &"" (обычная линия). Восьмёрка
-## (итоговый поворот ≈ 0) с прочими не пересекается; многоугольник проверяется раньше кольца,
-## а кольцо и само не признаёт фигуру с 3–4 вершинами.
+## Что за фигура штрих: EIGHT / TRIANGLE / SQUARE / PENTAGON / D_SHAPE / RING или &"" (обычная
+## линия). Восьмёрка (итоговый поворот ≈ 0) с прочими не пересекается; многоугольник проверяется
+## раньше кольца и «D», а кольцо и само не признаёт фигуру с 3–5 вершинами. Класс размера — по
+## bbox штриха: мини-фигура узнаётся теми же признаками при сниженных порогах (size_class), штрих
+## мельче MINI_MIN_D фигурой не считается.
 static func classify(pts: PackedVector2Array) -> StringName:
-	if is_eight(pts):
+	var cls := size_class(pts)
+	if cls == SIZE_NONE:
+		return &""
+	var mini := cls == SIZE_MINI
+	# восьмёрке мало общей нижней границы: четыре места по два на петлю слиплись бы — мини-строй
+	# ей только с D ≥ EIGHT_MINI_MIN_D, ниже она остаётся прежней многоместной (D-1002 §3)
+	if is_eight(pts, mini and fig_span(pts) >= EIGHT_MINI_MIN_D):
 		return EIGHT
-	var poly := polygon_kind(pts)
+	var poly := polygon_kind(pts, mini)
 	if poly != &"":
 		return poly
-	if is_ring(pts):
+	if is_d_shape(pts, mini):
+		return D_SHAPE
+	if is_ring(pts, mini):
 		return RING
 	return &""
+
+
+## Класс размера штриха по D — большей стороне его bounding box: SIZE_MINI (MINI_MIN_D ≤ D ≤
+## MINI_MAX_D), SIZE_NORMAL (D больше) или SIZE_NONE (мельче мини — не фигура). Штрих из одной
+## точки (начало черновика) — SIZE_NONE.
+static func size_class(pts: PackedVector2Array) -> StringName:
+	var d := fig_span(pts)
+	if d < MINI_MIN_D:
+		return SIZE_NONE
+	return SIZE_MINI if d <= MINI_MAX_D else SIZE_NORMAL
+
+
+## D — большая сторона bbox штриха (мировые px). 0 — штрих пуст.
+static func fig_span(pts: PackedVector2Array) -> float:
+	if pts.is_empty():
+		return 0.0
+	var box := Rect2(pts[0], Vector2.ZERO)
+	for p in pts:
+		box = box.expand(p)
+	return maxf(box.size.x, box.size.y)
+
+
+## Из вершин многоугольника выбрать места фигуры (не больше n): первый — с наименьшими (y, x),
+## каждый следующий — самый далёкий по расстоянию до уже выбранных (равенство — (y, x)). Так
+## начало штриха не меняет боевую расстановку (D-1002 §2 «Больше четырёх углов»). Возвращает
+## индексы в порядке отбора.
+static func choose_corners(tips: PackedVector2Array, n: int) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if tips.is_empty() or n <= 0:
+		return out
+	if tips.size() <= n:
+		for i in tips.size():
+			out.append(i)
+		return out
+	var first := 0
+	for i in tips.size():
+		if _corner_less(tips[i], tips[first]):
+			first = i
+	out.append(first)
+	while out.size() < n:
+		var best := -1
+		var best_d := -1.0
+		for i in tips.size():
+			if out.has(i):
+				continue
+			var near := INF
+			for k in out:
+				near = minf(near, tips[i].distance_to(tips[k]))
+			# равенство с допуском CORNER_TIE_PX: у ровного пятиугольника «дальние» углы равноудалены
+			# от выбранных, и без допуска выбор решала бы дрожь руки (±0,5 px) — расстановка зависела
+			# бы от того, где игрок начал штрих
+			if best < 0 or near > best_d + CORNER_TIE_PX \
+					or (near >= best_d - CORNER_TIE_PX and _corner_less(tips[i], tips[best])):
+				best_d = near
+				best = i
+		if best < 0:
+			break
+		out.append(best)
+	return out
+
+
+## Места фигуры среди её вершин: не больше n штук, отбор — choose_corners (детерминированный).
+## Возвращает сами точки в порядке отбора; вершин меньше n — берём все.
+static func selected_tips(tips: PackedVector2Array, n: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in choose_corners(tips, n):
+		out.append(tips[i])
+	return out
+
+
+## Порядок углов (y, x) — тай-брейк детерминированного выбора. Сравнение с допуском
+## CORNER_TIE_PX: у ровной фигуры «дальние» углы стоят на одной линии, и выбор не должен
+## зависеть от дрожи руки.
+static func _corner_less(a: Vector2, b: Vector2) -> bool:
+	if absf(a.y - b.y) > CORNER_TIE_PX:
+		return a.y < b.y
+	return a.x < b.x
 
 
 ## Замкнут ли штрих фигуры и какой у него зазор; -1 — не замкнут.
@@ -266,11 +423,15 @@ static func roundness(poly: PackedVector2Array) -> float:
 	return 4.0 * PI * absf(signed_area(poly)) / (perim * perim)
 
 
-static func is_eight(pts: PackedVector2Array) -> bool:
+static func is_eight(pts: PackedVector2Array, mini := false) -> bool:
 	if pts.size() < EIGHT_MIN_POINTS:
 		return false
 	var length := poly_len(pts)
-	if length < EIGHT_MIN_LEN or _fig_gap(pts, length) < 0.0:
+	var min_len := EIGHT_MIN_LEN_MINI if mini else EIGHT_MIN_LEN
+	if length < min_len or _fig_gap(pts, length) < 0.0:
+		return false
+	# мини-восьмёрке мало общего порога: четыре места по два на петлю слиплись бы (D-1002 §3)
+	if mini and fig_span(pts) < EIGHT_MINI_MIN_D:
 		return false
 	var rs := resample_closed(pts)
 	if absf(cyclic_turn(rs)) > TAU * EIGHT_NET_TURN:
@@ -384,34 +545,42 @@ static func _near_chord(poly: PackedVector2Array, st: int, k: int, a: Vector2, b
 
 # ── Треугольник и квадрат (D-1002-03) ────────────────────────────────────────
 
-## TRIANGLE / SQUARE или &"" (см. заголовок POLY_*).
-static func polygon_kind(pts: PackedVector2Array) -> StringName:
-	var fit := polygon_fit(pts)
+## TRIANGLE / SQUARE / PENTAGON или &"" (см. заголовок POLY_*).
+static func polygon_kind(pts: PackedVector2Array, mini := false) -> StringName:
+	var fit := polygon_fit(pts, mini)
 	if fit.is_empty():
 		return &""
 	var tips: PackedVector2Array = fit["tips"]
 	if _kind_ok(fit, tips.size()):
-		return TRIANGLE if tips.size() == 3 else SQUARE
+		match tips.size():
+			3:
+				return TRIANGLE
+			4:
+				return SQUARE
+			5:
+				return PENTAGON
 	return &""
 
 
-## Вершины треугольника (count 3) или квадрата (count 4) по порядку штриха; пусто — не он.
+## Вершины многоугольника (count 3, 4 или 5) по порядку штриха; пусто — не он.
 ## pts — штрих как нарисован (не пересэмплированный: у редких точек хорда срезает угол).
-static func polygon_tips(pts: PackedVector2Array, count: int) -> PackedVector2Array:
-	var fit := polygon_fit(pts)
+static func polygon_tips(pts: PackedVector2Array, count: int, mini := false) -> PackedVector2Array:
+	var fit := polygon_fit(pts, mini)
 	if fit.is_empty() or (fit["tips"] as PackedVector2Array).size() != count \
 			or not _kind_ok(fit, count):
 		return PackedVector2Array()
 	return fit["tips"]
 
 
-## Углы и пропорции под вид: каждая вершина ≥ TIP_MIN (~65°), у квадрата ещё и
-## ≤ SQUARE_TIP_MAX; короткое ребро ≥ POLY_EDGE_RATIO длинного.
+## Углы и пропорции под вид: каждая вершина ≥ TIP_MIN (~65°), у квадрата ещё и ≤ SQUARE_TIP_MAX,
+## у пятиугольника ≤ PENTA_TIP_MAX; короткое ребро ≥ POLY_EDGE_RATIO длинного.
 static func _kind_ok(fit: Dictionary, count: int) -> bool:
 	var tips: PackedVector2Array = fit["tips"]
 	var turns: PackedFloat32Array = fit["turns"]
 	for t in turns:
-		if absf(t) < TIP_MIN or (count == 4 and absf(t) > SQUARE_TIP_MAX):
+		var a := absf(t)
+		if a < TIP_MIN or (count == 4 and a > SQUARE_TIP_MAX) \
+				or (count == 5 and a > PENTA_TIP_MAX):
 			return false
 	var e_min := INF
 	var e_max := 0.0
@@ -422,15 +591,15 @@ static func _kind_ok(fit: Dictionary, count: int) -> bool:
 	return e_min >= POLY_EDGE_RATIO * e_max
 
 
-## Многоугольник по штриху: {tips — 3 или 4 вершины по порядку штриха, turns — их повороты}
+## Многоугольник по штриху: {tips — 3, 4 или 5 вершин по порядку штриха, turns — их повороты}
 ## или {} (см. заголовок POLY_*: замкнут, выпуклый, рёбра прямые). Углы и пропорции под вид —
-## _kind_ok.
-static func polygon_fit(pts: PackedVector2Array) -> Dictionary:
+## _kind_ok. mini — сниженный порог длины (мини-фигура).
+static func polygon_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	if pts.size() < POLY_MIN_POINTS:
 		return {}
 	var stroke := trim_overshoot(pts)
 	var length := poly_len(stroke)
-	if length < POLY_MIN_LEN or _fig_gap(stroke, length) < 0.0:
+	if length < (POLY_MIN_LEN_MINI if mini else POLY_MIN_LEN) or _fig_gap(stroke, length) < 0.0:
 		return {}
 	var loop := closed(stroke)
 	var total := poly_len(loop)
@@ -496,7 +665,7 @@ static func polygon_fit(pts: PackedVector2Array) -> Dictionary:
 			return {}
 		corners.append([keep[int(cl[0])], keep[int(cl[1])]])
 	var n := corners.size()
-	if n < 3 or n > 4 or absf(absf(sum) - TAU) > TAU * POLY_TURN_TOL:
+	if n < 3 or n > 5 or absf(absf(sum) - TAU) > TAU * POLY_TURN_TOL:
 		return {}
 	# ребро — прямая по точкам штриха от вершины до вершины (срез угла редкими точками не в счёт);
 	# вершина — пересечение соседних рёбер: у редких точек ближняя к углу точка лежит на ребре
@@ -541,6 +710,80 @@ static func polygon_fit(pts: PackedVector2Array) -> Dictionary:
 		if best > tol:
 			return {}
 	return {"tips": tips, "turns": turns}
+
+
+# ── «Неустойка» — замкнутый полукруг (форма «D») ──────────────────────────────
+
+## «D» ли штрих (см. заголовок D_*).
+static func is_d_shape(pts: PackedVector2Array, mini := false) -> bool:
+	return not d_fit(pts, mini).is_empty()
+
+
+## Разбор «неустойки»: {corners — два угла между прямой стороной и дугой по порядку штриха,
+## share — доля периметра в прямом ребре} или {} — не «D» (см. заголовок D_*).
+static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
+	if pts.size() < POLY_MIN_POINTS:
+		return {}
+	var stroke := trim_overshoot(pts)
+	var length := poly_len(stroke)
+	if length < (D_MIN_LEN_MINI if mini else D_MIN_LEN) or _fig_gap(stroke, length) < 0.0:
+		return {}
+	var loop := closed(stroke)
+	var total := poly_len(loop)
+	if total <= 0.0:
+		return {}
+	var keep := _rdp_closed(loop, maxf(D_RDP_MIN, D_RDP_K * total))
+	var m := keep.size()
+	if m < 3 or m > D_MAX_EDGES:
+		return {}
+	var n := loop.size() - 1   # loop замыкается повтором первой точки
+	var edges: Array = []      # [первый индекс, последний индекс (может быть > n), длина, прогиб]
+	for q in m:
+		var i0 := int(keep[q])
+		var i1 := int(keep[(q + 1) % m])
+		if (q + 1) % m == 0:
+			i1 += n
+		var a := loop[i0]
+		var b := loop[i1 % loop.size()]
+		var dev := 0.0
+		for k in range(i0 + 1, i1):
+			var p := loop[k % loop.size()]
+			dev = maxf(dev, p.distance_to(Geometry2D.get_closest_point_to_segment(p, a, b)))
+		edges.append([i0, i1, a.distance_to(b), dev])
+	# прямая сторона — самое длинное ребро; оно должно быть прямым и заметным
+	var si := 0
+	for q in m:
+		if float(edges[q][2]) > float(edges[si][2]):
+			si = q
+	var side := float(edges[si][2])
+	if side < D_STRAIGHT_MIN * total \
+			or float(edges[si][3]) > maxf(D_STRAIGHT_DEV_MIN, D_STRAIGHT_DEV_K * side):
+		return {}
+	# остальные рёбра КРИВЫЕ — дуга, а не рёбра многоугольника (шестиугольник и т.п.)
+	for q in m:
+		if q != si and float(edges[q][3]) < D_ARC_DEV_K * float(edges[q][2]):
+			return {}
+	if side > (1.0 - D_ARC_MIN) * total:
+		return {}
+	# углы на обоих концах прямой стороны
+	var p0 := loop[int(edges[si][0])]
+	var p1 := loop[int(edges[si][1]) % loop.size()]
+	var before := loop[int(edges[(si - 1 + m) % m][0])]
+	var beyond := loop[int(edges[(si + 1) % m][1]) % loop.size()]
+	var d_in := (p0 - before).normalized()
+	var d_side := (p1 - p0).normalized()
+	var d_out := (beyond - p1).normalized()
+	if d_in == Vector2.ZERO or d_side == Vector2.ZERO or d_out == Vector2.ZERO:
+		return {}
+	if absf(d_in.angle_to(d_side)) < D_CORNER_MIN or absf(d_side.angle_to(d_out)) < D_CORNER_MIN:
+		return {}
+	return {"corners": PackedVector2Array([p0, p1]), "share": side / total}
+
+
+## Два угла «неустойки» по штриху (пусто — не «D»).
+static func d_corners(pts: PackedVector2Array, mini := false) -> PackedVector2Array:
+	var fit := d_fit(pts, mini)
+	return fit.get("corners", PackedVector2Array()) as PackedVector2Array
 
 
 ## Прямая по точкам (главная ось разброса): [точка на прямой, направление от первой точки к

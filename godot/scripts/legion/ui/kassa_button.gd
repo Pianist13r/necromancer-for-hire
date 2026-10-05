@@ -19,6 +19,7 @@ var world: LegionWorld = null
 var _left: Control = null
 var _blink := 0.0
 var _premium: Texture2D = null
+var _key := -1
 
 
 func setup(w: LegionWorld, left: Control) -> LegionKassaButton:
@@ -28,10 +29,19 @@ func setup(w: LegionWorld, left: Control) -> LegionKassaButton:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false   # покажет _process, когда идёт одиночный бой
 	size = Vector2(LegionCfg.KASSA_BUTTON_W, LegionCfg.HUD_PLATE_H)
-	tooltip_text = ("Касса (Дэ): заложить %d душ в премию «Конторы». Заложенное в бою не " \
-		+ "вернуть; курс к концу боя хуже; при поражении касса сгорает") % LegionCfg.KASSA_PORTION
+	_update_key_hint()
 	_premium = LegionIcons.tex("premium")
 	return self
+
+
+func _update_key_hint() -> void:
+	var key := Controls.key(&"kassa")
+	if key == _key:
+		return
+	_key = key
+	tooltip_text = Controls.text(("Касса (Дэ): заложить %d душ в премию «Конторы». "
+		+ "Заложенное в бою не вернуть; курс к концу боя хуже; при поражении касса сгорает")
+		% LegionCfg.KASSA_PORTION)
 
 
 ## Можно ли заложить прямо сейчас (для цвета «готово»).
@@ -56,6 +66,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _process(dt: float) -> void:
+	_update_key_hint()
 	visible = world != null and not world.pvp and world.kassa_allowed \
 		and world.phase == LegionWorld.Phase.BATTLE \
 		and not (world.tutorial != null and world.tutorial.holding())
@@ -86,5 +97,5 @@ func _draw() -> void:
 	var col := LegionUi.GOOD if full else LegionUi.GOLD.lightened(0.3)
 	LegionUi.draw_number(self, Vector2(24.0, 35.0),
 		"+%d/%d" % [world.kassa.earned(), LegionCfg.KASSA_CAP], NUM_FONT, col)
-	LegionUi.draw_stamp(self, Vector2(rect.end.x - 8.0, 6.0), "D", LegionUi.STAMP, 13, 0.12,
-		18.0)
+	LegionUi.draw_stamp(self, Vector2(rect.end.x - 8.0, 6.0), Controls.label(&"kassa"),
+		LegionUi.STAMP, 13, 0.12, 18.0)

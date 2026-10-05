@@ -69,6 +69,9 @@ var _endless_daily := false
 var _in_collection_battle := false
 
 
+var _dossier: LegionItemDossier
+
+
 func _ready() -> void:
 	add_child(SaveNotice.new())
 	var args := LegionWorld.parse_args()
@@ -214,12 +217,12 @@ func show_map_select() -> void:
 	_teardown_screen()
 	var s := MapSelect.new()
 	_set_screen(s)
-	s.map_chosen.connect(show_briefing)
+	s.map_chosen.connect(func(id: String) -> void: show_briefing(id, show_map_select))
 	s.office_pressed.connect(func() -> void: show_office(show_map_select))
 	s.back.connect(show_menu)
 
 
-func show_briefing(map_id: String) -> void:
+func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 	Campaign.use_campaign_scope()
 	var data := Campaign.map(map_id)
 	if data.is_empty():
@@ -229,11 +232,12 @@ func show_briefing(map_id: String) -> void:
 	# в Campaign переживает выход в меню и повторный заход, docs/legion/DESIGN_V15.md §9).
 	if _is_first_map(map_id) and not Campaign.intro_cutscene_seen():
 		Campaign.set_intro_cutscene_seen()
-		_play_cutscene(_intro_frames(), _ensure_audio(), func() -> void: show_briefing(map_id))
+		_play_cutscene(_intro_frames(), _ensure_audio(), func() -> void: show_briefing(map_id, on_back))
 		return
 	_ensure_audio().play_menu_music()
 	_teardown_screen()
 	var b := Briefing.new()
+	b.back_label = "← Назад" if on_back.is_valid() else "В главное меню"
 	_set_screen(b)
 	# populate() кладёт карточку через UiStyle.card_box — тому нужен готовый родитель
 	# (см. tests/legion_ui_preview.gd), поэтому вызываем деферренно, после add_child выше.
@@ -243,7 +247,9 @@ func show_briefing(map_id: String) -> void:
 			LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
 	b.call_deferred("populate", data)
 	b.start.connect(start_battle)
-	b.back.connect(show_map_select)
+	b.back.connect(on_back if on_back.is_valid() else show_menu)
+	b.office_pressed.connect(func() -> void:
+		show_office(func() -> void: show_briefing(map_id, on_back)))
 
 
 ## Публичный вход в бой — используется и экраном брифинга, и flow-тестом напрямую, и «Как играть →
@@ -269,13 +275,15 @@ func start_battle(map_id: String) -> void:
 	# D-0927-96: снимаем возможный override сложности «Вызова дня» (world.dev["difficulty"],
 	# см. _start_endless_battle()) — кампания всегда читает живой Settings.difficulty().
 	world.dev.erase("difficulty")
+	world.in_campaign = true   # E-1005: режим — себе САМ (после «Схватки» иначе мёртвые поправки)
 	world.mods = Campaign.active_mods()
 	# артефакты кампании живут между картами (D-0927-163), как поправки
 	world.carry_items = true
+	# A1: подготовка «Конторы» — в бой ДО старта вместе со списанием (J3: без него — даром).
+	world.battle_preparation = RunProgression.consume_preparation_for_battle()
 	world.start_map(map_id)
-	# Кампания v20 (D-0926-46): у каждой карты свои уроки (поле lessons её JSON) — ещё не
-	# пройденные идут поверх боя; обучение «Пустыря» — это уроки карты 1. Флаги уроков в
-	# сохранении не дают показать урок повторно (docs/legion/TUTORIAL_SPEC.md).
+	# Кампания v20 (D-0926-46): у каждой карты свои уроки (поле lessons её JSON) — ещё не пройденные
+	# идут поверх боя; флаги уроков в сохранении не дают показать урок повторно (TUTORIAL_SPEC.md).
 	world.start_lessons()
 
 
@@ -371,6 +379,8 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 	if victory and next_id != "":
 		Campaign.set_pending_reward(next_id)
 	_pending_next_map = Campaign.pending_reward() if victory else ""
+	# J2: отказ записи итог НЕ откатывает — показанная награда не должна пропасть; на диск её
+	# доведёт кнопка «Повторить запись» на плашке SaveNotice, а следом и любая успешная запись.
 	Campaign.end_update()
 
 	var view_stats := {
@@ -383,6 +393,7 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 		"refreshes": int(stats.get("refreshes", 0)),
 		"releases": int(stats.get("releases", 0)),
 		"releases_manual": int(stats.get("releases_manual", 0)),
+		"debrief": stats.get("debrief", {}),
 		"time": float(stats.get("t", 0.0)),
 	}
 	# Победа на последней карте кампании (следующей нет) — отдельный текст итога (ревью, п.7),
@@ -402,61 +413,52 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 
 func _show_result_screen(map_id: String, victory: bool, view_stats: Dictionary, stars: int,
 		has_next: bool, campaign_complete: bool, rewards: Dictionary) -> void:
-	_teardown_screen()
-	var r := LegionResult.new()
-	_set_screen(r)
-	r.call_deferred("show_result", victory, view_stats, stars, has_next, campaign_complete,
-		rewards)
-	r.next.connect(_on_result_next)
-	r.retry.connect(func() -> void: start_battle(map_id))
-	r.maps.connect(show_map_select)
-	r.menu.connect(show_menu)
+	LegionAftermath.result(self, map_id, victory, view_stats, stars, has_next,
+		campaign_complete, rewards)
 
 
 func _on_result_next() -> void:
 	_offer_upgrade_or_skip()
 
 
-## Показывает выбор поправки, либо, если пул исчерпан (все 10 взяты), сразу ведёт в «Контору»
-## (ревью, п.1: раньше экран поправок при пустом пуле оставался пуст и без выхода). Общий путь
-## для «Дальше» на итоге боя и для «Продолжить» из меню с незабранной наградой (ревью, п.4).
+## Незабранная поправка возобновляется из меню; после выбора сразу брифинг.
 func _offer_upgrade_or_skip() -> void:
-	if Campaign.reward_claimed():
-		show_office(_finish_pending_reward)
+	if Campaign.pending_reward() == "":
 		return
-	# Случайность — не своя RandomNumberGenerator.randomize(), а world.rng, где мир уже есть:
-	# воспроизводимо от сида боя (ревью, п.5). Но `world` МОЖЕТ быть null — свежий запуск игры,
-	# «Продолжить» с незабранной наградой ведёт сюда через _on_continue_pressed()/
-	# _start_endless_flow() ДО первого боя этой сессии (verifier 27.09, п.5: на реальном
-	# сохранении с pending_reward="gatehouse" это валило игру `SCRIPT ERROR: Invalid access to
-	# property 'rng' on 'Nil'`) — тогда берём RNG, детерминированный от самого́ сохранения.
-	var rng := world.rng if world != null else Campaign.pending_reward_rng()
+	if Campaign.reward_claimed():
+		_finish_pending_reward()
+		return
+	var rng := Campaign.pending_reward_rng()
 	var options := Campaign.offer_upgrades(rng)
 	if options.is_empty():
-		Campaign.claim_reward()
-		show_office(_finish_pending_reward)
+		if Campaign.claim_reward():
+			_finish_pending_reward()
 		return
 	_teardown_screen()
 	var picker := UpgradePicker.new()
+	var title := "следующего объекта" if _pending_next_map == LegionEndless.PENDING_SENTINEL \
+		else "«%s»" % String(Campaign.map(Campaign.pending_reward()).get("title", ""))
+	picker.next_label = "Дальше: брифинг " + title
 	_set_screen(picker)
 	picker.call_deferred("offer", options)
 	picker.picked.connect(pick_upgrade)
+	picker.back.connect(show_menu)
 
 
-## Публичный API поправки — вызывает и клик по карточке UpgradePicker, и flow-тест напрямую
-## (эмулирует выбор без клика по кнопке, как делает legion_core_test.gd для боевых систем).
-## meta (задание meta п.2): после поправки — «Контора» (премия уже начислена в _on_match_ended),
-## «Дальше» там ведёт на следующую карту (_finish_pending_reward).
+## Запись награды подтверждается до перехода к следующему объекту.
 func pick_upgrade(id: StringName) -> void:
-	if Campaign.claim_reward(id):
-		show_office(_finish_pending_reward)
+	if Campaign.reward_claimed() or Campaign.claim_reward(id):
+		_finish_pending_reward()
 
 
 ## Награда забрана (или пропущена из-за пустого пула) — снимаем метку ожидания в Campaign
 ## и ведём на карту, ради которой награда предлагалась.
 func _finish_pending_reward() -> void:
+	var next_id := Campaign.pending_reward()
+	Campaign.begin_update()
 	Campaign.clear_pending_reward()
-	var next_id := _pending_next_map
+	if not Campaign.end_update(true):
+		return
 	_pending_next_map = ""
 	# mode: сентинел вместо id карты кампании — следующий объект забега (LegionEndless.
 	# PENDING_SENTINEL), считается заново из LegionRunStore.endless_k(), а не запомнен здесь: пока
@@ -546,13 +548,13 @@ func show_endless_briefing() -> void:
 		LegionRunStore.endless_souls(_endless_daily), _endless_daily, LegionRunStore.endless_daily_date())
 	b.start.connect(_start_endless_battle)
 	b.back.connect(show_menu)
+	b.office_pressed.connect(func() -> void: show_office(show_endless_briefing))
 
 
-## mode (verifier 27.09, п.1): бой забега ЯВНО ставит СВОЙ режим у себя же — по _endless_daily,
-## не по тому, что уже стоит в Campaign (правило одно на всех: КАЖДЫЙ старт боя ставит режим сам).
-## D-0927-96/-120: сложность забега (обоих видов) фиксируется в момент старта ПЕРВОГО объекта
-## (lock_difficulty — no-op на повторных) и подаётся миру через world.dev["difficulty"] в обход
-## живого Settings.difficulty(). D-0927-121: бой дня сразу помечается в сохранении открытым.
+## mode (verifier 27.09, п.1): бой забега ЯВНО ставит СВОЙ режим у себя — по _endless_daily, не по
+## Campaign (правило одно на всех, E-1005: режим ставит КАЖДЫЙ старт). D-0927-96/-120: сложность
+## забега фиксируется на старте ПЕРВОГО объекта (lock_difficulty — no-op на повторных) и идёт в
+## world.dev["difficulty"] в обход Settings.difficulty(); D-0927-121: бой дня помечается открытым.
 func _start_endless_battle(map_id: String) -> void:
 	if _settle_abandoned_daily():
 		return
@@ -566,11 +568,15 @@ func _start_endless_battle(map_id: String) -> void:
 		Campaign.use_endless_scope()
 	LegionRunStore.lock_difficulty(_endless_daily, Settings.difficulty())
 	world.dev["difficulty"] = LegionRunStore.run_difficulty(_endless_daily)
+	world.in_campaign = true   # E-1005: режим — себе САМ, как кампания (иначе правила забега мертвы)
 	world.mods = Campaign.active_mods()
 	# артефакты забега — в разделе этого забега (endless_run / daily_run)
 	world.carry_items = true
+	# A1: подготовка «Конторы» забега — копия в бой ДО старта вместе со списанием (J3).
+	world.battle_preparation = RunProgression.consume_preparation_for_battle()
 	world.start_map(map_id)
 	if _endless_daily:
+		# J2: отказ записи отметки виден плашкой SaveNotice, повтор — её кнопкой.
 		LegionRunStore.daily_open_mark(map_id, String(world.map.get("title", map_id)))
 
 
@@ -612,6 +618,7 @@ func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
 	if not victory:
 		var last_type := String(stats.get("last_hit_foe_type", ""))
 		var report := LegionRunStore.endless_end_run()
+		report["debrief"] = stats.get("debrief", {})
 		Campaign.use_campaign_scope()
 		_show_necrolog(report, last_type, map_title, collectible)
 		return
@@ -638,9 +645,10 @@ func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
 		"tenure": LegionRunStore.endless_tenure(_endless_daily),
 		"souls": LegionRunStore.endless_souls(_endless_daily),
 		"bounty": bounty_earned,
+		"debrief": stats.get("debrief", {}),
 	}
 	LegionKassa.grant(true, stats, view_stats)   # «Касса»: в премию забега и строкой на итоге
-	Campaign.end_update()
+	Campaign.end_update()   # J2: как и в кампании — не откатываем, повтор кнопкой на плашке
 	_teardown_screen()
 	var r := LegionResult.new()
 	_set_screen(r)
@@ -653,16 +661,7 @@ func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
 
 func _show_necrolog(report: Dictionary, foe_type: String, map_title: String,
 		show_collect := false) -> void:
-	_teardown_screen()
-	var n := Necrolog.new()
-	_set_screen(n)
-	n.call_deferred("show_report", report, foe_type, map_title, show_collect)
-	n.menu.connect(show_menu)
-	if show_collect:
-		n.collect_pressed.connect(func() -> void: LegionCollectionFlow.save_current(self))
-	n.restart.connect(func() -> void:
-		var daily := bool(report.get("daily", false))
-		_start_endless_flow(daily))
+	LegionAftermath.necrolog(self, report, foe_type, map_title, show_collect)
 
 
 # ── Пауза боя (Esc) ─────────────────────────────────────────────────────────
@@ -686,11 +685,12 @@ func _show_pause() -> void:
 	# засчитывает конец сегодняшней попытки.
 	if _in_endless_battle and _endless_daily:
 		_pause_screen.hide_restart = true
-		_pause_screen.confirm_menu_text = ("Выход посреди объекта засчитает конец сегодняшней "
-			+ "попытки «Вызова дня» — второй сегодня уже не будет.")
+		_pause_screen.confirm_menu_text = ("Бой будет прерван. Награды прошлых боёв сохранены. "
+			+ "Попытка дня будет засчитана — второй сегодня уже не будет.")
 	# D-0927-162: «В коллекцию» — главное место сохранения (Игорь: «если проигрываешь или тебе
 	# надо бежать»), только пока идёт бой ЗАБЕГА на сгенерированной карте.
 	_pause_screen.show_collect = _in_endless_battle and _collectible_map_id(world.map_id)
+	_pause_screen.show_dossier = world.items_of(world.local_side).total() > 0
 	_pause_screen.cover = world   # B-113: подсказки поля/HUD не ложатся поверх паузы
 	_pause_screen.process_mode = Node.PROCESS_MODE_ALWAYS
 	_pause_screen.z_index = OVERLAY_Z
@@ -699,6 +699,7 @@ func _show_pause() -> void:
 	_pause_screen.restart_pressed.connect(func() -> void: world.restart())
 	_pause_screen.settings_pressed.connect(_show_settings)
 	_pause_screen.howto_pressed.connect(_show_howto)
+	_pause_screen.dossier_pressed.connect(_show_dossier)
 	_pause_screen.menu_pressed.connect(_on_pause_menu_pressed)
 	_pause_screen.collect_pressed.connect(func() -> void: LegionCollectionFlow.save_current(self))
 	_pause_screen.skip_tutorial_pressed.connect(func() -> void:
@@ -707,19 +708,32 @@ func _show_pause() -> void:
 		world.set_paused(false))
 
 
+func _show_dossier() -> void:
+	if is_instance_valid(_dossier):
+		return
+	_dossier = LegionItemDossier.new()
+	add_child(_dossier)
+	_dossier.setup(world.items_of(world.local_side))
+	_dossier.closed.connect(func() -> void:
+		_dossier.queue_free()
+		_dossier = null)
+	_dossier.open()
+
+
+func _close_dossier() -> void:
+	if is_instance_valid(_dossier):
+		_dossier.close()
+
+
 func _hide_pause() -> void:
+	_close_dossier()
 	if _pause_screen != null:
 		_pause_screen.restore_covered()
 		_pause_screen.queue_free()
 		_pause_screen = null
 
 
-## D-0927-96: в обычном бою (кампания, забег вне «Вызова дня») «Меню» из паузы ведёт в меню, как
-## раньше. В бою «Вызова дня» (подтверждение уже показал и снял LegionPause — сюда попадаем
-## только после «Да, уйти») — выход посреди объекта засчитывается как конец попытки: тот же
-## путь, что смерть Котла (world.force_end(false) → match_ended → _on_endless_match_ended),
-## только причина некролога — не вид врага, а «самовольный уход» (LegionEndless.ABANDON_TYPE).
-## Экран сам сменится на некролог внутри force_end() — до show_menu() тут дело не доходит.
+## Подтверждённый выход из дня завершает попытку некрологом.
 func _on_pause_menu_pressed() -> void:
 	if _in_endless_battle and _endless_daily:
 		world.set_paused(false)
@@ -743,9 +757,6 @@ func _show_settings(from_menu := false) -> void:
 		reset_progress())
 
 
-## Сброс сохранения из «Настроек»: стирает user://legion.cfg (Campaign.reset — кампания, премия,
-## «Контора», герой, обучение, катсцены) и заново строит меню — «Продолжить» снова ведёт на первую
-## карту, вступление и обучение покажутся как в первый раз. Settings (звук, экран) не трогает.
 func reset_progress() -> void:
 	Campaign.reset()
 	_pending_next_map = ""
@@ -766,7 +777,7 @@ func _show_howto() -> void:
 	h.closed.connect(func() -> void: h.queue_free())
 	# Пакет tutorial: «Обучение» из «Как играть» запускает его принудительно, даже если флаг
 	# tutorial/done уже стоит — это явная просьба игрока, а не автозапуск первой игры.
-	h.tutorial_pressed.connect(func() -> void:
+	var launch_tutorial := func() -> void:
 		h.queue_free()
 		_hide_pause()
 		# «Как играть» открыт из паузы боя — start_map() ниже паузу дерева не снимает
@@ -777,14 +788,17 @@ func _show_howto() -> void:
 		if _settle_abandoned_daily():
 			return
 		start_battle("wasteland")
-		world.start_tutorial())
+		world.start_tutorial()
+	h.tutorial_pressed.connect(func() -> void:
+		if world != null and world.phase == LegionWorld.Phase.BATTLE:
+			LegionUi.confirm(h, "Бой будет прерван ради обучения. "
+				+ "Награды прошлых боёв сохранены.", launch_tutorial)
+		else:
+			launch_tutorial.call())
 
 
 # ── Пакет cuts: катсцены ──────────────────────────────────────────────────────
 
-## Карта Прораба — по данным: в её волнах есть группа типа "boss" (integrate1: раньше
-## сверялись с id "foreman", которого нет, — в кампании катсцена не сработала бы; id карт
-## переделывает пакет maps, а сам босс в волнах — и есть смысл «выход Прораба»).
 static func _has_boss(map_id: String) -> bool:
 	for wave: Dictionary in Campaign.map(map_id).get("waves", []):
 		for g: Dictionary in wave.get("groups", []):
@@ -798,22 +812,15 @@ func _is_first_map(map_id: String) -> bool:
 	return not all.is_empty() and String(all[0].get("id", "")) == map_id
 
 
-## Проигрывает катсцену поверх текущего экрана (тот прячется, не восстанавливается — вызывающий
-## сам решает, что показать после `on_done`, обычно повторный вызов себя же с уже стоящим флагом).
 func _play_cutscene(frames: Array[LegionCutscene.Frame], audio: LegionAudio,
 		on_done: Callable) -> void:
 	_teardown_screen()
 	var c := LegionCutscene.new()
-	c.z_index = OVERLAY_Z
-	add_child(c)
+	_set_screen(c)
 	c.finished.connect(on_done, CONNECT_ONE_SHOT)
 	c.play(frames, audio)
 
 
-## polish1: раньше искала узел звука среди детей мира (был только там); теперь `audio` — узел
-## кампании целиком (см. `_ensure_audio()`), метод остался тонкой обёрткой ради вызывающих мест
-## вне этого файла (`tests/legion_cutscene_flow_test.gd`) — не null уже с первого экрана меню,
-## не только «мир между картами».
 func _find_world_audio() -> LegionAudio:
 	return audio
 
@@ -889,11 +896,7 @@ func _teardown_screen() -> void:
 		screen = null
 
 
-## --dev screen=menu|briefing|result_win|result_lose|result_win_campaign|upgrade|settings|
-## office|hero|howto|menu_endless|menu_daily_locked|endless_briefing|necrolog|necrolog_abandon|
-## collection (+ --shot ПУТЬ) — кадр экрана вне боя для приёмки (задание пакета flow, тот же
-## паттерн, что tests/legion_ui_preview.gd; шесть последних — mode line, BOOK §1, D-0927-96/-162).
-## Прогресс — во временный файл сохранения, реальный user://legion.cfg владельца не трогаем.
+## Изолированные кадры экранов для разработчика.
 func _capture_dev_screen(screen_name: String, shot_path: String, shot_frame: int) -> void:
 	Campaign.set_save_path("user://legion_dev_shot.cfg")
 	Campaign.reset()
@@ -969,9 +972,6 @@ func _capture_dev_screen(screen_name: String, shot_path: String, shot_frame: int
 	get_tree().quit()
 
 
-## --dev cutscene=intro|boss|finale (+ --shot ПУТЬ, --shot-frame N) — прогон одной катсцены
-## вне брифинга/боя для приёмки (задание пакета cuts). Тот же паттерн кадра, что
-## _capture_dev_screen: N кадров ожидания, затем PNG и выход.
 func _capture_dev_cutscene(cutscene_name: String, shot_path: String, shot_frame: int) -> void:
 	var frames: Array[LegionCutscene.Frame]
 	match cutscene_name:

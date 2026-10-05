@@ -8,6 +8,7 @@ extends Control
 
 signal start(map_id: String)
 signal back
+signal office_pressed
 
 ## Ключ типа (LegionCfg.FOES в CORE) → русское имя для игрока (CONCEPT.md, «проверяющие»).
 const FOE_NAMES := {
@@ -16,6 +17,7 @@ const FOE_NAMES := {
 	"lawyer": "Юрист", "shield_inspector": "Щитоносец",
 }
 
+var back_label := "← Назад"
 var _map_id := ""
 
 
@@ -80,28 +82,13 @@ func populate(map_data: Dictionary) -> void:
 		threats_row.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(threats_row)
 
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 14)
-	box.add_child(row)
+	var row := LegionUi.nav_bar(self, back_label, func() -> void: back.emit(),
+		"В бой", func() -> void: start.emit(_map_id))
+	var office := ProgressionUi.button("Контора (%d премии)" % Campaign.bounty(),
+		func() -> void: office_pressed.emit())
+	row.add_child(office)
+	row.move_child(office, 1)
 
-	var back_btn := Button.new()
-	back_btn.text = "Назад"
-	back_btn.custom_minimum_size = Vector2(160.0, 46.0)
-	back_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	back_btn.add_theme_font_size_override("font_size", 20)
-	UiStyle.style_button(back_btn)
-	back_btn.pressed.connect(func() -> void: back.emit())
-	row.add_child(back_btn)
-
-	var start_btn := Button.new()
-	start_btn.text = "В бой"
-	start_btn.custom_minimum_size = Vector2(200.0, 46.0)
-	start_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	start_btn.add_theme_font_size_override("font_size", 22)
-	UiStyle.style_button(start_btn)
-	start_btn.pressed.connect(func() -> void: start.emit(_map_id))
-	row.add_child(start_btn)
 
 
 ## Собирает уникальные русские имена типов врагов из waves[].groups[].type — любых полей

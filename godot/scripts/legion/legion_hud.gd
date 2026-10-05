@@ -23,6 +23,7 @@ const TOAST_TOP := 56.0
 const TOAST_FONT := 18
 
 var world: LegionWorld = null
+var pause_button: Button
 ## Пакет flow: false — LegionMain ведёт бой через свои экраны (LegionPause/LegionResult), этот
 ## HUD прячет собственные надпись-паузу и панель итога, чтобы не дублировать поверх них.
 ## По умолчанию true — совместимость с compat-путём (гейт/бот/серии/тесты не трогают LegionMain).
@@ -48,6 +49,8 @@ var _preview: PanelContainer
 var _preview_text: RichTextLabel
 ## Альфа, к которой стремится превью: бледнеет, когда под ним враги (_foes_under_preview).
 var _preview_alpha := 1.0
+## Кегль, которым набраны строки превью прямо сейчас (ставится по числу строк, L).
+var _preview_font_size_now := 0
 var _call: Button
 var _kind_bar: LegionKindBar
 ## Подписи дорог gen-карты (B-355) — считаются один раз на карту (_road_labels).
@@ -93,6 +96,18 @@ func setup(w: LegionWorld) -> void:
 
 
 func _build_pause() -> void:
+	pause_button = ProgressionUi.button("❚❚ Пауза", func() -> void:
+		if world.pvp and world.pvp_menu != null:
+			world.pvp_menu.toggle()
+		elif world.phase == LegionWorld.Phase.BATTLE:
+			world.set_paused(true))
+	pause_button.name = "PauseAction"
+	add_child(pause_button)
+	pause_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	pause_button.offset_left = -184
+	pause_button.offset_right = -12
+	pause_button.offset_top = 12
+	pause_button.offset_bottom = 60
 	_pause = LegionUi.label("Пауза (Esc)", 34, LegionUi.FONT_TITLE, LegionUi.TEXT)
 	_pause.position = Vector2(560, 320)
 	_pause.visible = false
@@ -123,6 +138,7 @@ func _build_result() -> void:
 func tick(delta: float) -> void:
 	_t -= delta
 	_pause.visible = world.paused and show_native_ui
+	pause_button.visible = world.phase == LegionWorld.Phase.BATTLE and not world.paused
 	_sync_pvp()
 	_preview.modulate.a = move_toward(_preview.modulate.a, _preview_alpha,
 		delta * LegionCfg.WAVE_PREVIEW_FADE_SPEED)
@@ -158,6 +174,8 @@ func panel_rects() -> Array[Rect2]:
 	var out: Array[Rect2] = [_plate.get_global_rect()]
 	if pvp_plate != null and pvp_plate.visible:
 		out.append(pvp_plate.panel_rect())
+	if pause_button != null and pause_button.visible:
+		out.append(pause_button.get_global_rect())
 	if kassa_button != null and kassa_button.visible:
 		out.append(kassa_button.get_global_rect())
 	if _preview.visible:
@@ -173,6 +191,12 @@ func panel_rects() -> Array[Rect2]:
 ## «Вызвать» в PvP нет), справа встаёт плашка соперника и часов, итог — свой экран.
 func _sync_pvp() -> void:
 	_preview.visible = not world.pvp
+	# «Схватка»: правый верхний угол занят плашкой соперника (та же строка, до y=45), поэтому
+	# пауза встаёт НИЖЕ верхней строки (y 100…148) — верхние плашки остаются одной строкой
+	# (legion_pvp_hud_test: всё, что начинается выше y=100, обязано кончаться к y=50).
+	# Обе позиции — внутри резерва генератора справа сверху (960,0,320,200).
+	pause_button.offset_top = 100 if world.pvp else 12
+	pause_button.offset_bottom = pause_button.offset_top + 48
 	if not world.pvp or pvp_plate != null:
 		return
 	pvp_plate = PvpTopPlate.new().setup(world)
@@ -325,7 +349,7 @@ func _build_preview() -> void:
 	# с MOUSE_FILTER_STOP человек не мог построить на p6).
 	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_preview.add_theme_stylebox_override("panel", LegionUi.blank_style(LegionUi.INK,
-		Color(LegionUi.PAPER, LegionCfg.WAVE_PREVIEW_BG.a + 0.18), 10.0, 4.0))
+		Color(LegionUi.PAPER, LegionCfg.WAVE_PREVIEW_BG.a + 0.18), 10.0, 2.0))
 	add_child(_preview)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -343,12 +367,14 @@ func _build_preview() -> void:
 	_preview_text.add_theme_color_override("default_color", LegionUi.TEXT)
 	_preview_text.add_theme_color_override("font_outline_color", LegionUi.OUTLINE)
 	_preview_text.add_theme_constant_override("outline_size", 3)
-	# Пять строк видов должны укладываться под 200 px и на трёх дорогах (B-203): построчный
-	# интервал плотнее умолчания, разница на глаз не читается, а высота падает заметно.
-	_preview_text.add_theme_constant_override("line_separation", -6)
+	# Межстрочный интервал — ровный. Пяти строкам видов под кнопкой паузы (WAVE_PREVIEW_POS.y 64,
+	# бюджет 136 px) тесно, но сжимать ИНТЕРВАЛ нельзя: строки наезжали друг на друга и на заголовок
+	# («Зомби ×4» поверх «Следующая волна через 3 с», находка L). Тесно — режут кегль (прикидка
+	# по строкам плюс добор по замеру) и число показанных видов, но не читаемость.
+	_preview_text.add_theme_constant_override("line_separation", 0)
 	box.add_child(_preview_text)
 	_call = Button.new()
-	_call.text = "Вызвать (F)"
+	_call.text = "Вызвать (%s)" % Controls.label(&"call_wave")
 	_call.focus_mode = Control.FOCUS_NONE
 	LegionUi.style_button(_call, LegionUi.STAMP, 16)
 	_call.pressed.connect(func() -> void:
@@ -358,11 +384,13 @@ func _build_preview() -> void:
 
 
 func _update_preview() -> void:
+	_call.text = "Вызвать (%s)" % Controls.label(&"call_wave")
 	var wr := world.wave_runner
 	if wr == null:
 		return
 	_call.visible = not wr.held
 	_call.disabled = not world.contracts.human_input or not wr.can_call()
+	_apply_preview_font(_preview_font_size(1))   # короткие строки — полным кеглем
 	if wr.held:
 		_preview_text.text = "Обучение"
 		return
@@ -378,16 +406,12 @@ func _update_preview() -> void:
 	var lines := PackedStringArray([title])
 	# Кульминация читается заранее: пик и чем отвечать (вызов — это когда видно, чем ответить)
 	var has_hint := false
+	var hint := ""
 	if wr.is_climax(wr.index + 1):
 		lines[0] = title.replace("Следующая волна", "[color=#%s]КУЛЬМИНАЦИЯ[/color]"
 			% LegionUi.STAMP.to_html(false))
-		var hint := LegionChallenge.answer_hint(wr.next_wave_groups())
-		if hint != "":
-			has_hint = true
-			# Мельче обычной строки (B-203): подсказка кульминации — длинное предложение, на
-			# полном размере шрифта она переносилась и вместе с составом волны рвала потолок 200 px.
-			lines.append("[font_size=%d][color=#%s]%s[/color][/font_size]" %
-				[LegionCfg.WAVE_PREVIEW_GATE_FONT, LegionUi.GOLD.to_html(false), hint])
+		hint = LegionChallenge.answer_hint(wr.next_wave_groups())
+		has_hint = hint != ""
 	# Одна строка на ВИД врага, без переносов (B-203): панель ограничена 200 px по нижнему краю
 	# (генератор резервирует под неё только y 0–200), а старая раскладка «вид × ворота» на трёх
 	# дорогах и полудюжине видов растягивала панель до 493 px и закрывала правые ворота.
@@ -414,7 +438,25 @@ func _update_preview() -> void:
 	# Подсказка кульминации уже забрала свою строку — потолок видов на одну строку ниже:
 	# кульминация со всеми пятью видами вместе с подсказкой рвала 200 px (B-203).
 	var max_kinds := LegionCfg.WAVE_PREVIEW_MAX_KINDS - (1 if has_hint else 0)
+	var gate_line := not has_hint and source_order.size() in [1, 2]
+	# Кегль — по числу строк, а межстрочный интервал ровный: строки не наезжают друг на друга
+	# (находка L), а панель всё равно укладывается под кнопкой паузы. Подсказка кульминации —
+	# длинное предложение, ей тот же кегль, что и строке ворот (мельче вида, B-203); оно почти
+	# всегда переносится, поэтому считаем её за две строки.
 	var shown := mini(order.size(), max_kinds)
+	var rows := _preview_rows(shown, order.size(), has_hint, gate_line)
+	# Места не хватает — режем СПИСОК ВИДОВ, а не кегль: состав всё равно читается по меткам у
+	# края экрана, а кегль ниже нижнего не читается нигде.
+	var max_rows := _preview_max_rows()
+	while shown > 0 and rows > max_rows:
+		shown -= 1
+		rows = _preview_rows(shown, order.size(), has_hint, gate_line)
+	var size := _preview_font_size(rows)
+	_apply_preview_font(size)
+	var gate_size := mini(LegionCfg.WAVE_PREVIEW_GATE_FONT, size)
+	if has_hint:
+		lines.append("[font_size=%d][color=#%s]%s[/color][/font_size]" %
+			[gate_size, LegionUi.GOLD.to_html(false), hint])
 	for i in shown:
 		var t: String = order[i]
 		var per: Dictionary = per_type[t]
@@ -437,10 +479,63 @@ func _update_preview() -> void:
 			LegionAbilityAim.plural(order.size() - shown, "вид", "вида", "видов")])
 	# Мелкая подпись воротами — только если дорог не больше двух (B-204) и панель не занята
 	# подсказкой кульминации (та ценнее и тоже забирает высоту — иначе вдвоём рвали потолок 200 px).
-	if not has_hint and source_order.size() in [1, 2]:
+	if gate_line:
 		lines.append("[font_size=%d][color=#%s]%s[/color][/font_size]" %
-			[LegionCfg.WAVE_PREVIEW_GATE_FONT, dim, gate_summary(source_order, per_source)])
+			[gate_size, dim, gate_summary(source_order, per_source)])
 	_preview_text.text = "\n".join(lines)
+	# Прикидка по числу строк не знает переносов (длинная строка занимает две) — подтягиваем по
+	# ФАКТИЧЕСКОЙ высоте содержимого: замер синхронный, а от кегля высота зависит почти линейно.
+	_fit_preview_font(size)
+
+
+## Сколько строк займёт панель: заголовок, подсказка кульминации (почти всегда в две строки),
+## виды, строка «+ ещё N вида» и подпись воротами.
+func _preview_rows(shown: int, total: int, has_hint: bool, gate_line: bool) -> int:
+	return 1 + (2 if has_hint else 0) + shown + (1 if total > shown else 0) \
+		+ (1 if gate_line else 0)
+
+
+## Потолок строк панели при САМОМ мелком кегле: выше него панель вылезет из бюджета под кнопкой
+## паузы (крайние волны кампании и синтетический максимум — legion_hud_preview_test).
+func _preview_max_rows() -> int:
+	var room := float(LegionCfg.WAVE_PREVIEW_BUDGET - LegionCfg.WAVE_PREVIEW_CALL_H)
+	return int(floor(room / (1.5 * float(LegionCfg.WAVE_PREVIEW_FONT_MIN) - 1.0)))
+
+
+## Кегль строк панели превью: их бывает до семи, а место под кнопкой паузы конечно
+## (WAVE_PREVIEW_POS.y 64, бюджет WAVE_PREVIEW_BUDGET). Высота строки по замеру панели — примерно
+## 1,5·кегль − 1 px (заголовок на два пункта крупнее и этой оценкой уже покрыт сверху).
+## Тесно — режем кегль, но не интервал: сжатые строки не читаются вовсе (находка L).
+func _preview_font_size(rows: int) -> int:
+	var size := LegionCfg.WAVE_PREVIEW_FONT
+	var room := float(LegionCfg.WAVE_PREVIEW_BUDGET - LegionCfg.WAVE_PREVIEW_CALL_H)
+	while size > LegionCfg.WAVE_PREVIEW_FONT_MIN and float(rows) * (1.5 * float(size) - 1.0) > room:
+		size -= 1
+	return size
+
+
+## Довести панель до бюджета по ФАКТИЧЕСКОЙ высоте содержимого: строки переносятся, и заранее
+## их число не знает никто, а надпись отдаёт высоту сразу после смены текста и кегля.
+## Высота почти линейна по кеглю — одной поправкой попадаем, дальше шагаем по одному.
+func _fit_preview_font(size: int) -> void:
+	var room := float(LegionCfg.WAVE_PREVIEW_BUDGET - LegionCfg.WAVE_PREVIEW_CALL_H)
+	var h := float(_preview_text.get_content_height())
+	if h <= room:
+		return
+	var guess := maxi(LegionCfg.WAVE_PREVIEW_FONT_MIN, int(floor(float(size) * room / h)))
+	_apply_preview_font(guess)
+	while _preview_font_size_now > LegionCfg.WAVE_PREVIEW_FONT_MIN \
+			and float(_preview_text.get_content_height()) > room:
+		_apply_preview_font(_preview_font_size_now - 1)
+
+
+## Кегль ставим только при смене: _update_preview зовётся каждый тик.
+func _apply_preview_font(size: int) -> void:
+	if size == _preview_font_size_now:
+		return
+	_preview_font_size_now = size
+	_preview_text.add_theme_font_size_override("normal_font_size", size)
+	_preview_text.add_theme_font_size_override("bold_font_size", size + 2)
 
 
 ## Сводка «откуда сколько» под списком видов. Ветки одних ворот (развилка gen-карты, B-355) —

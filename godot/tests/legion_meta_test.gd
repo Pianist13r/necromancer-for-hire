@@ -1,10 +1,15 @@
 extends SceneTree
 ##
-## Самопроверка пакета meta (без окна): премия и опыт за бой, покупки «Конторы» и потолок
-## уровней, Campaign.stat() суммирует и умножает по порядку источников, перк второго ряда
-## без первого не берётся, сброс очков, открытия по порядку карт, старое сохранение (без
-## секций [meta]/[hero]) читается значениями по умолчанию. Пишет во временный файл — реальный
-## user://legion.cfg владельца не трогает (Campaign.set_save_path).
+## Самопроверка меты (без окна): премия и опыт за бой, услуги подготовки «Конторы» и потолки
+## (одна подготовка на объект, два жетона переброса), Campaign.stat() складывает поправки-карточки
+## и умножает по правилу имени ключа, сборка ограничена тремя карточками, уровень героя открывает
+## карточки, а его собственные ранги/перки в бой не идут, открытия по порядку карт, старое
+## сохранение (без секций [meta]/[hero]) читается значениями по умолчанию. Пишет во временный
+## файл — реальный user://legion.cfg владельца не трогает (Campaign.set_save_path).
+##
+## OVERHAUL 05.10: старый пул постоянных процентов (уровни покупок «Конторы», ранги и перки
+## героя) заменён колодой AmendmentDb — проверки этого файла переехали на новые покупки и
+## карточки, старые проценты в игру не возвращаются.
 ##
 ##   "$GODOT" --headless --path godot --script res://tests/legion_meta_test.gd -- --mute
 ##
@@ -35,10 +40,11 @@ func _run() -> void:
 	Campaign.reset()
 
 	_test_bounty_and_xp()
-	_test_shop()
+	_test_preparation()
 	_test_stat_sum_and_mult()
-	_test_legacy_army_mods()
-	_test_hero_ranks_and_perks()
+	_test_slots()
+	_test_legacy_keys_dead()
+	_test_hero_profile()
 	_test_hero_reset()
 	_test_unlocks()
 	_test_old_save_without_sections()
@@ -63,121 +69,120 @@ func _test_bounty_and_xp() -> void:
 	_check(Campaign.bounty() == 87, "премия накопилась (75+12=87, получили %d)" % Campaign.bounty())
 
 
-func _test_shop() -> void:
+## «Контора» стала короткой подготовкой следующего боя (OVERHAUL 05.10): уровней покупок
+## («Дальность» ×3 и т.п.) больше нет — есть разовые услуги AmendmentDb.PREPARATIONS
+## (souls/mana, 35 премии) и жетоны переброса чертежа (30, не больше двух). Прежние проверки
+## уровней и потолка 3 заменены на цены, списание и потолки новых услуг — сами гарантии те же.
+func _test_preparation() -> void:
 	Campaign.set_save_path(TEST_PATH)   # свежий кэш, но прогресс тот же файл
+	Campaign.reset()
+	_check(RunProgression.preparation() == "", "подготовка на свежем прогрессе не выбрана")
+	_check(Campaign.stat(&"start_souls") == 0.0, "start_souls нейтрален без подготовки")
+
+	# Провал покупки без хватающей премии не списывает премию и не выдаёт услугу.
+	_check(not RunProgression.buy_service("souls"), "покупка без хватающей премии отклонена")
+	_check(Campaign.bounty() == 0 and RunProgression.preparation() == "",
+		"премия не списалась при провале покупки")
+
+	var cost := int(AmendmentDb.PREPARATIONS["souls"]["cost"])
+	Campaign.add_bounty(cost + 65)
 	var before := Campaign.bounty()
-	_check(Campaign.shop_level("range", "laborer") == 0, "покупка «Дальность» на нуле")
-	_check(Campaign.stat(&"recruit_r_laborer") == 0.0, "recruit_r_laborer нейтрален без покупки")
+	_check(RunProgression.buy_service("souls"), "услуга подготовки куплена")
+	_check(Campaign.bounty() == before - cost, "премия списана на цену услуги (%d)" % cost)
+	_check(not Campaign.active_mods().has("start_souls"),
+		"подготовка не попадает в постоянную сборку — она на один объект")
+	_check(is_equal_approx(float(RunProgression.preparation_mods().get("start_souls", 0.0)), 45.0),
+		"подготовка несёт +45 душ на следующий объект")
+	_check(not RunProgression.buy_service("mana"), "вторая подготовка поверх первой не берётся")
+	_check(RunProgression.consume_preparation(), "подготовка потреблена стартом боя")
+	_check(RunProgression.preparation() == "" and RunProgression.preparation_mods().is_empty(),
+		"после старта боя подготовка пуста")
 
-	var cost1 := Campaign.shop_cost("range", "laborer")
-	_check(cost1 == 40, "первая покупка «Дальность» стоит 40 (получили %d)" % cost1)
-	var bought := Campaign.shop_buy("range", "laborer")
-	_check(bought, "покупка прошла (премии хватает)")
-	_check(Campaign.bounty() == before - 40, "премия списана")
-	_check(Campaign.shop_level("range", "laborer") == 1, "уровень покупки вырос")
-	_check(is_equal_approx(Campaign.stat(&"recruit_r_laborer"), 40.0),
-		"recruit_r_laborer = 40 после первого уровня")
-
-	# Потолок уровней: докупаем до максимума (3 у «Дальности», ещё 70+110=180 премии),
-	# дальше стоимость -1 (уже макс). Бой без kills на победу не влияет на премию (только
-	# звёзды) — несколько побед подряд, а не один большой kills.
-	for i in 4:
-		Campaign.record_rewards(true, 3, 0)   # 4×75=300 премии — с запасом на оставшиеся уровни
-	Campaign.shop_buy("range", "laborer")
-	Campaign.shop_buy("range", "laborer")
-	_check(Campaign.shop_level("range", "laborer") == 3, "потолок уровня покупки — 3")
-	_check(Campaign.shop_cost("range", "laborer") == -1, "цена -1 на максимуме (кнопка скрыта)")
-	_check(not Campaign.shop_buy("range", "laborer"), "покупка сверх максимума не проходит")
-	_check(is_equal_approx(Campaign.stat(&"recruit_r_laborer"), 120.0),
-		"recruit_r_laborer = 120 на максимуме уровня")
-
-	_check(Campaign.stat(&"cap_mult_guard") == 1.0, "cap_mult_guard нейтрален (вид ещё закрыт)")
-
-	# Провал покупки без хватающей премии не списывает и не поднимает уровень: докупаем
-	# «Расчёт» до упора (2 уровня), пока хватает премии, затем бьём тест на последней попытке.
-	while Campaign.shop_cost("settlement") > 0 and Campaign.bounty() >= Campaign.shop_cost("settlement"):
-		Campaign.shop_buy("settlement")
-	var cost_now := Campaign.shop_cost("settlement")
-	if cost_now > 0:
-		var bounty_before := Campaign.bounty()
-		var lvl_before := Campaign.shop_level("settlement")
-		_check(not Campaign.shop_buy("settlement"), "покупка без хватающей премии отклонена")
-		_check(Campaign.bounty() == bounty_before, "премия не списалась при провале покупки")
-		_check(Campaign.shop_level("settlement") == lvl_before, "уровень не вырос при провале")
-	else:
-		_check(Campaign.shop_level("settlement") == Campaign.shop_max_level("settlement"),
-			"«Расчёт» довели до максимума премии хватило — потолок уровня достигнут")
+	# Потолок перебросов: два жетона за премию, третий не берётся.
+	var banked := 0
+	while RunProgression.buy_service("reroll"):
+		banked += 1
+	_check(banked == 2 and RunProgression.reroll_tokens() == 2, "перебросов в банке: %d" % banked)
+	_check(not RunProgression.buy_service("reroll"), "третий переброс не берётся")
 
 
+## Campaign.stat() — один котёл меты: поправки-карточки складываются по ключу, а ключ-множитель
+## (по имени `_mult`/`_mult_`) отдаётся как 1 + сумма. Покупок «Конторы» и перков героя в этом
+## котле больше нет (OVERHAUL 05.10) — их заменили карточки.
 func _test_stat_sum_and_mult() -> void:
-	# mana: per_level [20, 2] — общий (не per_kind), один уровень уже куплен по ходу теста?
-	# нет — покупаем явно и проверяем аддитивный ключ mana_max_bonus.
-	var before_mana := Campaign.stat(&"mana_max_bonus")
-	Campaign.record_rewards(true, 3, 200)
-	Campaign.shop_buy("mana")
-	_check(is_equal_approx(Campaign.stat(&"mana_max_bonus") - before_mana, 20.0),
-		"mana_max_bonus +20 за уровень «Мана»")
-	_check(is_equal_approx(Campaign.stat(&"mana_regen_bonus"),
-			float(Campaign.shop_level("mana")) * 2.0),
-		"mana_regen_bonus = уровень × 2")
+	Campaign.reset()
+	_check(is_equal_approx(Campaign.stat(&"cap_mult_laborer"), 1.0),
+		"cap_mult_laborer нейтрален (1.0) на свежем прогрессе")
+	_check(Campaign.stat(&"recruit_r_laborer") == 0.0, "recruit_r_laborer нейтрален без карточек")
 
-	# cap_mult_laborer — множитель: 1 + сумма по правилу is_mult_key (staff даёт +0.2 за уровень).
-	Campaign.shop_buy("staff", "laborer")
-	var lvl := Campaign.shop_level("staff", "laborer")
-	_check(is_equal_approx(Campaign.stat(&"cap_mult_laborer"), 1.0 + 0.2 * lvl),
-		"cap_mult_laborer = 1 + 0.2×уровень (множитель)")
+	Campaign.add_upgrade(&"bulk_ink")   # mana_cost_mult −0.35, recruit_r_* −60
+	_check(is_equal_approx(Campaign.stat(&"mana_cost_mult"), 0.65),
+		"mana_cost_mult = 1 + (−0.35) — множитель по правилу имени")
+	_check(is_equal_approx(Campaign.stat(&"recruit_r_laborer"), -60.0),
+		"recruit_r_laborer = −60 — прибавка отдаётся как есть")
 
-	# active_mods (поправки к договору) и покупки складываются в один и тот же Campaign.stat —
-	# берём произвольную поправку и проверяем именно ДЕЛЬТУ до/после (ключ поправки может
-	# случайно совпасть с ключом уже купленного в «Конторе» — например, обе трогают
-	# mana_max_bonus — важно, что поправка добавляет РОВНО свою величину, а не перетирает чужую).
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 3
-	var offer := Campaign.offer_upgrades(rng)
-	# три поправки армии проверяет _test_legacy_army_mods ниже — взятая здесь, она там уже не
-	# добавилась бы (пул расширен 26.09, и сид 3 стал предлагать outstaff_partner первой)
-	offer = offer.filter(func(id: StringName) -> bool:
-		return not [&"night_shift_hr", &"outstaff_partner", &"signing_bonus"].has(id))
-	if not offer.is_empty():
-		var eff: Dictionary = LegionMetaCfg.UPGRADE_POOL[String(offer[0])]["effect"]
-		var key := StringName(eff["key"])
-		var value: float = float(eff["value"])
-		var before_stat := Campaign.stat(key)
-		Campaign.add_upgrade(offer[0])
-		_check(is_equal_approx(Campaign.stat(key) - before_stat, value),
-			"поправка к договору добавляет свою величину рядом с покупками (ключ %s)" % key)
+	Campaign.add_upgrade(&"living_queue")     # cap_mult_* −0.2
+	Campaign.add_upgrade(&"overtime_cycle")   # mana_max_bonus −25
+	_check(Campaign.upgrades().size() == AmendmentDb.MAX_ACTIVE,
+		"активная сборка — %d карточки" % AmendmentDb.MAX_ACTIVE)
+	Campaign.add_upgrade(&"high_voltage")
+	_check(not Campaign.upgrades().has(&"high_voltage"),
+		"четвёртая карточка в сборку не влезает — только заменой")
+	_check(is_equal_approx(Campaign.stat(&"cap_mult_laborer"), 0.8),
+		"cap_mult_laborer = 0.8 рядом с чужими ключами сборки")
+	_check(is_equal_approx(Campaign.stat(&"mana_max_bonus"), -25.0),
+		"mana_max_bonus = −25 у «Ненормированного дня»")
 
 
-## Согласование с координатором v15 (2026-09-25): мир больше не читает production_mult/
-## army_cap_bonus/start_army_bonus напрямую — они должны перевестись в
-## respawn_mult_laborer/cap_mult_laborer (Котёл — постройка вида laborer), иначе молча
-## перестанут работать. Проверяем ДЕЛЬТУ (до этого момента уже куплен уровень «Штат: Подрядчик»
-## в _test_stat_sum_and_mult — он тоже трогает cap_mult_laborer).
-func _test_legacy_army_mods() -> void:
-	var respawn_before := Campaign.stat(&"respawn_mult_laborer")
-	Campaign.add_upgrade(&"night_shift_hr")   # production_mult +0.2
-	var respawn_after := Campaign.stat(&"respawn_mult_laborer")
-	_check(is_equal_approx(respawn_after - respawn_before, (1.0 / 1.2) - 1.0),
-		"production_mult +20%% переводится в прибавку respawn_mult_laborer = 1/1.2 − 1")
-
-	var cap_before := Campaign.stat(&"cap_mult_laborer")
-	Campaign.add_upgrade(&"outstaff_partner")   # army_cap_bonus +20 → +0.15 cap_mult_laborer
-	Campaign.add_upgrade(&"signing_bonus")      # start_army_bonus +15 → +0.10 cap_mult_laborer
-	var cap_after := Campaign.stat(&"cap_mult_laborer")
-	_check(is_equal_approx(cap_after - cap_before, 0.25),
-		"army_cap_bonus+start_army_bonus дают +0.25 cap_mult_laborer суммарно (получили %.3f)"
-			% (cap_after - cap_before))
+## Правило «поправки-правила требуют замены» проверяет progression-тест; здесь — что карточка
+## со слотом действительно попадает в свою сборку, а не в чужую.
+func _test_slots() -> void:
+	Campaign.reset()
+	Campaign.unlock_all()
+	Campaign.add_upgrade(&"ghost_clause")
+	_check(Campaign.upgrades().size() == 1 and Campaign.upgrades().has(&"ghost_clause"),
+		"взятая карточка — та, что просили")
+	_check(Campaign.active_rules().has("ghost") and not Campaign.active_rules().has("queue"),
+		"боевое правило активной карточки поднялось, чужое — нет")
+	Campaign.add_upgrade(&"ghost_clause")
+	_check(Campaign.upgrades().size() == 1, "повторный add_upgrade не задваивает карточку")
 
 
-func _test_hero_ranks_and_perks() -> void:
+## Согласование v15 держало перевод production_mult/army_cap_bonus/start_army_bonus в
+## respawn_mult_/cap_mult_laborer: мир их напрямую не читал. Тех ключей теперь не пишет никто —
+## старый пул постоянных процентов заменён колодой AmendmentDb (OVERHAUL 05.10), а старые id из
+## сохранения миграция переводит в карточки. Проверяем, что мёртвые ключи в бой не вернулись,
+## а старый id работает через свою карточку.
+func _test_legacy_keys_dead() -> void:
+	Campaign.reset()
+	Campaign.unlock_all()
+	Campaign.add_upgrade(&"night_shift_hr")    # старый id: production_mult +0.2
+	Campaign.add_upgrade(&"outstaff_partner")  # старый id: army_cap_bonus +20
+	var mods := Campaign.active_mods()
+	var legacy_alive := false
+	for key: String in ["production_mult", "army_cap_bonus", "start_army_bonus"]:
+		legacy_alive = legacy_alive or mods.has(key)
+	_check(not legacy_alive, "мёртвые ключи старой меты в бой не идут: %s" % str(mods.keys()))
+	_check(Campaign.upgrades().has(&"lean_staff") and Campaign.upgrades().has(&"living_queue"),
+		"старые id переведены в карточки: %s" % str(Campaign.upgrades()))
+
+
+## OVERHAUL 05.10: постоянный опыт героя открывает ВАРИАНТЫ карточек, а не покупает проценты.
+## Ранги и перки остались в профиле (экран героя, коллекция), но бой их не читает — это и
+## проверяем (регресс-охрана от возврата покупок в бой через Campaign._hero_mods).
+func _test_hero_profile() -> void:
+	Campaign.reset()
+	_check(Campaign.hero_level() == 1 and not RunProgression.available(&"moving_office"),
+		"«Выездная канцелярия» ждёт уровня героя (сейчас %d)" % Campaign.hero_level())
 	Campaign.record_rewards(true, 3, 1000)   # опыт с большим запасом — герой высокого уровня
-	var points_before := Campaign.hero_points_available()
-	_check(points_before > 0, "после большого опыта есть свободные очки героя")
+	_check(Campaign.hero_points_available() > 0, "после большого опыта есть свободные очки героя")
+	_check(RunProgression.available(&"moving_office"), "уровень героя открыл карточку")
 
 	_check(Campaign.hero_rank(&"q") == 0, "ранг Ку — 0 до покупки")
 	_check(Campaign.hero_rank_up(&"q"), "ранг Ку куплен")
 	_check(Campaign.hero_rank(&"q") == 1, "ранг Ку стал 1")
-	_check(is_equal_approx(Campaign.stat(&"ability_rank_q"), 1.0), "ability_rank_q = 1 в stat()")
+	_check(is_equal_approx(Campaign.stat(&"ability_rank_q"), 0.0),
+		"ранг героя в бой не идёт: ability_rank_q в stat() нейтрален")
 	Campaign.hero_rank_up(&"q")
 	_check(Campaign.hero_rank(&"q") == 2, "ранг Ку дошёл до потолка (2)")
 	_check(not Campaign.hero_rank_up(&"q"), "третий ранг Ку не покупается — потолок 2")
@@ -190,13 +195,13 @@ func _test_hero_ranks_and_perks() -> void:
 		"«Раздутый штат» берётся после «Быстрого найма»")
 	_check(is_equal_approx(Campaign.stat(&"perk_perk_fast_hire"), 0.0),
 		"ключ perk_<id> без второго префикса — perk_fast_hire, не perk_perk_fast_hire")
-	_check(is_equal_approx(Campaign.stat(&"perk_fast_hire"), 1.0), "perk_fast_hire = 1 в stat()")
+	_check(is_equal_approx(Campaign.stat(&"perk_fast_hire"), 0.0),
+		"перк героя в бой не идёт: perk_fast_hire в stat() нейтрален")
 	_check(not Campaign.hero_take_perk(&"perk_fast_hire"), "повторно тот же перк не берётся")
 
 
 func _test_hero_reset() -> void:
-	var perks_before := Campaign.hero_perks().size()
-	_check(perks_before > 0, "к моменту сброса перки уже взяты")
+	_check(not Campaign.hero_perks().is_empty(), "к моменту сброса перки уже взяты")
 	var level_before := Campaign.hero_level()
 	Campaign.hero_reset()
 	_check(Campaign.hero_perks().is_empty(), "сброс снял все перки")
@@ -237,12 +242,17 @@ func _test_unlocks() -> void:
 	Campaign.record_result(String(all[2].get("id", "")), true, 0.9)
 	_check(is_equal_approx(Campaign.stat(&"kind_unlocked_clerk"), 1.0),
 		"счетовод открылся с «Архивом» (четвёртая карта)")
+	# Лестница идёт по порядку карт, и каждая открывает СЛЕДУЮЩУЮ: отметку ставим после каждого
+	# шага, поэтому плашка показывает ровно то, что принесла эта карта. Фигур стало две
+	# (D-1002: «Мост» — треугольник «Обряда», «Лабиринт» — пятиугольник «Комиссии»).
 	Campaign.mark_unlocks_seen()
 	Campaign.record_result(String(all[3].get("id", "")), true, 0.9)
-	Campaign.record_result(String(all[4].get("id", "")), true, 0.9)
 	_check(Campaign.pending_unlock_labels() == ["Фигура «Обряд»: треугольник"],
-		"новое открытие (только треугольник «Лабиринта») видно после того, как прошлое отметили: %s"
-			% str(Campaign.pending_unlock_labels()))
+		"«Мост» открыл треугольник «Обряда»: %s" % str(Campaign.pending_unlock_labels()))
+	Campaign.mark_unlocks_seen()
+	Campaign.record_result(String(all[4].get("id", "")), true, 0.9)
+	_check(Campaign.pending_unlock_labels() == ["Фигура «Комиссия по упокоению»: пятиугольник"],
+		"«Лабиринт» открыл пятиугольник «Комиссии»: %s" % str(Campaign.pending_unlock_labels()))
 
 
 ## Старое сохранение (до пакета meta) без секций [meta]/[hero] — читается значениями

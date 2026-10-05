@@ -12,7 +12,8 @@ extends SceneTree
 ##      добавляет эффект сверх своих артефактов;
 ##   5) артефакт уникален; новый одиночный бой сбрасывает артефакты;
 ##   6) полоска не перехватывает мышь и не заезжает на карточки видов; подсказка по курсору;
-##   7) пул поправок к договору расширен, и каждая новая поправка меняет число игры.
+##   7) колода поправок к договору (AmendmentDb) — это пул меты целиком, старые поправки
+##      переведены миграцией, и каждая карточка меняет число игры.
 ##
 ##   "$GODOT" --headless --path godot --fixed-fps 60
 ##       --script res://tests/legion_items_test.gd -- --mute
@@ -299,7 +300,7 @@ func _probe(key: String) -> float:
 			return h.e_duration()
 		"mana_regen":
 			return w.contracts.mana_regen
-		"seg_ttl":
+		"seg_ttl", "seg_ttl_bonus":
 			return _line(_next_spot()).ttl
 		"charge_dmg":
 			var at := _next_spot()
@@ -368,6 +369,56 @@ func _probe(key: String) -> float:
 			return float(w.souls)
 		"mana_cost_mult":
 			return w.contracts.mana_cost_mult
+		# ── ключи карточек поправок AmendmentDb (пул постоянных процентов заменён рогаликом) ──
+		# Штат и возрождение построек: множитель вида → сколько мест/секунд даёт база 100/10.
+		"cap_mult_laborer", "cap_mult_guard", "cap_mult_clerk":
+			return float(w.staff.staff_cap(StringName(key.trim_prefix("cap_mult_")), 100))
+		"respawn_mult_laborer", "respawn_mult_guard", "respawn_mult_clerk":
+			return w.staff.staff_respawn(StringName(key.trim_prefix("respawn_mult_")), 10.0)
+		# Радиус набора договора: поле хранит итоговый радиус (база вида + прибавка меты).
+		"recruit_r_laborer", "recruit_r_guard", "recruit_r_clerk":
+			return float(w.contracts.recruit_r.get(StringName(key.trim_prefix("recruit_r_")), 0.0))
+		"settlement_mult":
+			return w.contracts.settlement_mult
+		"mana_max_bonus":
+			return w.contracts.mana_max
+		"ability_mana_mult":
+			return w.ability_mana(0)
+		"hold_armor":
+			# Единственный замер «наоборот»: выше броня — меньше урон, поэтому возвращаем −урон,
+			# чтобы знак изменения совпал со знаком прибавки (как у press_hold).
+			var c := _line(_next_spot())
+			_man(c)
+			var target: Legionnaire = null
+			for p in c.posts:
+				if p["unit"] != null:
+					target = p["unit"]
+					break
+			if target == null:
+				return NAN
+			var hp0 := target.hp
+			target.take_damage(100.0, target.position + (c.posts[0]["normal"] as Vector2) * 10.0)
+			return -(hp0 - target.hp)
+		"charge_dmg_mult":
+			# урон натиска: _free_strike бьёт множителем натиска только в окне _bonus_t после
+			# рывка (вне окна — обычный удар ×1), поэтому окно ставим сами
+			var at2 := _next_spot()
+			var z2 := _foe("zombie", at2, 100000.0)
+			var u2 := w.spawn_unit(LegionCfg.KIND_LABORER, at2 + Vector2(-12, 0))
+			u2._bonus_t = LegionCfg.CHARGE_BONUS_TIME
+			u2._free_strike(z2)
+			return 100000.0 - z2.hp
+		"charge_speed_mult":
+			# натиск по прямой без врагов: сколько боец пробегает за первые 10 шагов (далеко до
+			# предела дальности, поэтому замер не упирается в потолок)
+			var u3 := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(200, 360))
+			var from := u3.position
+			u3.start_charge(Vector2.RIGHT)
+			for i in 10:
+				w.now += DT
+				w.grid.rebuild()
+				u3.tick(DT)
+			return u3.position.x - from.x
 	return NAN
 
 
@@ -464,8 +515,11 @@ func _measure(id: String, grant: Array) -> float:
 			return 500.0 - f.hp
 		"megaphone":
 			var f := _foe("zombie", Vector2(660, 300), 500.0)
+			# E-1005: «Рупор» глушит только за НАСТОЯЩИЙ «Сбор» (n > 0) — нужен свободный боец в
+			# круге. Раньше замер проходил и на пустом сборе: это и был баг (ошибка 2 разбора).
+			w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(600, 300))
 			w.rally_cd = 0.0
-			w.rally(Vector2(600, 300))
+			w.rally(Vector2(630, 300))
 			return f.stun_t
 		"soul_magnet":
 			w.cauldron_hp = 50.0
@@ -595,44 +649,69 @@ func _test_bar() -> void:
 # ── 7. пул поправок ─────────────────────────────────────────────────────────
 
 func _test_upgrades() -> void:
-	print("— поправки к договору: пул расширен, новые меняют числа")
+	print("— поправки к договору: колода рогалика, каждая карточка меняет число игры")
+	# Пул постоянных процентов (22 поправки + 35 узлов) заменён колодой AmendmentDb из 12 карточек
+	# с крупными правилами (OVERHAUL 05.10). Прежнее «поправок в пуле ≥ старых + 8» потеряло смысл:
+	# теперь колода — сам UPGRADE_ORDER, и важно, что каждый старый id из неё переведён миграцией.
 	var order := LegionMetaCfg.UPGRADE_ORDER
-	_check(order.size() >= OLD_UPGRADES.size() + 8, "поправок в пуле: %d" % order.size())
+	var covers := order.size() == AmendmentDb.CARDS.size()
+	for card_id: String in AmendmentDb.CARDS:
+		covers = covers and order.has(card_id)
+	_check(covers and order.size() >= 12, "поправок в колоде: %d" % order.size())
 	var all_in := true
 	for id: String in order:
 		all_in = all_in and LegionMetaCfg.UPGRADE_POOL.has(id)
 	_check(all_in and LegionMetaCfg.UPGRADE_POOL.size() == order.size(), "порядок и пул совпадают")
-	# выбор 3 из пула случайный: за 20 сидов попадаются и новые поправки
-	Campaign.reset()
+	# У каждой старой поправки определена судьба: перевод в карточку (LEGACY_MAP) либо архив.
+	# «Кофемашина» (реген маны) и «Расширенный бюджет» (запас маны) осмысленного аналога в колоде
+	# не имеют — новых постоянных процентов не заводим (OVERHAUL 05.10), обе уходят в архив, как
+	# и весь остальной пул (сам архив и возврат премии за покупки проверяет progression-тест).
+	const RETIRED := ["coffee_machine", "expanded_budget"]
+	var legacy_ok := true
+	for id: String in OLD_UPGRADES:
+		if RETIRED.has(id):
+			legacy_ok = legacy_ok and not AmendmentDb.LEGACY_MAP.has(id)
+		else:
+			legacy_ok = legacy_ok and AmendmentDb.CARDS.has(String(AmendmentDb.LEGACY_MAP.get(id, "")))
+	_check(legacy_ok, "у каждой старой поправки определена судьба: карточка или архив (%d id)"
+		% OLD_UPGRADES.size())
+	# Выбор 3 из колоды случайный. RunProgression кэширует чертёж в сохранении (переоткрытие
+	# экрана не подкручивает выбор), поэтому между пробами сбрасываем прогресс — иначе все 20
+	# проб вернули бы один и тот же чертёж (прежняя проверка «новых поправок ≥ 5» так и ломалась).
 	var seen := {}
 	for s in 20:
+		Campaign.reset()
 		var rng := RandomNumberGenerator.new()
 		rng.seed = s + 1
 		for id in Campaign.offer_upgrades(rng):
 			seen[String(id)] = true
-	var fresh_seen := 0
-	for id: String in seen:
-		if not OLD_UPGRADES.has(id):
-			fresh_seen += 1
-	_check(fresh_seen >= 5, "за 20 выборов предложено новых поправок: %d" % fresh_seen)
+	_check(seen.size() >= 5, "за 20 выборов предложено разных поправок: %d" % seen.size())
+	# Каждая карточка обязана менять настоящее число игры: берём её, читаем все её ключи через
+	# мир (_probe) до и после и требуем, чтобы каждый сдвинулся в сторону, названную в mods.
 	for id: String in order:
-		if OLD_UPGRADES.has(id):
-			continue
-		var eff: Dictionary = LegionMetaCfg.UPGRADE_POOL[id]["effect"]
-		var key := String(eff["key"])
+		var card := AmendmentDb.card(StringName(id))
+		var card_mods: Dictionary = card.get("mods", {})
+		_check(not card_mods.is_empty(), "карточка «%s» меняет числа" % String(card["title"]))
 		Campaign.reset()
 		Campaign.unlock_all()   # v20: элитные и предметы открывает «Архив» — здесь всё открыто
 		w.in_campaign = true
 		w.mods = Campaign.active_mods()
 		_fresh()
-		var before := _probe(key)
+		var before := {}
+		for key: String in card_mods:
+			before[key] = _probe(key)
 		Campaign.add_upgrade(StringName(id))
 		w.mods = Campaign.active_mods()
 		_fresh()
-		var after := _probe(key)
-		_check(not is_nan(before) and (after - before) * signf(float(eff["value"])) > 0.0,
-			"поправка %s «%s»: %s %.3f → %.3f" % [id, LegionMetaCfg.UPGRADE_POOL[id]["title"], key,
-				before, after])
+		var moved := true
+		var report := ""
+		for key: String in card_mods:
+			var after := _probe(key)
+			var value := float(card_mods[key])
+			var ok: bool = not is_nan(before[key]) and (after - before[key]) * signf(value) > 0.0
+			moved = moved and ok
+			report += "%s%s %.3f→%.3f " % ["!" if not ok else "", key, before[key], after]
+		_check(moved, "поправка %s «%s»: %s" % [id, String(card["title"]), report.strip_edges()])
 	w.in_campaign = false
 	w.mods = {}
 	Campaign.reset()

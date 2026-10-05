@@ -77,11 +77,20 @@ static func get_value(section: String, key: String, default: Variant = null) -> 
 	return _file().get_value(section, key, default)
 
 
-static func set_value(section: String, key: String, value: Variant) -> void:
+## Возврат — результат ЗАПИСИ на диск (J8): значение уже в памяти и действует, но экран, который
+## обещает «сохранено», обязан отличить отказ диска от успеха.
+static func set_value(section: String, key: String, value: Variant) -> Error:
 	_file().set_value(section, key, value)
-	_save()
+	var err := _save()
 	if GameBus.inst != null:
 		GameBus.inst.settings_changed.emit("%s/%s" % [section, key], value)
+	return err
+
+
+## Повтор записи настроек из памяти после отказа диска (J8, кнопка «Повторить» у SaveNotice).
+## Ничего не меняет — только пишет то же состояние; повтор идемпотентен.
+static func save_now() -> bool:
+	return _save() == OK
 
 
 ## Громкость шины 0..1 (линейно). Шины: Master, Music, SFX, Voice (default_bus_layout.tres).
@@ -204,6 +213,7 @@ static func set_hints(on: bool) -> void:
 ## выключенный звук и полный экран из настроек при запуске не применялись (нашли 26.09).
 static func apply() -> void:
 	var cfg := _file()
+	Controls.apply()
 	for bus in BUSES:
 		if cfg.has_section_key(SEC_AUDIO, String(bus)):
 			_apply_bus_volume(bus, float(cfg.get_value(SEC_AUDIO, String(bus))))
@@ -219,10 +229,11 @@ static func apply() -> void:
 		_apply_vsync(bool(cfg.get_value(SEC_VIDEO, "vsync")))
 
 
-static func _save() -> void:
+static func _save() -> Error:
 	var err := SafeConfig.save_file(_file(), path)
 	if err != OK:
 		push_warning("Settings: не удалось сохранить %s (%d)" % [path, err])
+	return err
 
 
 static func _apply_bus_volume(bus: StringName, linear: float) -> void:
