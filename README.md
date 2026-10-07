@@ -101,6 +101,12 @@ wss://51-250-12-39.sslip.io
 - Хотите прислать код, арт или баланс — pull request; порядок и соглашение контрибьютора —
   [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Поддержать игру
+
+Нравится игра? Поддержать разработку можно на
+[DonationAlerts](https://www.donationalerts.com/r/pianist13r). Игра остаётся бесплатной,
+поддержка добровольная.
+
 ## Собрать из исходников
 
 1. Godot **4.7.2** (обычная сборка, не .NET) — https://godotengine.org.
