@@ -3,9 +3,11 @@
 # Некромант по найму · Necromancer for Hire
 
 **Рисуешь мышью договор — скелеты-подрядчики встают в строй и держат проверяющих из Ада на подходе
-к Котлу Душ.** Tower defense, экшен и рогалик в одной игре. Бесплатно, для Windows, на русском, 16+.
+к Котлу Душ.** Tower defense, экшен и рогалик в одной игре. Бесплатно, для Windows, macOS и Linux, на русском, 16+.
 
-[**Скачать для Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.2-alpha/NecromancerForHire-Windows.exe) ·
+Скачать: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.2-alpha/NecromancerForHire-Windows.exe) ·
+[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.2-alpha/NecromancerForHire-macOS.zip) ·
+[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.2.2-alpha/NecromancerForHire-Linux.tar.gz) ·
 [Сайт игры](https://nekromant-po-naimu.website.yandexcloud.net) (открывается в России без VPN) ·
 [Все сборки](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
