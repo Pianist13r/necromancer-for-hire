@@ -1,17 +1,52 @@
 class_name RunProgression
 extends RefCounted
 ## Миграция и услуги держатся отдельно от каталога карт Campaign.
+##
+## «Переподписать» (другое предложение) живёт ТОЛЬКО на экране выбора поправок и всегда стоит
+## премию напрямую (AmendmentDb.REROLL_COST) — банка жетонов больше нет, из «Конторы» переброска
+## убрана (замысел 06.10.2026). «Контора» — короткая подготовка: до двух пакетов на объект
+## (второй слот — с разряда 4, AmendmentDb.PREP_SLOT2_LEVEL).
 
-const VERSION := 2
+const VERSION := 3
 const SECTION := "progression"
+## Ключ одиночной подготовки (до второго слота) — читается как совместимость; новый ключ —
+## массив "preparations". Старые сохранения с одним пакетом открываются без миграции.
+const PREP_KEY := "preparation"
+const PREPS_KEY := "preparations"
 static var _replacement: Dictionary = {}
 
 
+## Миграция по ступеням версии: применяются только недостающие шаги. v1 → v2 архивирует старые
+## покупки «Конторы» и переводит старые id поправок; v2 → v3 возвращает премию за оплаченные
+## жетоны переброски (банк жетонов убран из игры, D-1006-13) — иначе два жетона живого игрока
+## пропали бы молча при открытии сохранения новой сборкой.
 static func migrate(cfg: ConfigFile, path: String) -> bool:
 	var version := int(cfg.get_value(SECTION, "version", 0))
 	if version >= VERSION:
 		return version == VERSION
 	var before := cfg.encode_to_text()
+	if version < 2:
+		_migrate_v1_to_v2(cfg)
+	if version < 3:
+		_migrate_v2_to_v3(cfg)
+	var hero_legacy := {}
+	for key: String in ["perks", "rank_q", "rank_w", "rank_e"]:
+		if cfg.has_section_key("hero", key):
+			hero_legacy[key] = cfg.get_value("hero", key)
+	if not hero_legacy.is_empty():
+		cfg.set_value("hero", "legacy_choices", hero_legacy)
+	cfg.set_value(SECTION, "version", VERSION)
+	# Не меняем конверт SafeConfig; .bak останется профилем до конверсии целиком.
+	if SafeConfig.save_file(cfg, path) != OK:
+		cfg.clear()
+		cfg.parse(before)
+		return false
+	return true
+
+
+## v1 → v2 (переработка 05.10): старые покупки «Конторы» архивируются и возвращаются премией,
+## старые id поправок переводятся в колоду, сбрасываются транзиентные ключи.
+static func _migrate_v1_to_v2(cfg: ConfigFile) -> void:
 	for sec: String in ["meta", Campaign.ENDLESS_SECTION, Campaign.DAILY_SECTION,
 			Campaign.REPLAY_SECTION]:
 		var archived := {}
@@ -42,21 +77,22 @@ static func migrate(cfg: ConfigFile, path: String) -> bool:
 			cfg.set_value(sec, "bounty", int(cfg.get_value(sec, "bounty", 0)) + refund)
 		cfg.set_value(sec, "upgrades", active)
 		cfg.set_value(sec, "draft_options", [])
-		cfg.set_value(sec, "preparation", "")
+		cfg.set_value(sec, PREP_KEY, "")
+		cfg.set_value(sec, PREPS_KEY, [])
+
+
+## v2 → v3 (переработка 06.10): «Переподписать» убрана из «Конторы», банк жетонов (reroll_tokens)
+## удалён. Оплаченные жетоны в каждом разделе возвращаются премией по цене покупки
+## (AmendmentDb.REROLL_COST за штуку) и обнуляются — оплаченное не отбираем молча.
+static func _migrate_v2_to_v3(cfg: ConfigFile) -> void:
+	for sec: String in ["meta", Campaign.ENDLESS_SECTION, Campaign.DAILY_SECTION,
+			Campaign.REPLAY_SECTION]:
+		var tokens := maxi(0, int(cfg.get_value(sec, "reroll_tokens", 0)))
+		if tokens <= 0:
+			continue
+		cfg.set_value(sec, "bounty",
+			int(cfg.get_value(sec, "bounty", 0)) + tokens * AmendmentDb.REROLL_COST)
 		cfg.set_value(sec, "reroll_tokens", 0)
-	var hero_legacy := {}
-	for key: String in ["perks", "rank_q", "rank_w", "rank_e"]:
-		if cfg.has_section_key("hero", key):
-			hero_legacy[key] = cfg.get_value("hero", key)
-	if not hero_legacy.is_empty():
-		cfg.set_value("hero", "legacy_choices", hero_legacy)
-	cfg.set_value(SECTION, "version", VERSION)
-	# Не меняем конверт SafeConfig; .bak останется профилем до конверсии целиком.
-	if SafeConfig.save_file(cfg, path) != OK:
-		cfg.clear()
-		cfg.parse(before)
-		return false
-	return true
 
 
 static func clear_stage() -> void:
@@ -115,19 +151,17 @@ static func offer(rng: RandomNumberGenerator) -> Array[StringName]:
 	return out
 
 
+## Другое предложение: только на экране выбора поправок, всегда за премию напрямую (банк жетонов
+## убран). Не списывается, если предложения нет или награда уже забрана.
 static func reroll(rng: RandomNumberGenerator) -> Array[StringName]:
 	if Campaign.pending_reward() == "" or Campaign.reward_claimed():
 		return []
+	if Campaign.bounty() < AmendmentDb.REROLL_COST:
+		return []
 	var cfg := Campaign.raw_file()
 	var sec := Campaign._meta_section()
-	var tokens := int(cfg.get_value(sec, "reroll_tokens", 0))
-	if tokens <= 0 and Campaign.bounty() < AmendmentDb.REROLL_COST:
-		return []
 	Campaign.begin_update()
-	if tokens > 0:
-		cfg.set_value(sec, "reroll_tokens", tokens - 1)
-	else:
-		Campaign.add_bounty(-AmendmentDb.REROLL_COST)
+	Campaign.add_bounty(-AmendmentDb.REROLL_COST)
 	# Генерация предложения входит в ту же транзакцию со списанием.
 	var previous: Array = cfg.get_value(sec, "draft_options", [])
 	cfg.set_value(sec, "draft_options", [])
@@ -154,40 +188,54 @@ static func reroll(rng: RandomNumberGenerator) -> Array[StringName]:
 
 
 static func can_reroll() -> bool:
-	return Campaign.bounty() >= AmendmentDb.REROLL_COST or reroll_tokens() > 0
+	return Campaign.bounty() >= AmendmentDb.REROLL_COST
 
 
-static func reroll_tokens() -> int:
-	return int(Campaign.raw_file().get_value(Campaign._meta_section(), "reroll_tokens", 0))
+# ── «Контора»: разовая подготовка следующего боя (AmendmentDb.PREPARATIONS) ─────────────────────
+
+## Сколько пакетов подготовки влезает на один объект: один сразу, второй — с разряда 4.
+static func preparations_max() -> int:
+	return 2 if Campaign.hero_level() >= AmendmentDb.PREP_SLOT2_LEVEL else 1
 
 
-static func buy_service(id: String) -> bool:
-	var cfg := Campaign.raw_file()
-	var sec := Campaign._meta_section()
-	var cost := AmendmentDb.REROLL_COST if id == "reroll" else \
-		int(AmendmentDb.PREPARATIONS.get(id, {}).get("cost", -1))
-	if cost < 0 or Campaign.bounty() < cost:
-		return false
-	if id != "reroll" and preparation() != "":
-		return false
-	if id == "reroll" and reroll_tokens() >= 2:
-		return false
-	Campaign.begin_update()
-	Campaign.add_bounty(-cost)
-	if id == "reroll":
-		cfg.set_value(sec, "reroll_tokens", reroll_tokens() + 1)
-	else:
-		cfg.set_value(sec, "preparation", id)
-	Campaign.save_raw()
-	return Campaign.end_update(true)
+## Выбранные пакеты подготовки (по порядку), с отсечкой мусора и потолком слотов. Старое
+## сохранение с одиночным ключом PREP_KEY читается так же — миграция не нужна.
+static func preparations() -> Array[String]:
+	var raw: Array = Campaign.raw_file().get_value(Campaign._meta_section(), PREPS_KEY, [])
+	var out: Array[String] = []
+	for id in raw:
+		var sid := String(id)
+		if AmendmentDb.PREPARATIONS.has(sid) and not out.has(sid) \
+				and out.size() < preparations_max():
+			out.append(sid)
+	if out.is_empty():
+		var legacy := String(Campaign.raw_file().get_value(
+			Campaign._meta_section(), PREP_KEY, ""))
+		if AmendmentDb.PREPARATIONS.has(legacy):
+			out.append(legacy)
+	return out
 
 
+## Первый пакет подготовки (совместимость со старыми вызовами) или "".
 static func preparation() -> String:
-	return String(Campaign.raw_file().get_value(Campaign._meta_section(), "preparation", ""))
+	var list := preparations()
+	return list[0] if not list.is_empty() else ""
 
 
+## Свод модов всех выбранных пакетов по правилу MetaMods (пакеты сейчас двигают разные ключи —
+## стартовые души и потолок маны, — но свод общий, чтобы второй источник не погасил первый).
 static func preparation_mods() -> Dictionary:
-	return AmendmentDb.PREPARATIONS.get(preparation(), {}).get("mods", {}).duplicate()
+	var parts := {}
+	for id in preparations():
+		var card_mods: Dictionary = AmendmentDb.PREPARATIONS[id].get("mods", {})
+		for k: String in card_mods:
+			if not parts.has(k):
+				parts[k] = []
+			(parts[k] as Array).append(float(card_mods[k]))
+	var out := {}
+	for k: String in parts:
+		out[k] = MetaMods.combine(StringName(k), parts[k])
+	return out
 
 
 ## Подготовка для НАЧИНАЮЩЕГОСЯ боя: копия уходит в мир только вместе с успешным списанием
@@ -202,10 +250,31 @@ static func consume_preparation_for_battle() -> Dictionary:
 ## Мир копирует preparation_mods в свой бой ДО старта, а потребляет после успешного старта.
 ## Повторное получение предмета пересчитывает ману по копии мира, а не пустой Конторе.
 static func consume_preparation() -> bool:
-	if preparation() == "":
+	if preparations().is_empty():
 		return true
 	Campaign.begin_update()
-	Campaign.raw_file().set_value(Campaign._meta_section(), "preparation", "")
+	var cfg := Campaign.raw_file()
+	var sec := Campaign._meta_section()
+	cfg.set_value(sec, PREPS_KEY, [])
+	cfg.set_value(sec, PREP_KEY, "")
+	Campaign.save_raw()
+	return Campaign.end_update(true)
+
+
+## Покупка пакета подготовки за премию. false — пакет неизвестен, уже взят, слот занят или премии
+## не хватает. (Переброски здесь больше нет: она на экране выбора поправок.)
+static func buy_service(id: String) -> bool:
+	var data: Dictionary = AmendmentDb.PREPARATIONS.get(id, {})
+	var cost := int(data.get("cost", -1))
+	if cost < 0 or Campaign.bounty() < cost:
+		return false
+	if preparations().has(id) or preparations().size() >= preparations_max():
+		return false
+	Campaign.begin_update()
+	Campaign.add_bounty(-cost)
+	var picked := preparations()
+	picked.append(id)
+	Campaign.raw_file().set_value(Campaign._meta_section(), PREPS_KEY, picked)
 	Campaign.save_raw()
 	return Campaign.end_update(true)
 
@@ -214,7 +283,7 @@ static func reset_run(sec: String) -> void:
 	var cfg := Campaign.raw_file()
 	for key: String in ["draft_options", "legacy_upgrades"]:
 		cfg.set_value(sec, key, [])
-	cfg.set_value(sec, "preparation", "")
-	cfg.set_value(sec, "reroll_tokens", 0)
+	cfg.set_value(sec, PREP_KEY, "")
+	cfg.set_value(sec, PREPS_KEY, [])
 	cfg.set_value(sec, "reward_claimed", false)
 	clear_stage()

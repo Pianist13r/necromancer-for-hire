@@ -6,8 +6,8 @@ extends Node
 ##
 ##   godot --path godot res://scenes/legion_ui_preview.tscn -- --mute \
 ##       --screen menu|maps|briefing|result_win|result_lose|upgrade|howto|pause --shot ПУТЬ
-##   slow/tree: --screen office_poor|office_part|office_rich|hero_poor|hero_part|hero_rich
-##       [--tip КЛЮЧ_УЗЛА] — подсказка у узла дерева, как при наведении (напр. shop:staff:laborer:2)
+##   «Контора»/досье: --screen office_poor|office_part|office_rich|hero_poor|hero_part|hero_rich
+##       --shot ПУТЬ
 ##
 
 const TEST_SAVE_PATH := "user://legion_preview_test.cfg"
@@ -31,13 +31,6 @@ func _ready() -> void:
 
 	await get_tree().process_frame
 	await get_tree().process_frame
-	var tip_key := String(args.get("tip", ""))
-	if tip_key != "" and node.has_method("tree"):
-		var t: UpgradeTree = node.call("tree")
-		var tn := t.node(tip_key)
-		if tn != null:
-			t.show_tip(tn)
-		await get_tree().process_frame
 
 	if shot_path != "":
 		await RenderingServer.frame_post_draw
@@ -147,20 +140,17 @@ func _offer_upgrade(screen: UpgradePicker, options: Array) -> void:
 	screen.offer(options)
 
 
-## slow/tree: «Контора» в трёх состояниях — 0: начало кампании, премии мало (открыт один вид);
-## 1: пройдена первая карта, часть куплена; 2: всё открыто, премии много.
+## «Контора»: 0 — начало кампании, премии мало; 1 — разряд 4 открыл два слота, один пакет взят;
+## 2 — всё открыто, премии много.
 func _office_fixture(stage: int) -> Control:
 	var maps := Campaign.maps()
 	if stage == 0:
 		Campaign._add_bounty(45)
 	elif stage == 1:
 		Campaign.record_result(String(maps[0].get("id", "")), true, 0.9)
-		Campaign._add_bounty(400)
-		Campaign.shop_buy("range", "laborer")
-		Campaign.shop_buy("range", "laborer")
-		Campaign.shop_buy("staff", "laborer")
-		Campaign.shop_buy("mana")
-		Campaign.shop_buy("souls")
+		Campaign._add_hero_xp(int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[2]))   # разряд 4 — два слота
+		Campaign._add_bounty(200)
+		RunProgression.buy_service("souls")
 		Campaign._add_bounty(-Campaign.bounty() + 75)
 	else:
 		Campaign.unlock_all()
@@ -168,14 +158,10 @@ func _office_fixture(stage: int) -> Control:
 	return OfficeShop.new()
 
 
-## slow/tree: экран героя — 0: уровень 1, очков нет; 1: уровень 5, часть взята, 1 очко;
-## 2: уровень 10, всё свободно.
+## Досье: 0 — разряд 1, только базовая колода; 1 — разряд ~5, часть карт открыта; 2 — потолок.
 func _hero_fixture(stage: int) -> Control:
 	if stage == 1:
 		Campaign._add_hero_xp(1180)
-		Campaign.hero_rank_up(&"q")
-		Campaign.hero_take_perk(&"perk_fast_hire")
-		Campaign.hero_take_perk(&"perk_short_cd")
 	elif stage == 2:
 		Campaign._add_hero_xp(4000)
 	return HeroScreen.new()

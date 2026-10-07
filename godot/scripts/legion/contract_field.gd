@@ -1477,18 +1477,23 @@ func sling_pointer() -> Vector2:
 
 ## Прицел текущей натяжки: {dir, power, pull, perfect, depth, half_w, center}. Стрелка —
 ## против оттяжки. Сила всегда полная (26.09): длина оттяжки не важна, умение — момент отпускания.
+## У ФИГУР (кроме кольца) dir — ОБЩАЯ ось оттяжки: тот же вектор уходит в бой (aim["dir"] →
+## release_aimed → axis), поэтому превью и бой берут ось из одного места. Своя геометрия фигуры
+## (к центру/наружу/крест-накрест) работает только при щелчке и таянии, когда оси нет.
 func sling_aim() -> Dictionary:
 	if _grab.is_empty():
 		return {}
 	var c: Contract = _grab["contract"]
 	var seg := int(_grab["seg"])
 	var pull := _pull - _grab_pos
-	var dir := -pull.normalized()
+	var axis := -pull.normalized()
 	var power := 1.0
 	if c.shaped():
-		if c.corners_only and pull.length() > 0.01:
-			return corner_aim(c, seg, pull, power)
-		return ring_aim(c, seg, pull, power)
+		if c.ring:
+			return ring_aim(c, seg, pull, power)   # кольцо сжимается: стрелка участка к центру/наружу
+		# фигура: строй летит по общей оси оттяжки. Восьмёрка срывается целиком, соседние залпы
+		# отбрасывают приманку внутрь, поэтому ей «Точно!» гасит перехватывающая приманка (D-0927-53)
+		return figure_aim(c, seg, pull, power, axis, not c.corners_only)
 	var dist := float(LegionCfg.UNIT_KINDS[c.kind]["charge_dist"]) \
 		* lerpf(LegionCfg.SLING_RANGE.x, LegionCfg.SLING_RANGE.y, power)
 	var center := c.seg_center(seg)
@@ -1496,10 +1501,10 @@ func sling_aim() -> Dictionary:
 	var depth := dist * world.perfect_zone_frac(owner_side)
 	# «Точно!» — только если срыв кого-то пошлёт: на участке есть стоящий боец (seg_strike), и
 	# натиск не перехватит нотариус или призрак (D-0927-53: «Срывай!» не врёт)
-	var perfect := c.seg_manned(seg) > 0 and zone_has_foe(center, dir, half_w, depth) \
-		and _sling_clear(c, seg, center, dir, half_w, depth)
+	var perfect := c.seg_manned(seg) > 0 and zone_has_foe(center, axis, half_w, depth) \
+		and _sling_clear(c, seg, center, axis, half_w, depth)
 	return {
-		"dir": dir, "power": power, "pull": pull, "center": center, "half_w": half_w,
+		"dir": axis, "power": power, "pull": pull, "center": center, "half_w": half_w,
 		"depth": depth, "perfect": perfect,
 	}
 
@@ -2645,13 +2650,17 @@ func _on_ring_made(c: Contract) -> void:
 	_sound("ult_ready", 1.25)
 
 
-## Прицел рогатки по УГЛОВОЙ фигуре (крыша, каре, комиссия, неустойка): стрелка — общая ось
-## оттяжки (у каждого участника своё начало траектории, LegionFigures.charge_for), а зона
+## Прицел рогатки по ФИГУРЕ (крыша, каре, комиссия, неустойка, восьмёрка): стрелка — ОБЩАЯ ось
+## оттяжки axis (у каждого участника своё начало траектории, LegionFigures.charge_for), а зона
 ## «Точно!» — полоса по РЕАЛЬНЫМ местам стоящих участников: пустые длинные рёбра больше не дают
 ## широкую зону попадания (D-1002 §5). Зона считается от середины строя по оси, ширина — разброс
-## мест поперёк оси.
-func corner_aim(c: Contract, seg: int, pull: Vector2, power: float) -> Dictionary:
-	var axis := -pull.normalized()
+## мест поперёк оси. lure — гасить «Точно!», если приманка способна перехватить натиск (D-0927-53):
+## у восьмёрки фигура срывается целиком, соседние залпы отбрасывают приманку внутрь, поэтому ей
+## нужен запас LURE_MARGIN_SHAPE (strike_clear его берёт по c.figure != "").
+func figure_aim(c: Contract, seg: int, pull: Vector2, power: float, axis := Vector2.ZERO,
+		lure := false) -> Dictionary:
+	if axis.is_zero_approx():
+		axis = -pull.normalized()
 	if axis.is_zero_approx():
 		axis = c.seg_dir(seg)
 	var reach := float(LegionCfg.UNIT_KINDS[c.kind]["charge_dist"]) \
@@ -2675,8 +2684,13 @@ func corner_aim(c: Contract, seg: int, pull: Vector2, power: float) -> Dictionar
 			"half_w": depth * 0.5, "depth": depth, "perfect": false, "axis": axis}
 	var center := sum / float(n)
 	var half_w := maxf((hi - lo) * 0.5, LegionCfg.UNIT_RADIUS)
+	var perfect := zone_has_foe(center, axis, half_w, depth)
+	if perfect and lure:
+		pack_live_lures()
+		perfect = strike_clear(c, seg, center, axis, half_w, depth,
+			zone_foes(center, axis, half_w, depth))
 	return {"dir": axis, "power": power, "pull": pull, "center": center, "half_w": half_w,
-		"depth": depth, "perfect": zone_has_foe(center, axis, half_w, depth), "axis": axis}
+		"depth": depth, "perfect": perfect, "axis": axis}
 
 
 ## Прицел рогатки по кольцу: стрелка — своя у участка (к центру или наружу), сила — общая,

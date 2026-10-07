@@ -42,8 +42,8 @@ var side := 1                          ## +1 — стрелка вправо о�
 var owner_side := 0
 ## Вид договора: набирает только бойцов этого вида (LegionCfg.UNIT_KINDS).
 var kind: StringName = LegionCfg.KIND_LABORER
-## Перк «Мелкий шрифт» (−10 % мана, camp_stat mana_cost_mult) — множитель этого договора,
-## снятый с ContractField при рождении; 1.0 по умолчанию (без перка/вне кампании).
+## Множитель цены договора (mana_cost_mult — от поправок/подготовки), снятый с ContractField
+## при рождении; 1.0 по умолчанию (вне кампании).
 var mana_cost_mult := 1.0
 ## Стрелка натиска всего договора, единичный вектор. Менять — только через set_dir().
 var dir := Vector2.RIGHT
@@ -475,17 +475,17 @@ func post_step() -> float:
 
 ## polish1 (ревью 25.09.2026): раньше цену считали ТРИ разных места (эта функция,
 ## `ContractField._kind_price()` — своя копия того же поиска по таблице, и черновик штриха) —
-## перк «Мелкий шрифт» (mana_cost_mult) применялся только там, где кто-то не забыл, и бой его
+## множитель цены (mana_cost_mult) применялся только там, где кто-то не забыл, и бой его
 ## не применял нигде. Теперь `base_price()` — единственное место, где читается таблица видов,
-## `ContractField` больше не дублирует поиск (её `_kind_price()` зовёт эту же функцию), а перк —
-## множитель `mana_cost_mult`, который `ContractField.setup()` берёт из `world.camp_stat()` один
+## `ContractField` больше не дублирует поиск (её `_kind_price()` зовёт эту же функцию), а множитель
+## `mana_cost_mult` `ContractField.setup()` берёт из `world.camp_stat()` один
 ## раз на карту и передаёт КАЖДОМУ договору при его создании (`_create()`).
 static func base_price(k: StringName) -> float:
 	var kk := k if LegionCfg.UNIT_KINDS.has(k) else LegionCfg.KIND_LABORER
 	return float(LegionCfg.UNIT_KINDS[kk]["mana_per_px"])
 
 
-## Цена продления/линии этого вида за пиксель, с учётом перка. ЕДИНСТВЕННОЕ место, где
+## Цена продления/линии этого вида за пиксель, с учётом множителя. ЕДИНСТВЕННОЕ место, где
 ## считается цена уже существующего договора — ContractField зовёт её же, не копирует.
 func mana_per_px() -> float:
 	return base_price(kind) * mana_cost_mult

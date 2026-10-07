@@ -106,7 +106,7 @@ func _tick_foe(f: Foe, seconds: float) -> void:
 
 
 func _q_dmg(i: int) -> float:
-	return float(LegionCfg.Q_CHAIN_DMG[i]) * LegionCfg.Q_RANK_DMG_MULT[w.hero.rank(LegionHero.SLOT_Q)]
+	return float(LegionCfg.Q_CHAIN_DMG[i])
 
 
 func _test_q_stuns() -> void:

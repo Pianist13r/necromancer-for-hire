@@ -250,7 +250,11 @@ func _phase_e_replacement() -> void:
 	var offered := _picker_options()
 	await _click_amendment("E4_pick_card", _first(offered), "screen=UpgradePicker",
 		"режим замены: активных %d" % Campaign.upgrades().size())
-	await _click_text("E5_replace_slot", ["Вычеркнуть этот пункт"], "screen=Briefing")
+	# Замена — клик по слоту полосы «Редакция договора» (карточек «Вычеркнуть» больше нет,
+	# D-1006-16). Кликаем слот первой активной поправки по её названию.
+	var evict := String(AmendmentDb.card(was[0]).get("title", String(was[0])))
+	await _click_text("E5_replace_slot", [evict], "screen=Briefing",
+		"вычеркнуть слот «%s»" % evict)
 	_check_replacement(was, offered)
 
 

@@ -24,7 +24,6 @@ const SLOT_E := 2
 const _SLOT_KEYS: Array[StringName] = [
 	&"ability_unlocked_q", &"ability_unlocked_w", &"ability_unlocked_e",
 ]
-const _RANK_KEYS: Array[StringName] = [&"ability_rank_q", &"ability_rank_w", &"ability_rank_e"]
 
 var world: LegionWorld = null
 var necro_view: CharView = null
@@ -102,10 +101,6 @@ func is_unlocked(slot: int) -> bool:
 	return world.camp_stat(_SLOT_KEYS[slot]) > 0.5
 
 
-func rank(slot: int) -> int:
-	return clampi(int(round(world.camp_stat(_RANK_KEYS[slot]))), 0, 2)
-
-
 func cd_left(slot: int) -> float:
 	return _cd[slot]
 
@@ -130,9 +125,7 @@ func vassals() -> Array:
 
 
 func cd_total(slot: int) -> float:
-	var base: float = [LegionCfg.Q_COOLDOWN, LegionCfg.W_COOLDOWN, LegionCfg.E_COOLDOWN][slot]
-	var perk_cut := LegionCfg.PERK_SHORT_CD_MULT * world.camp_stat(&"perk_short_cd")
-	return base * maxf(0.0, 1.0 - perk_cut)
+	return [LegionCfg.Q_COOLDOWN, LegionCfg.W_COOLDOWN, LegionCfg.E_COOLDOWN][slot]
 
 
 ## Каст способности по точке `at` (мировые координаты). Возвращает true, если состоялась
@@ -229,10 +222,9 @@ func q_targets(at: Vector2) -> Array[Foe]:
 	return chain
 
 
-## Сколько целей бьёт цепь сейчас (перк «Цепная реакция» добавляет, потолок — Q_CHAIN_CAP).
+## Сколько целей бьёт цепь сейчас: база + поправки/артефакты (q_chain); потолок — Q_CHAIN_CAP.
 func q_chain_len() -> int:
-	var base := mini(LegionCfg.Q_CHAIN_BASE_TARGETS + int(world.camp_stat(&"perk_chain_reaction")),
-		LegionCfg.Q_CHAIN_CAP)
+	var base := mini(LegionCfg.Q_CHAIN_BASE_TARGETS, LegionCfg.Q_CHAIN_CAP)
 	# «Скрепка судьбы» — сверх обычного потолка цепи, но не бесконечно
 	return mini(base + int(world.item_add(&"q_chain", side)), CfgItems.Q_CHAIN_HARD_CAP)
 
@@ -242,12 +234,11 @@ func q_stun() -> float:
 	return LegionCfg.Q_STUN * world.item_mult(&"q_stun", side)
 
 
-## Урон i-й цели цепи с учётом ранга (хвост цепи бьёт последним числом Q_CHAIN_DMG); цель-призрак
-## (f задан) — ×Q_GHOST_MULT (v20: строй призрака не бьёт — молния вдвое).
+## Урон i-й цели цепи (хвост цепи бьёт последним числом Q_CHAIN_DMG); цель-призрак (f задан) —
+## ×Q_GHOST_MULT (v20: строй призрака не бьёт — молния вдвое).
 func q_damage(i: int, f: Foe = null) -> float:
 	var dmg_idx := mini(i, LegionCfg.Q_CHAIN_DMG.size() - 1)
-	var dmg := float(LegionCfg.Q_CHAIN_DMG[dmg_idx]) * LegionCfg.Q_RANK_DMG_MULT[rank(SLOT_Q)]
-	dmg *= world.item_mult(&"q_dmg", side)   # «Печать двойного действия»
+	var dmg := float(LegionCfg.Q_CHAIN_DMG[dmg_idx]) * world.item_mult(&"q_dmg", side)
 	return dmg * (LegionCfg.Q_GHOST_MULT if f != null and f.ghost else 1.0)
 
 
@@ -365,8 +356,7 @@ func _cast_w(at: Vector2) -> bool:
 	var corpses := w_corpses(at)
 	if corpses.is_empty():
 		return false
-	var raised := raise_corpses(corpses, float(LegionCfg.W_DMG_MULT_BY_RANK[rank(SLOT_W)]),
-		w_duration())
+	var raised := raise_corpses(corpses, LegionCfg.W_DMG_MULT, w_duration())
 	last_cast = {"slot": SLOT_W, "at": at, "raised": raised}
 	Juice.shake(world, LegionCfg.HERO_CAST_SHAKE * 0.8, LegionCfg.HERO_CAST_SHAKE_DUR)
 	return true
@@ -434,9 +424,9 @@ static func cfg_or(key: StringName, fallback: Variant) -> Variant:
 	return consts.get(key, fallback)
 
 
-## Сколько секунд проживёт внештатник при текущем ранге.
+## Сколько секунд проживёт внештатник.
 func w_duration() -> float:
-	return float(LegionCfg.W_DURATION_BY_RANK[rank(SLOT_W)])
+	return LegionCfg.W_DURATION
 
 
 ## Свежие трупы в radius от at, ближайшие первыми, не больше limit. Равные расстояния — по
@@ -507,12 +497,9 @@ func e_targets(at: Vector2) -> Array[Legionnaire]:
 	return live
 
 
-## Длительность Аврала: база + ранг + перк «Сверхурочные», не выше потолка.
+## Длительность Аврала: база + поправки/артефакты (e_dur).
 func e_duration() -> float:
-	return minf(
-		LegionCfg.E_DURATION_BASE + LegionCfg.E_DURATION_RANK_STEP * rank(SLOT_E)
-				+ LegionCfg.E_DURATION_PERK_BONUS * world.camp_stat(&"perk_overtime"),
-		LegionCfg.E_DURATION_CAP) + world.item_add(&"e_dur", side)
+	return LegionCfg.E_DURATION_BASE + world.item_add(&"e_dur", side)
 
 
 ## Радиус Аврала: база × «Табель сверхурочных» (e_radius). Один читатель на каст, прицел и вид.

@@ -1,3 +1,4 @@
+# gdlint: disable=max-file-lines
 class_name LegionMain
 extends Node
 ##
@@ -667,42 +668,62 @@ func _show_necrolog(report: Dictionary, foe_type: String, map_title: String,
 # ── Пауза боя (Esc) ─────────────────────────────────────────────────────────
 
 func _on_world_paused_changed(p: bool) -> void:
+	# Экран паузы строим В КОНЦЕ кадра. Потеря фокуса окна приходит из обработчика уведомления, где
+	# движок «занял» всё дерево: SceneTree::_notification для NOTIFICATION_APPLICATION_FOCUS_OUT
+	# зовёт get_root()->propagate_notification(), а Node::propagate_notification держит
+	# Node.data.blocked > 0 у каждого узла-предка на время прохода. Пока проход не дошёл до мира,
+	# LegionMain «занят», и синхронный add_child(экран) там падает с «Parent node is busy setting up
+	# children» — бой вставал на паузу БЕЗ меню (баг владельца 06.10.2026). К концу кадра дерево
+	# свободно, вставка проходит. Снятие паузы безопасно и синхронно (queue_free не занят деревом).
 	if p:
-		_show_pause()
+		_show_pause.call_deferred()
 	else:
 		_hide_pause()
 
 
 func _show_pause() -> void:
-	if _pause_screen != null:
+	# Экран «жив», только если он реально в дереве: осиротевший (создан, но add_child не прошёл)
+	# не должен запирать меню навсегда — иначе пауза есть, меню нет. Освобождаем и строим заново.
+	if is_instance_valid(_pause_screen) and _pause_screen.is_inside_tree():
 		return
-	_pause_screen = LegionPause.new()
+	if is_instance_valid(_pause_screen):
+		_pause_screen.queue_free()
+	_pause_screen = null
+	if not is_instance_valid(world) or not world.paused:
+		return   # паузу сняли, пока показ ждал конца кадра
+	# Чтения мира — ДО создания экрана: сбой здесь оставит поле пустым, и следующая пауза построит
+	# меню заново, а не упрётся в осиротевший узел.
+	var skip_tutorial := world.tutorial != null and world.tutorial.step() >= 0
+	var collectible := _in_endless_battle and _collectible_map_id(world.map_id)
+	var has_items := world.items_of(world.local_side).total() > 0
+	var pause := LegionPause.new()
 	# Пакет tutorial: пункт «Пропустить обучение» — только пока обучение реально идёт;
 	# выставляется ДО add_child, LegionPause читает его в _ready().
-	_pause_screen.show_skip_tutorial = world.tutorial != null and world.tutorial.step() >= 0
+	pause.show_skip_tutorial = skip_tutorial
 	# D-0927-96 («Вызов дня» — одна попытка в день): в бою забега «Заново» не предлагаем (не
 	# обходить лимит переигрышем объекта), а «Меню» — с подтверждением: выход посреди объекта
 	# засчитывает конец сегодняшней попытки.
 	if _in_endless_battle and _endless_daily:
-		_pause_screen.hide_restart = true
-		_pause_screen.confirm_menu_text = ("Бой будет прерван. Награды прошлых боёв сохранены. "
+		pause.hide_restart = true
+		pause.confirm_menu_text = ("Бой будет прерван. Награды прошлых боёв сохранены. "
 			+ "Попытка дня будет засчитана — второй сегодня уже не будет.")
 	# D-0927-162: «В коллекцию» — главное место сохранения (Игорь: «если проигрываешь или тебе
 	# надо бежать»), только пока идёт бой ЗАБЕГА на сгенерированной карте.
-	_pause_screen.show_collect = _in_endless_battle and _collectible_map_id(world.map_id)
-	_pause_screen.show_dossier = world.items_of(world.local_side).total() > 0
-	_pause_screen.cover = world   # B-113: подсказки поля/HUD не ложатся поверх паузы
-	_pause_screen.process_mode = Node.PROCESS_MODE_ALWAYS
-	_pause_screen.z_index = OVERLAY_Z
-	add_child(_pause_screen)
-	_pause_screen.resume_pressed.connect(func() -> void: world.set_paused(false))
-	_pause_screen.restart_pressed.connect(func() -> void: world.restart())
-	_pause_screen.settings_pressed.connect(_show_settings)
-	_pause_screen.howto_pressed.connect(_show_howto)
-	_pause_screen.dossier_pressed.connect(_show_dossier)
-	_pause_screen.menu_pressed.connect(_on_pause_menu_pressed)
-	_pause_screen.collect_pressed.connect(func() -> void: LegionCollectionFlow.save_current(self))
-	_pause_screen.skip_tutorial_pressed.connect(func() -> void:
+	pause.show_collect = collectible
+	pause.show_dossier = has_items
+	pause.cover = world   # B-113: подсказки поля/HUD не ложатся поверх паузы
+	pause.process_mode = Node.PROCESS_MODE_ALWAYS
+	pause.z_index = OVERLAY_Z
+	add_child(pause)
+	_pause_screen = pause   # поле — ТОЛЬКО после успешной вставки: сбой add_child не осиротит экран
+	pause.resume_pressed.connect(func() -> void: world.set_paused(false))
+	pause.restart_pressed.connect(func() -> void: world.restart())
+	pause.settings_pressed.connect(_show_settings)
+	pause.howto_pressed.connect(_show_howto)
+	pause.dossier_pressed.connect(_show_dossier)
+	pause.menu_pressed.connect(_on_pause_menu_pressed)
+	pause.collect_pressed.connect(func() -> void: LegionCollectionFlow.save_current(self))
+	pause.skip_tutorial_pressed.connect(func() -> void:
 		if world.tutorial != null:
 			world.tutorial.skip()
 		world.set_paused(false))
@@ -727,10 +748,12 @@ func _close_dossier() -> void:
 
 func _hide_pause() -> void:
 	_close_dossier()
-	if _pause_screen != null:
+	# is_instance_valid, а не «!= null»: освобождённый узел тоже даёт «== null», но так явно видно,
+	# что убираем именно живой экран (осиротевший/_ready не отработал — restore_covered() пустой).
+	if is_instance_valid(_pause_screen):
 		_pause_screen.restore_covered()
 		_pause_screen.queue_free()
-		_pause_screen = null
+	_pause_screen = null
 
 
 ## Подтверждённый выход из дня завершает попытку некрологом.
@@ -933,20 +956,16 @@ func _capture_dev_screen(screen_name: String, shot_path: String, shot_frame: int
 			rng.seed = 1
 			p.call_deferred("offer", Campaign.offer_upgrades(rng))
 		"office":
-			# meta: демо-прогресс, чтобы кадр показывал не только «Уровень 0 / всё заперто»
-			# (задание meta — «Кадры экранов через --dev screen=...»).
+			# meta: демо-прогресс, чтобы кадр показывал не только «Премия 0 / всё заперто».
 			Campaign.unlock_all()
 			for m in Campaign.maps():
 				Campaign.record_result(String(m.get("id", "")), true, 0.9)
-			Campaign.record_rewards(true, 3, 40)
-			Campaign.record_rewards(true, 3, 40)
-			Campaign.shop_buy("range", "laborer")
-			Campaign.shop_buy("mana")
+			Campaign._add_hero_xp(700)      # разряд 4+ — в Конторе видны оба слота подготовки
+			Campaign.add_bounty(200)
+			RunProgression.buy_service("souls")
 			show_office(show_menu)
 		"hero":
-			Campaign.record_rewards(true, 3, 400)   # опыт с запасом на несколько уровней
-			Campaign.hero_rank_up(&"q")
-			Campaign.hero_take_perk(&"perk_fast_hire")
+			Campaign._add_hero_xp(3000)     # разряд высокий — большая часть колоды открыта
 			show_hero(show_menu)
 		"settings":
 			show_menu()

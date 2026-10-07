@@ -1,28 +1,38 @@
 class_name UpgradePicker
 extends Control
-## Четвёртая поправка требует явной замены одного пункта.
+## Выбор поправки — строки (не карточки). Четвёртая поправка требует явной замены: клик по слоту
+## полосы «Редакция договора» вычёркивает прежний пункт.
 
 signal picked(id: StringName)
 signal back
 var next_label := "Дальше: брифинг"
-var _cards_box: GridContainer
-var _replace_box: VBoxContainer
-var _replace_grid: GridContainer
-var _note: Label
-var _reroll: Button
 var _options: Array[StringName] = []
 var _selected: StringName = &""
 var _focused_option: StringName = &""
+var _note: Label
+var _strip: SlotStrip
+var _replace_box: VBoxContainer
+var _reroll: Button
 var _primary: Button
+## Тесты читают _cards_box.visible — держим этим именем контейнер предложений.
+var _cards_box: VBoxContainer
 
 
 func _ready() -> void:
 	var shell := ProgressionUi.shell(self, "Поправка к договору",
-		"Выберите правило забега. Три пункта — предел; мелкий шрифт читаем до подписи.")
+		"Выберите правило забега. Три пункта — предел; детали раскрываются под строкой.")
 	_note = shell["note"]
 	var body: VBoxContainer = shell["body"]
 	var footer: HBoxContainer = shell["footer"]
-	_cards_box = ProgressionUi.grid()
+	body.add_child(ProgressionUi.text("Редакция договора", 18, UiStyle.TEXT_DIM))
+	_strip = SlotStrip.new()
+	body.add_child(_strip)
+	_strip.slot_pressed.connect(func(slot: int) -> void:
+		if _selected != &"":
+			replace(slot))
+	_cards_box = VBoxContainer.new()
+	_cards_box.name = "Offers"
+	_cards_box.add_theme_constant_override("separation", 8)
 	body.add_child(_cards_box)
 	_replace_box = VBoxContainer.new()
 	_replace_box.add_theme_constant_override("separation", 10)
@@ -32,8 +42,7 @@ func _ready() -> void:
 	var nav := LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
 		next_label, func() -> void: choose(_focused_option))
 	_primary = nav.get_node("NavPrimary") as Button
-	resized.connect(_resize_cards)
-	_resize_cards()
+	_refresh_strip()
 	_refresh_footer()
 	ModalFocus.contain.call_deferred(self)
 
@@ -60,16 +69,19 @@ func offer(options: Array) -> void:
 	_focused_option = _options[0] if not _options.is_empty() else &""
 	_cancel_replacement()
 	ProgressionUi.clear(_cards_box)
+	var first := true
 	for id in _options:
-		# E-1005: у предложенной карточки — строка о дележе ключа с уже действующими источниками
-		# (на экране замены ниже она не нужна: там речь о вычёркивании, а не о наборе силы).
-		var card := AmendmentCard.new().configure(id, AmendmentDb.card(id),
-			"Подписать поправку", true)
-		_cards_box.add_child(card)
-		card.pressed.connect(func() -> void: choose(id))
-		card.focus_entered.connect(func() -> void: _focused_option = id)
+		var row := ProgressionRow.new()
+		_cards_box.add_child(row)
+		# Первая строка раскрыта по умолчанию: видно, что строки раскрываются (иначе игрок с мышью
+		# не догадается, что под строкой есть детали). Остальные — по наведению/фокусу.
+		row.configure(id, AmendmentDb.card(id), "Подписать поправку",
+			{"together": true, "expanded": first})
+		first = false
+		row.pressed.connect(func(rid: StringName) -> void: choose(rid))
+		row.button().focus_entered.connect(func() -> void: _focused_option = id)
+	_refresh_strip()
 	_refresh_footer()
-	_resize_cards()
 	ModalFocus.contain.call_deferred(self)
 
 
@@ -82,10 +94,7 @@ func choose(id: StringName) -> void:
 	_selected = id
 	_cards_box.hide()
 	ProgressionUi.clear(_replace_box)
-	var active := Campaign.upgrades()
-	var data := AmendmentDb.card(id)
-	# В ряд: слева — что подписываем (и возврат к предложению), справа — что вычеркнуть
-	# (компактные карточки). Вертикальная колонка не влезала в 720 px на 183 px (H_report).
+	_refresh_strip(true)
 	var split := HBoxContainer.new()
 	split.add_theme_constant_override("separation", 18)
 	split.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,27 +104,15 @@ func choose(id: StringName) -> void:
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 8)
 	split.add_child(left)
-	left.add_child(ProgressionUi.text("Новый пункт: " + String(data["title"]), 22,
-		AmendmentDb.color(id)))
-	left.add_child(ProgressionUi.text(String(data["text"]), 18))
-	left.add_child(ProgressionUi.text("Мелкий шрифт: " + String(data["tradeoff"]), 16, UiStyle.WARN))
-	left.add_child(ProgressionUi.text("Что вычеркнуть? Его правило и цена исчезнут.", 17,
-		UiStyle.TEXT_DIM))
-	var pad := Control.new()
-	pad.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	left.add_child(pad)
+	var info := ProgressionRow.new()
+	left.add_child(info)
+	info.configure(id, AmendmentDb.card(id), "", {"expanded": true, "interactive": false})
 	left.add_child(ProgressionUi.button("Вернуться к предложению", _cancel_replacement))
 
-	_replace_grid = ProgressionUi.grid()
-	_replace_grid.columns = maxi(1, active.size())
-	split.add_child(_replace_grid)
-	for slot in active.size():
-		var old := active[slot]
-		var card := AmendmentCard.new().configure(old, AmendmentDb.card(old),
-			"Вычеркнуть этот пункт", false, true)
-		_replace_grid.add_child(card)
-		card.pressed.connect(func() -> void: replace(slot))
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 6)
+	split.add_child(right)
+	right.add_child(ProgressionUi.text("Что вычеркнуть? Клик по слоту выше.", 17, UiStyle.TEXT_DIM))
 	_reroll.disabled = true
 	_primary.disabled = true
 	ModalFocus.contain.call_deferred(self)
@@ -134,6 +131,7 @@ func _cancel_replacement() -> void:
 		ProgressionUi.clear(_replace_box)
 	if is_instance_valid(_cards_box):
 		_cards_box.show()
+	_refresh_strip()
 	_refresh_footer()
 	ModalFocus.contain.call_deferred(self)
 
@@ -147,18 +145,15 @@ func _on_reroll() -> void:
 	_refresh_footer()
 
 
+func _refresh_strip(interactive := false) -> void:
+	ProgressionUi.clear(_strip)
+	_strip.configure(Campaign.upgrades(), interactive)
+
+
 func _refresh_footer() -> void:
 	if not is_instance_valid(_reroll):
 		return
 	if is_instance_valid(_primary):
 		_primary.disabled = _options.is_empty() or _selected != &""
-	_reroll.text = "Другое предложение · %d премии" % AmendmentDb.REROLL_COST \
-		if RunProgression.reroll_tokens() == 0 else "Другое предложение · оплачено"
+	_reroll.text = "Другое предложение · %d премии" % AmendmentDb.REROLL_COST
 	_reroll.disabled = not RunProgression.can_reroll() or _selected != &""
-
-
-func _resize_cards() -> void:
-	if is_instance_valid(_cards_box):
-		ProgressionUi.resize_grid(_cards_box, size.x)
-	# Сетку замены по ширине окна не пересобираем: карточки стоят в ряд по числу активных
-	# поправок (всегда MAX_ACTIVE), и должны остаться узкими.

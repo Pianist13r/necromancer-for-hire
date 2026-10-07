@@ -100,7 +100,7 @@ func _ready() -> void:
 		buttons.append(button)
 
 
-## «12 маны за аршин»: цена вида с перком «Мелкий шрифт», округлённая до целого.
+## «12 маны за аршин»: цена вида с множителем mana_cost_mult, округлённая до целого.
 func _price_text(kind: StringName) -> String:
 	var mult := world.my_field().mana_cost_mult if world != null and world.my_field() != null else 1.0
 	var per := Contract.base_price(kind) * mult * LegionCfg.HUD_ARSHIN_PX

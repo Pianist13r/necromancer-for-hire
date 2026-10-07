@@ -472,19 +472,18 @@ static func active_rules() -> Dictionary:
 
 
 ## v15 (DESIGN_V15 §7, §11; пакет f0 — нейтральная заготовка, наполняет пакет meta): итоговое
-## значение параметра боя с поправками (позже — покупками «Конторы» и перками героя). Бой читает
+## значение параметра боя с поправками (и подготовкой «Конторы»). Бой читает
 ## только его и сам покупки не разбирает. Звать при старте карты, не в кадре (читает сохранение).
 ##
 ## Нейтраль — по виду ключа (MetaMods.is_mult_key): множитель 1.0, прибавка 0.0. Свод источников —
 ## MetaMods.combine (множитель ∏(1+v), прибавка Σv). extra — дополнительные источники (у боя это
 ## подготовка «Конторы»): сводятся тем же правилом.
 ##
-## v15 (пакет meta, DESIGN_V15 §7, §11, §12 п.8–9): источник свода — не только поправки к
-## договору (active_mods), но и покупки «Конторы», ранги/перки героя и открытия кампанией —
-## все они сводятся в один плоский набор «ключ → прибавка» (_all_mods, закэширован,
-## сбрасывается любой записью в сохранение — _save()). Порядок «база → ранг → перк → мета»
-## (§12 п.8) для способностей — дело пакета hero (он читает ability_rank_q|w|e и perk_<id>
-## отдельно и сам решает порядок применения).
+## v15 (пакет meta, DESIGN_V15 §7, §11): источник свода — не только поправки к договору
+## (active_mods), но и открытия кампанией — все они сводятся в один плоский набор
+## «ключ → прибавка» (_all_mods, закэширован, сбрасывается любой записью в сохранение — _save()).
+## Покупки «Конторы» (подготовка боя) идут отдельным источником прямо в мир (battle_preparation);
+## рангов и перков героя больше нет (D-1006-11) — их покупку не предлагал ни один экран.
 static func stat(key: StringName, extra: Array = []) -> float:
 	var add := float(_all_mods().get(String(key), 0.0))
 	for v: Variant in extra:
@@ -506,39 +505,6 @@ static func _all_mods() -> Dictionary:
 static func _merge_mods(into: Dictionary, from: Dictionary) -> void:
 	for k: String in from:
 		into[k] = MetaMods.combine(StringName(k), [float(into.get(k, 0.0)), float(from[k])])
-
-
-## Согласование с координатором v15 (2026-09-25): мир больше не читает поправки
-## `production_mult`/`army_cap_bonus`/`start_army_bonus` напрямую из mods — штат и возрождение
-## построек считает пакет staff через Campaign.stat по видам, Котёл — постройка вида laborer,
-## поэтому обе поправки ложатся на cap_mult_laborer/respawn_mult_laborer. active_mods() сам эти
-## три ключа не убираем (не ломаем то, что их ещё читает — напр. legion_campaign_test.gd), но
-## сюда добавляем их ПЕРЕВОД в новые ключи, иначе поправки молча перестанут работать.
-static func _legacy_army_mods() -> Dictionary:
-	var raw := active_mods()
-	var out := {}
-
-	var production := float(raw.get("production_mult", 0.0))
-	if production != 0.0:
-		# production_mult как множитель (правило is_mult_key) = 1 + production; возрождение
-		# быстрее в ту же пропорцию раз — итоговый respawn_mult_laborer (тоже 1+add) должен
-		# стать 1 / (1 + production), отсюда нужная ПРИБАВКА = это значение минус 1.
-		out["respawn_mult_laborer"] = (1.0 / (1.0 + production)) - 1.0
-
-	# army_cap_bonus/start_army_bonus были плоской прибавкой к лимиту армии (не по видам) —
-	# точного пересчёта в проценты штата постройки нет (координатор: «допустимо и проще»).
-	# Берём согласованные +0,15/+0,10 cap_mult_laborer, но не жёстко константой, а
-	# пропорционально взятому значению относительно ЕДИНСТВЕННОГО значения в пуле сейчас
-	# (outstaff_partner=20, signing_bonus=15) — если пул когда-нибудь станет стекаться,
-	# перевод останется соразмерным, а не даст один и тот же +0,15 за любую величину.
-	var cap_bonus := float(raw.get("army_cap_bonus", 0.0))
-	if cap_bonus != 0.0:
-		out["cap_mult_laborer"] = float(out.get("cap_mult_laborer", 0.0)) + cap_bonus / 20.0 * 0.15
-	var start_bonus := float(raw.get("start_army_bonus", 0.0))
-	if start_bonus != 0.0:
-		out["cap_mult_laborer"] = float(out.get("cap_mult_laborer", 0.0)) + start_bonus / 15.0 * 0.10
-
-	return out
 
 
 ## Награда (поправка к договору) за победу, ещё не забранная игроком — id карты, куда вести
@@ -710,33 +676,11 @@ static func shop_buy(id: String, kind: String = "") -> bool:
 	return RunProgression.buy_service(id) if kind == "" else false
 
 
-## Прибавки покупок «Конторы» в ключи Campaign.stat() (recruit_r_<kind>, cap_mult_<kind>, …) —
-## per_kind покупки разносятся по КАЖДОМУ виду из LegionCfg.KIND_ORDER отдельным ключом.
-static func _shop_mods() -> Dictionary:
-	var out := {}
-	for id in LegionMetaCfg.OFFICE_SHOP_ORDER:
-		var data: Dictionary = LegionMetaCfg.OFFICE_SHOP[id]
-		var stat_keys: Array = data.get("stat_keys", [])
-		var per_level: Array = data.get("per_level", [])
-		if bool(data.get("per_kind", false)):
-			for kind in LegionCfg.KIND_ORDER:
-				var lvl := shop_level(id, String(kind))
-				if lvl <= 0:
-					continue
-				for i in stat_keys.size():
-					var key := String(stat_keys[i]) % String(kind)
-					out[key] = float(out.get(key, 0.0)) + float(per_level[i]) * lvl
-		else:
-			var lvl2 := shop_level(id)
-			if lvl2 <= 0:
-				continue
-			for i in stat_keys.size():
-				var key2 := String(stat_keys[i])
-				out[key2] = float(out.get(key2, 0.0)) + float(per_level[i]) * lvl2
-	return out
-
-
-# ── Герой: опыт, уровень, ранги способностей, перки ────────────────────────────────────────────
+# ── Герой: опыт и разряд (DESIGN_V15 §6; переработка 06.10.2026) ─────────────────────────────────
+## Стаж героя стал «разрядом»: он открывает ВАРИАНТЫ колоды (unlock_level карточек, RunProgression.
+## available), а не покупает проценты. Ранги способностей и перки героя удалены (D-1006-11): их
+## покупку уже не предлагал ни один экран с переработки 05.10, а в бою они читались через мёртвый
+## _hero_mods — держать их значило оставлять висящий ключ без источника.
 
 static func hero_xp() -> int:
 	return int(_file().get_value("hero", "xp", 0))
@@ -767,110 +711,6 @@ static func hero_xp_progress() -> Dictionary:
 	var prev_th := 0 if lvl <= 1 else int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[lvl - 2])
 	var next_th := int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[lvl - 1])
 	return {"level": lvl, "cur": hero_xp() - prev_th, "need": next_th - prev_th, "maxed": false}
-
-
-## 1 очко героя за уровень (уровень 1 — 0 очков).
-static func hero_points_earned() -> int:
-	return hero_level() - 1
-
-
-static func hero_points_spent() -> int:
-	var spent := hero_perks().size()
-	for a in LegionMetaCfg.HERO_ABILITIES:
-		spent += hero_rank(a)
-	return spent
-
-
-static func hero_points_available() -> int:
-	return maxi(0, hero_points_earned() - hero_points_spent())
-
-
-static func hero_rank(ability: StringName) -> int:
-	return int(_file().get_value("hero", "rank_%s" % String(ability), 0))
-
-
-## Списывает 1 очко героя на ранг способности; false — нет очков или ранг уже потолком.
-static func hero_rank_up(ability: StringName) -> bool:
-	if hero_points_available() <= 0:
-		return false
-	var cur := hero_rank(ability)
-	if cur >= LegionMetaCfg.HERO_ABILITY_MAX_RANK:
-		return false
-	_file().set_value("hero", "rank_%s" % String(ability), cur + 1)
-	_save()
-	return true
-
-
-static func hero_perks() -> Array[StringName]:
-	var raw: Array = _file().get_value("hero", "perks", [])
-	var out: Array[StringName] = []
-	for id in raw:
-		out.append(StringName(id))
-	return out
-
-
-static func hero_has_perk(id: StringName) -> bool:
-	return hero_perks().has(id)
-
-
-## false — нет очков, перк уже взят или требуемый перк ветки ещё не взят (LegionMetaCfg.HERO_PERKS
-## "requires").
-static func hero_take_perk(id: StringName) -> bool:
-	if hero_has_perk(id) or hero_points_available() <= 0:
-		return false
-	var data: Dictionary = LegionMetaCfg.HERO_PERKS.get(String(id), {})
-	if data.is_empty():
-		return false
-	var req := String(data.get("requires", ""))
-	if req != "" and not hero_has_perk(StringName(req)):
-		return false
-	var raw: Array = []
-	for p in hero_perks():
-		raw.append(String(p))
-	raw.append(String(id))
-	_file().set_value("hero", "perks", raw)
-	_save()
-	return true
-
-
-## Сброс очков (бесплатная кнопка — «игра про эксперименты», задание meta п.3): ранги и перки
-## обнуляются, уровень и опыт остаются, очки становятся снова доступны к перераспределению.
-static func hero_reset() -> void:
-	for a in LegionMetaCfg.HERO_ABILITIES:
-		_file().set_value("hero", "rank_%s" % String(a), 0)
-	_file().set_value("hero", "perks", [])
-	_save()
-
-
-## Ключ stat() = сам id перка (LegionMetaCfg.HERO_PERKS уже хранит id с префиксом "perk_" —
-## "perk_fast_hire", не "fast_hire" — задание meta даёт готовый список perk_<id>, второй
-## префикс не добавляем, иначе получился бы нечитаемый perk_perk_fast_hire).
-static func _hero_mods() -> Dictionary:
-	var out := {}
-	for a in LegionMetaCfg.HERO_ABILITIES:
-		out["ability_rank_%s" % String(a)] = float(hero_rank(a))
-	for id in hero_perks():
-		out[String(id)] = 1.0
-	# integrate1: перки, чьё действие — это уже существующий ключ боя, переводим в него, чтобы
-	# бой не знал о перках (штат/договоры читают только cap_mult_/respawn_mult_/recruit_r_).
-	var perk_set := hero_perks()
-	for kind: StringName in LegionCfg.KIND_ORDER:
-		if perk_set.has(&"perk_fast_hire"):
-			_add_mod(out, "respawn_mult_" + kind, LegionMetaCfg.PERK_FAST_HIRE_RESPAWN)
-		if perk_set.has(&"perk_big_staff"):
-			_add_mod(out, "cap_mult_" + kind, LegionMetaCfg.PERK_BIG_STAFF_CAP)
-		if perk_set.has(&"perk_far_call"):
-			_add_mod(out, "recruit_r_" + kind, LegionMetaCfg.PERK_FAR_CALL_R)
-	if perk_set.has(&"perk_settlement_on_time"):
-		_add_mod(out, "settlement_mult", LegionMetaCfg.PERK_SETTLEMENT_ON_TIME)
-	# polish1: «Мелкий шрифт» был описан, но ничего не делал — не переводился ни в один ключ боя.
-	if perk_set.has(&"perk_fine_print"):
-		_add_mod(out, "mana_cost_mult", LegionMetaCfg.PERK_FINE_PRINT_MANA)
-	return out
-
-
-static func _add_mod(into: Dictionary, key: String, value: float) -> void:
-	into[key] = float(into.get(key, 0.0)) + value
 
 
 # ── Открытия кампанией: виды бойцов, способности героя (задание meta п.4) ──────────────────────

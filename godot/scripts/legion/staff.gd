@@ -25,7 +25,6 @@ var stat_fn: Callable = Callable()
 var _cap_mult: Dictionary = {}
 var _respawn_mult: Dictionary = {}
 var _unlocked: Dictionary = {}
-var _brisk := false
 var _soul_frac := 0.0   ## дробный остаток душ за убийства (on_foe_killed)
 var _kill_frac := 0.0   ## дробный остаток голов для kills_rewardable (on_foe_killed)
 
@@ -44,7 +43,6 @@ func setup(w: LegionWorld, map: Dictionary, start_army: int) -> void:
 		# подрядчик — базовый вид: Котёл его выпускает всегда, закрыть его нечем
 		_unlocked[kind] = kind == LegionCfg.KIND_LABORER \
 			or float(stat.call(StringName("kind_unlocked_" + kind))) >= 1.0
-	_brisk = float(stat.call(&"perk_brisk_exit")) >= 1.0
 	_side().souls = LegionCfg.SOULS_START + int(stat.call(&"start_souls"))
 	if side == world.local_side:
 		world.souls_changed.emit(_side().souls)
@@ -345,7 +343,8 @@ func _apply_level(b: LegionBuilding) -> void:
 func _make(kind: StringName, source: StringName, at: Vector2, parent: Node) -> LegionBuilding:
 	var b := LegionBuilding.new().configure(world, kind, source, at)
 	b.side = side
-	b.brisk_exit = _brisk
+	# «Бодрый выход» (перк) удалён вместе с перками героя (D-1006-11): brisk_exit остаётся на
+	# постройке выключенным, механизм в building.gd/snap_staff.gd сохранён для будущего источника.
 	if parent != null:
 		parent.add_child(b)
 	else:

@@ -317,10 +317,9 @@ func _do_rite(c: Contract, squad: Array[Legionnaire]) -> void:
 	var raised := 0
 	var hero := world.hero_of(c.owner_side)
 	if hero != null:
-		# Дубль-вэ базового ранга: обряд — не навык, прокачка W его не усиливает
+		# Обряд поднимает тем же Дубль-вэ: не навык, поправки W его не усиливают
 		var corpses := hero.fresh_corpses(c.center, r, raise_max)
-		raised = hero.raise_corpses(corpses, float(LegionCfg.W_DMG_MULT_BY_RANK[0]),
-			float(LegionCfg.W_DURATION_BY_RANK[0])).size()
+		raised = hero.raise_corpses(corpses, LegionCfg.W_DMG_MULT, LegionCfg.W_DURATION).size()
 	var live: Array[Legionnaire] = []
 	for u in squad:
 		if is_instance_valid(u) and u.alive:

@@ -48,7 +48,7 @@ func _run() -> void:
 	_test_souls()
 	_test_campaign_stats()
 	_test_map_respawn()
-	_test_brisk_exit()
+	_test_brisk_building()
 	_test_menu()
 	_test_bot_builds()
 	Campaign.reset()
@@ -249,28 +249,25 @@ func _test_map_respawn() -> void:
 	w.staff.stat_fn = Callable()
 
 
-func _test_brisk_exit() -> void:
-	w.staff.stat_fn = func(key: StringName) -> float:
-		if key == &"perk_brisk_exit":
-			return 1.0
-		return 1.0 if Campaign.is_mult_key(key) or String(key).contains("_unlocked_") else 0.0
+## «Бодрый выход» как перк героя удалён (D-1006-11), но механизм постройки (brisk_exit) сохранён —
+## проверяем его напрямую по флагу: вернувшийся боец +25 % скорости на 3 с, потом обычная.
+func _test_brisk_building() -> void:
 	_fresh(2)
 	var c := w.staff.cauldron
+	c.brisk_exit = true
 	var base := float(LegionCfg.UNIT_KINDS[LegionCfg.KIND_LABORER]["speed"])
-	_check(is_equal_approx(float(_home_units(c)[0].spec["speed"]), base),
-		"стартовый штат без бонуса")
 	_home_units(c)[0].take_damage(1000.0, Vector2.ZERO)
 	_tick(LegionCfg.CAULDRON_RESPAWN + 0.05)   # D-0927-49: интервал × RESPAWN_PACE
 	var fresh: Legionnaire = null
 	for u in _home_units(c):
 		if not is_equal_approx(float(u.spec["speed"]), base):
 			fresh = u
-	_check(fresh != null and is_equal_approx(float(fresh.spec["speed"]), base * 1.25),
-		"«Бодрый выход»: вернувшийся +25 % скорости")
-	_tick(3.1)
+	var boosted := fresh != null and is_equal_approx(float(fresh.spec["speed"]),
+		base * LegionCfg.BRISK_EXIT_MULT)
+	_check(boosted, "«Бодрый выход» постройки: вернувшийся +25 % скорости")
+	_tick(LegionCfg.BRISK_EXIT_TIME + 0.1)
 	_check(fresh != null and fresh.spec == LegionCfg.UNIT_KINDS[LegionCfg.KIND_LABORER],
 		"через 3 с скорость обычная")
-	w.staff.stat_fn = Callable()
 
 
 func _mouse(at: Vector2, pressed: bool) -> void:

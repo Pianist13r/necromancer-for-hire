@@ -443,8 +443,6 @@ func _test_staff_flow(map_id: String) -> void:
 		% map_id)
 	var a := await _new_world()
 	a.start_map(map_id)
-	for s in a.sides:
-		s.staff._brisk = true
 	for b: LegionBuilding in a.buildings:
 		b.brisk_exit = true
 	a.kassa.souls = 50

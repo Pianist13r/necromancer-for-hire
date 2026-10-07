@@ -24,7 +24,7 @@ const READY := true
 
 ## Поля классов куска (тест полноты): в снимке или пропуск с причиной.
 const STAFF_SAVED: Array[String] = ["plots", "_soul_frac", "_kill_frac",   # plots — только building
-	"_cap_mult", "_respawn_mult", "_unlocked", "_brisk"]
+	"_cap_mult", "_respawn_mult", "_unlocked"]
 const STAFF_SKIP: Array[String] = [
 	"world", "side", "cauldron", "stat_fn",          # структура: setup в start_map
 ]
@@ -76,7 +76,7 @@ static func save(w: LegionWorld, reg: NetSnap.Reg) -> Dictionary:
 			plots.append(_ref(reg, p["building"]))
 		staffs.append({"soul_frac": st._soul_frac, "kill_frac": st._kill_frac, "plots": plots,
 			"cap_mult": st._cap_mult.duplicate(), "respawn_mult": st._respawn_mult.duplicate(),
-			"unlocked": st._unlocked.duplicate(), "brisk": st._brisk})
+			"unlocked": st._unlocked.duplicate()})
 	var buildings := []
 	for b: LegionBuilding in w.buildings:
 		buildings.append({
@@ -134,7 +134,6 @@ static func build(w: LegionWorld, data: Dictionary, reg: NetSnap.Reg) -> void:
 		st._cap_mult = (d.get("cap_mult", st._cap_mult) as Dictionary).duplicate()
 		st._respawn_mult = (d.get("respawn_mult", st._respawn_mult) as Dictionary).duplicate()
 		st._unlocked = (d.get("unlocked", st._unlocked) as Dictionary).duplicate()
-		st._brisk = bool(d.get("brisk", st._brisk))
 		for p: Dictionary in st.plots:
 			p["building"] = null
 	# склепы: те же узлы (карту и сид готовит К1), состояние — из снимка

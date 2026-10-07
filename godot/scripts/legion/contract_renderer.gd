@@ -149,7 +149,9 @@ func _draw_overlay() -> void:
 			if field.seal_ready(c, s):
 				field.overlay.draw_circle(c.seg_center(s) + Vector2(0, -LegionCfg.RUNE_TTL_R),
 					LegionCfg.CORE_WAX_R, LegionCfg.CORE_WAX_COLOR)
-			if field.is_slinging() and field._grab["contract"] == c and int(field._grab["seg"]) == s:
+			# фигура на натяжке: мелкие стрелки участков не рисуем — их ведёт _draw_fig_sling по общей оси
+			if field.is_slinging() and field._grab["contract"] == c \
+					and (c.figure != &"" or int(field._grab["seg"]) == s):
 				continue
 			var col := field.ARROW_COLOR if c.seg_left(s) > LegionCfg.SEG_BLINK else field.ARROW_WARN
 			_draw_arrow(c.seg_center(s), c.seg_dir(s), Color(col, 0.9 * a))
@@ -163,8 +165,11 @@ func _draw_overlay() -> void:
 			_draw_draft()
 			_draw_over_limit()
 	if field.is_slinging() and not field._aim.is_empty():
-		if (field._grab["contract"] as Contract).shaped():
+		var sc := field._grab["contract"] as Contract
+		if sc.ring:
 			_draw_ring_sling()
+		elif sc.figure != &"":
+			_draw_fig_sling()
 		else:
 			_draw_sling()
 	elif field.sling_pending():
@@ -745,6 +750,37 @@ func _draw_ring_sling() -> void:
 	var back := -c.seg_dir(int(field._grab["seg"]))
 	var reach := DelayGauge.AWAY + DelayGauge.R + 14.0 + maxf(0.0, back.y) * 26.0
 	_draw_sling_hint(field._pull + back * reach + Vector2(0.0, 6.0), col, gold, back.x < 0.0)
+
+
+## Натяжка по ФИГУРЕ (не кольцу): стрелка и зона «Точно!» — по ОБЩЕЙ оси оттяжки, туда же летит
+## строй (LegionFigures.charge_for при axis != ZERO), а не по внутренней геометрии фигуры
+## (к центру/наружу/крест-накрест — только щелчок и таяние). Геометрия — из field._aim (тот же
+## dir, что уходит в бой), поэтому превью и бой не расходятся.
+func _draw_fig_sling() -> void:
+	var dir: Vector2 = field._aim["dir"]
+	var gold := bool(field._aim["perfect"])
+	var col := LegionCfg.PERFECT_COLOR if gold else LegionCfg.SLING_WAIT_COLOR
+	var center: Vector2 = field._aim["center"]
+	var side := dir.orthogonal() * float(field._aim["half_w"])
+	var deep := dir * float(field._aim["depth"])
+	var zone := PackedVector2Array([center + side, center + side + deep,
+		center - side + deep, center - side])
+	field.overlay.draw_colored_polygon(zone, Color(col, 0.22 if gold else 0.12))
+	zone.append(zone[0])
+	field.overlay.draw_polyline(zone, Color(col, 0.85 if gold else 0.6), 2.0 if gold else 1.5, true)
+	field.overlay.draw_dashed_line(center, field._pull, Color(col, 0.6), 2.0, 6.0, true)
+	field.overlay.draw_circle(field._pull, 5.0, Color(col, 0.9))
+	var base := center + dir * field.ARROW_OFFSET * 0.6
+	var tip := base + dir * LegionCfg.SLING_ARROW_LEN
+	var wing := dir.orthogonal() * 12.0
+	var tail := tip - dir * 18.0
+	field.overlay.draw_line(base, tail, Color(0, 0, 0, 0.6), 12.0, true)
+	field.overlay.draw_line(base, tail, col, 9.0, true)
+	field.overlay.draw_colored_polygon(PackedVector2Array([tail + wing, tip, tail - wing]), col)
+	var across := dir.orthogonal()
+	if across.x < 0.0:
+		across = -across
+	_draw_sling_hint(field._pull + across * 22.0 + Vector2(0.0, 6.0), col, gold)
 
 
 ## Обод кольца схлопывается к центру за RING_FX_MS — «клещи» видны даже в свалке.

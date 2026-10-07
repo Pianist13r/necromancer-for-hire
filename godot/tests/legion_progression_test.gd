@@ -30,6 +30,7 @@ func _run() -> void:
 	_test_draft()
 	_test_services()
 	_test_migration()
+	_test_owner_v2_save()
 	_test_run_boundaries()
 	await _test_screens()
 	print("PROGRESSION: %d/%d OK" % [checks - fails, checks])
@@ -110,19 +111,22 @@ func _test_draft() -> void:
 func _test_services() -> void:
 	_fresh()
 	Campaign.add_bounty(140)
+	Campaign.add_bounty(int(AmendmentDb.PREPARATIONS["mana"]["cost"]))
 	_check(RunProgression.buy_service("souls"), "one object preparation bought")
 	var bounty := Campaign.bounty()
-	_check(not RunProgression.buy_service("mana") and Campaign.bounty() == bounty,
-		"second preparation cannot charge or overwrite first")
-	_check(RunProgression.preparation_mods().get("start_souls", 0.0) == 45.0,
-		"preparation has concrete next-object value")
+	_check(not RunProgression.buy_service("mana"),
+		"second preparation does not open before rank 4")
+	Campaign._add_hero_xp(int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[2]))   # разряд 4
+	_check(RunProgression.preparations_max() == 2, "rank 4 opened the second slot")
+	_check(RunProgression.buy_service("mana") and Campaign.bounty() == bounty - int(
+		AmendmentDb.PREPARATIONS["mana"]["cost"]), "second package of the same object bought")
+	_check(is_equal_approx(float(RunProgression.preparation_mods().get("start_souls", 0.0)), 45.0)
+			and is_equal_approx(float(RunProgression.preparation_mods().get("mana_max_bonus", 0.0)), 30.0),
+		"both preparations carry their value")
 	_check(not Campaign.active_mods().has("start_souls"),
 		"preparation cannot stack into permanent draft")
 	_check(RunProgression.consume_preparation() and RunProgression.preparation() == "", "consume once")
 	_check(RunProgression.consume_preparation(), "consume twice neutral")
-	_check(RunProgression.buy_service("reroll") and RunProgression.buy_service("reroll"),
-		"two rerolls banked")
-	_check(not RunProgression.buy_service("reroll"), "reroll bank cap")
 	var before := Campaign.bounty()
 	var blocked := ProjectSettings.globalize_path(SAVE + ".tmp")
 	DirAccess.make_dir_recursive_absolute(blocked)
@@ -176,6 +180,66 @@ func _test_migration() -> void:
 	_check(Campaign.raw_file().has_section_key("hero", "legacy_choices"), "hero choices archived")
 
 
+## Реальная форма сохранения владельца (v2, живая партия): три активные поправки старого набора,
+## банк из ДВУХ жетонов переброски, незабранная награда и сохранённое предложение. Проверяем, что
+## миграция v2 → v3 не отбирает оплаченное и не теряет награду; файл — КОПИЯ, профиль не трогаем.
+func _test_owner_v2_save() -> void:
+	const OWNER := "user://progression_owner_v2.cfg"
+	var cfg := ConfigFile.new()
+	cfg.set_value("progression", "version", 2)
+	cfg.set_value("hero", "xp", 4001)                                   # разряд 10 (потолок)
+	cfg.set_value("meta", "bounty", 414)
+	cfg.set_value("meta", "reroll_tokens", 2)                           # два оплаченных жетона
+	cfg.set_value("meta", "preparation", "")
+	cfg.set_value("meta", "draft_options", ["paper_shield", "moving_office", "soul_dividend"])
+	cfg.set_value("meta", "pending_reward", "maze")
+	cfg.set_value("meta", "reward_claimed", false)
+	cfg.set_value("meta", "upgrades", ["ghost_clause", "temp_agency", "carbon_copy"])
+	for m in Campaign.maps():
+		cfg.set_value("progress", "%s_stars" % String(m.get("id", "")), 3)
+	SafeConfig.save_file(cfg, OWNER, true)
+	Campaign.set_save_path(OWNER)
+	Campaign.use_campaign_scope()
+
+	_check(int(Campaign.raw_file().get_value("progression", "version", 0)) == RunProgression.VERSION,
+		"копия поднята до текущей версии прогресса")
+	_check(Campaign.bounty() == 414 + 2 * AmendmentDb.REROLL_COST,
+		"два жетона возвращены премией (%d)" % Campaign.bounty())
+	_check(int(Campaign.raw_file().get_value("meta", "reroll_tokens", 0)) == 0,
+		"банк жетонов обнулён после возврата")
+	_check(Campaign.hero_level() == 10, "разряд из копии — 10 (потолок)")
+	var active := Campaign.upgrades()
+	_check(active.size() == 3 and active.has(&"ghost_clause") and active.has(&"temp_agency")
+			and active.has(&"carbon_copy"), "три поправки старого набора целы: %s" % [active])
+	_check(Campaign.active_mods().has("seg_ttl_bonus") and Campaign.active_mods().has("w_raise")
+			and Campaign.active_mods().has("ability_mana_mult")
+			and Campaign.active_rules().has("ghost") and Campaign.active_rules().has("vassal_march")
+			and Campaign.active_rules().has("echo"), "поправки продолжают работать в бою")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var offered := Campaign.offer_upgrades(rng)
+	_check(offered.size() == 3 and offered.has(&"paper_shield") and offered.has(&"moving_office")
+			and offered.has(&"soul_dividend"),
+		"сохранённое предложение осталось валидным: %s" % [offered])
+	_check(Campaign.pending_reward() == "maze" and not Campaign.reward_claimed(),
+		"незабранная награда на месте")
+	_check(RunProgression.stage(0), "слот замены заготовлен под полную сборку")
+	_check(Campaign.claim_reward(&"paper_shield"), "награда забирается после миграции")
+	_check(Campaign.reward_claimed() and Campaign.upgrades().has(&"paper_shield"),
+		"награда встала в замену, сборка не разрослась")
+
+	# Идемпотентность: повторное открытие той же версии не возвращает жетоны второй раз.
+	Campaign.set_save_path(OWNER)
+	_check(Campaign.bounty() == 414 + 2 * AmendmentDb.REROLL_COST,
+		"повторное открытие не возвращает жетоны второй раз")
+
+	var abs_owner := ProjectSettings.globalize_path(OWNER)
+	if FileAccess.file_exists(OWNER):
+		DirAccess.remove_absolute(abs_owner)
+	if FileAccess.file_exists(OWNER + ".bak"):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(OWNER + ".bak"))
+
+
 func _test_run_boundaries() -> void:
 	_fresh()
 	Campaign.add_upgrade(&"living_queue")
@@ -222,11 +286,11 @@ func _test_screens() -> void:
 	var office := OfficeShop.new()
 	root.add_child(office)
 	await process_frame
-	_check(office._services.get_child_count() == 3, "office offers three concrete services")
+	_check(office._services.get_child_count() == 2, "office offers two preparation packages")
 	var hero := HeroScreen.new()
 	root.add_child(hero)
 	await process_frame
-	_check(hero.find_children("*", "AmendmentCard", true, false).size() == 12,
+	_check(hero.find_children("*", "ProgressionRow", true, false).size() == 20,
 		"dossier shows every possible rule")
 	office.queue_free()
 	hero.queue_free()

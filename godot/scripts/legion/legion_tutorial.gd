@@ -331,22 +331,17 @@ func passed(id: StringName) -> bool:
 	return _passed.has(id)
 
 
-## Текст плашки урока с числами из LegionCfg (ранг способности — текущий).
+## Текст плашки урока с числами из LegionCfg — базовыми (ранги/перки убраны, D-1006-11; поправки
+## забега в тексте урока не показываем — он учит базе способности).
 func step_text(i: int) -> String:
 	var text := Controls.text(String(lessons[i]["text"]))
 	if not text.contains("%d"):
 		return text
 	match lessons[i]["kind"]:
 		&"hero_w":
-			var r := world.hero.rank(LegionHero.SLOT_W) if world.hero != null else 0
-			return text % roundi(float(LegionCfg.W_DURATION_BY_RANK[r]))
+			return text % roundi(LegionCfg.W_DURATION)
 		&"hero_e":
-			var r := world.hero.rank(LegionHero.SLOT_E) if world.hero != null else 0
-			# та же формула, что LegionHero._cast_e
-			var dur := minf(LegionCfg.E_DURATION_BASE + LegionCfg.E_DURATION_RANK_STEP * r
-					+ LegionCfg.E_DURATION_PERK_BONUS * world.camp_stat(&"perk_overtime"),
-				LegionCfg.E_DURATION_CAP)
-			return text % roundi(dur)
+			return text % roundi(LegionCfg.E_DURATION_BASE)
 	return text
 
 

@@ -10,10 +10,10 @@ extends SceneTree
 ## сохранения), сила приходит настоящими поправками-карточками (Campaign.add_upgrade) на временный
 ## save-путь (Campaign.set_save_path), реальный user://legion.cfg владельца не трогаем.
 ##
-## OVERHAUL 05.10: ранги способностей и перки героя ушли из меты в поправки-рогалик — покупки
-## Campaign.hero_rank_up/hero_take_perk остались в профиле (экран героя, коллекция), но бой их
-## больше не читает. Тесты ниже проверяют и новую силу (карточки), и то, что профиль героя
-## остаётся в бою нейтральным (регресс-охрана от возврата покупок в бой через _hero_mods).
+## OVERHAUL 05.10 + переработка 06.10: ранги способностей и перки героя УДАЛЕНЫ из меты (D-1006-11)
+## — их покупку не предлагал ни один экран, а в бой они не шли. Сила собирается внутри забега
+## поправками-карточками (Campaign.add_upgrade). Тесты ниже проверяют и новую силу (карточки), и
+## то, что легаси-ключи старого профиля (rank_q/perks) в бой не возвращают постоянные проценты.
 ##
 
 const SAVE := "user://legion_hero_test.cfg"
@@ -63,12 +63,12 @@ func _run() -> void:
 	_fresh()
 	_test_q_chain()
 	_test_q_no_target()
-	_test_q_rank_and_perk()
+	_test_q_card_power()
 	_test_w_fresh_corpse_only()
 	_test_w_cap_evicts_oldest()
 	_test_w_boss_excluded()
 	_test_e_radius_and_stack()
-	_test_e_rank_perk_cap()
+	_test_e_card_cap()
 	_test_bulk_ink_amendment()
 	await _test_unlock_gate()
 	Campaign.reset()
@@ -125,29 +125,20 @@ func _test_q_no_target() -> void:
 		"нет цели — Ку не срабатывает и откат не тратится")
 
 
-## Ранги героя и перки ушли из меты в поправки-карточки (OVERHAUL 05.10): покупка ранга или перка
-## больше НЕ усиливает бой — сила собирается внутри забега. Прежние проверки «два ранга бьют
-## сильнее», «перк „Цепная реакция“ добавляет пятую цель» заменены на эквивалент новой системы:
-## тот же эффект даёт карточка «Опасное напряжение» (q_chain +2, q_dmg +0.4, q_stun −0.5), а
-## профиль героя обязан остаться в бою нейтральным (регресс-охрана: раньше покупки героя молча
-## возвращались в бой через Campaign._hero_mods).
-func _test_q_rank_and_perk() -> void:
+## Сила Ку приходит ТОЛЬКО карточками забега (переработка 06.10). Старые очки/ранги/перки в
+## профиле бой не двигают — регресс-охрана от возврата постоянных процентов в бой (раньше через
+## мёртвый _hero_mods). Легаси-ключи пишем прямо в сохранение, как у старого прогресса.
+func _test_q_card_power() -> void:
 	Campaign.reset()
 	Campaign.unlock_all()
-	Campaign._add_hero_xp(3200)
+	Campaign.raw_file().set_value("hero", "rank_q", 2)
+	Campaign.raw_file().set_value("hero", "perks", ["perk_short_cd", "perk_chain_reaction"])
+	Campaign.save_raw()
 	_fresh()
-	Campaign.hero_rank_up(&"q")
-	Campaign.hero_rank_up(&"q")
-	Campaign.hero_take_perk(&"perk_short_cd")     # ветка Чернокнижника по порядку
-	Campaign.hero_take_perk(&"perk_chain_reaction")
-	_check(Campaign.hero_rank(&"q") == 2 and Campaign.hero_has_perk(&"perk_chain_reaction"),
-		"ранг и перк записаны в профиль героя")
-	_fresh()
-	_check(hero.rank(LegionHero.SLOT_Q) == 0
-			and is_equal_approx(Campaign.stat(&"ability_rank_q"), 0.0),
-		"профиль героя в бой не идёт: ранг Ку в бою 0")
+	_check(Campaign.stat(&"ability_rank_q") == 0.0 and Campaign.stat(&"perk_chain_reaction") == 0.0,
+		"старые очки/ранги/перки в бой не идут: stat нейтрален")
 	_check(hero.q_chain_len() == LegionCfg.Q_CHAIN_BASE_TARGETS,
-		"перк «Цепная реакция» цепь не удлиняет (в бою %d цели)" % hero.q_chain_len())
+		"старая покупка перка цепь не удлиняет (в бою %d цели)" % hero.q_chain_len())
 	var dmg_base := hero.q_damage(0)
 	# тот же эффект несёт карточка забега
 	Campaign.add_upgrade(&"high_voltage")
@@ -259,10 +250,9 @@ func _test_e_radius_and_stack() -> void:
 
 
 ## 26.09 здесь проверяли «ранг 2 + перк „Сверхурочные“ упираются в потолок 8 с». Ранги и перки
-## вышли из меты (OVERHAUL 05.10) и бой не двигают — длину Аврала теперь задаёт карточка
-## «Ненормированный день» (e_dur +4), причём её прибавка идёт ПОСЛЕ потолка ранга: Аврал
-## становится длиннее прежнего максимума, а не упирается в него.
-func _test_e_rank_perk_cap() -> void:
+## удалены (D-1006-11) — длину Аврала задаёт карточка «Ненормированный день» (e_dur +4), причём
+## её прибавка идёт ПОСЛЕ базового потолка: Аврал становится длиннее прежнего максимума.
+func _test_e_card_cap() -> void:
 	Campaign.reset()
 	Campaign.unlock_all()
 	Campaign._add_hero_xp(3200)
@@ -341,7 +331,4 @@ func _test_unlock_gate() -> void:
 	w.in_campaign = false
 	_check(hero.is_unlocked(LegionHero.SLOT_W) and hero.is_unlocked(LegionHero.SLOT_E),
 		"вне кампании (гейт, серии) все слоты открыты")
-	Campaign._add_hero_xp(3200)
-	Campaign.hero_rank_up(&"q")
-	_check(hero.rank(LegionHero.SLOT_Q) == 0, "вне кампании прокачка нейтральна (ранг 0)")
 	w.in_campaign = true

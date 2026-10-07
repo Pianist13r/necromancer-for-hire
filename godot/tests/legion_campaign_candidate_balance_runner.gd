@@ -168,13 +168,11 @@ func _run() -> void:
 		# открывает Ку, Дубль-вэ и Е сразу — обучение первой миссии их учит, решение 26.09)
 		w.profile = {&"kind_unlocked_guard": 0.0, &"kind_unlocked_clerk": 0.0}
 	# 170 премии: души I, штат вахтёров I, возрождение вахтёров I, дальность I.
-	# Три очка героя: откат, цепь, быстрый найм; достижимо к четвёртой карте.
+	# (Ранги/перки героя убраны, D-1006-11 — профиль mid их больше не несёт.)
 	if dev.get("profile", "base") == "mid":
 		w.profile = {&"start_souls": 30.0, &"cap_mult_guard": 1.2,
 			&"respawn_mult_guard": 0.7, &"respawn_mult_laborer": 0.85,
-			&"respawn_mult_clerk": 0.85, &"recruit_r_guard": 40.0,
-			&"perk_short_cd": 1.0, &"perk_chain_reaction": 1.0,
-			&"perk_fast_hire": 1.0}
+			&"respawn_mult_clerk": 0.85, &"recruit_r_guard": 40.0}
 	if dev.get("no_q", "0") == "1":
 		w.profile[&"ability_unlocked_q"] = 0.0
 	# --dev stat_<ключ>=число — поверх профиля любой ключ camp_stat (например

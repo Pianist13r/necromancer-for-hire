@@ -23,12 +23,16 @@ const MULT_KEYS := ["q_stun", "q_dmg", "e_radius", "line_cost", "mana_regen", "r
 ## Подписи ключей для игрока (экран выбора поправок). Ключ без подписи покажется сам собой — это
 ## сигнал добавить строку, а не молча показать код.
 const KEY_LABELS := {
-	"q_stun": "оглушение разряда", "q_dmg": "урон разряда", "e_radius": "радиус Аврала",
+	"q_stun": "оглушение разряда", "q_dmg": "урон разряда", "q_chain": "цели разряда",
+	"e_radius": "радиус Аврала", "e_dur": "длительность Аврала", "w_raise": "бойцов за подъём",
 	"charge_dmg_mult": "урон натиска", "charge_speed_mult": "скорость разбега",
 	"charge_dmg": "урон удара с разбега", "mana_cost_mult": "цена договора",
 	"ability_mana_mult": "мана способностей", "settlement_mult": "расчёт за срок",
+	"hold_armor": "броня строя",
 	"line_cost": "цена линии", "mana_regen": "реген маны", "rally_cd": "откат «Сбора»",
 	"perfect_zone": "зона «Точно!»", "press_hold": "стойкость строя", "souls": "души за голову",
+	"seg_ttl_bonus": "срок участка", "mana_max_bonus": "запас маны", "start_souls": "стартовые души",
+	"recruit_r": "дальность набора",
 }
 
 
@@ -60,7 +64,34 @@ static func key_label(key: StringName) -> String:
 		return "штат построек"
 	if k.begins_with("respawn_mult_"):
 		return "возврат в строй"
+	if k.begins_with("recruit_r_"):
+		return "дальность набора"
 	return String(KEY_LABELS.get(k, k))
+
+
+## Чипы дельт для строки экрана («−20 % штат построек», «+40 % урон разряда»): ключ-множитель
+## показывается процентом со знаком, прибавочный — числом со знаком. Одинаковые подпись+значение
+## схлопываются (штат/возврат/набор трёх видов — один чип), порядок — по ключам карточки.
+static func delta_chips(mods: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var seen := {}
+	for k: String in mods:
+		var key := StringName(k)
+		var v := float(mods[k])
+		if is_zero_approx(v):
+			continue
+		var chip := "%s %s" % [_signed(key, v), key_label(key)]
+		if seen.has(chip):
+			continue
+		seen[chip] = true
+		out.append(chip)
+	return out
+
+
+static func _signed(key: StringName, v: float) -> String:
+	if is_mult_key(key):
+		return "%+d %%" % roundi(v * 100.0)
+	return ("%+d" % roundi(v)) if is_equal_approx(v, roundf(v)) else ("%+.2f" % v)
 
 
 ## E-1005 п.6: экрану выбора — с какими УЖЕ ДЕЙСТВУЮЩИМИ источниками карточка делит ключ-множитель

@@ -104,8 +104,8 @@ func _test_together_notes() -> void:
 	Campaign.set_run_items([])
 
 
-## Та же строка действительно попадает на карточку экрана выбора (E-1005 п.6) — проверяем по
-## подписям, которые реально построил AmendmentCard с флагом together.
+## Та же строка действительно попадает на строку экрана выбора (E-1005 п.6) — проверяем по подписям,
+## которые реально построил ProgressionRow с флагом together.
 func _test_card_line() -> void:
 	Campaign.use_campaign_scope()
 	Campaign.reset()
@@ -113,24 +113,26 @@ func _test_card_line() -> void:
 	Campaign.add_upgrade(&"living_queue")
 	Campaign.set_run_items([&"clip_of_fate"])
 	var data := AmendmentDb.card(&"lean_staff")
-	var card := AmendmentCard.new().configure(&"lean_staff", data, "Подписать поправку", true)
-	root.add_child(card)
+	var row := ProgressionRow.new()
+	root.add_child(row)
+	row.configure(&"lean_staff", data, "Подписать поправку", {"together": true})
 	await process_frame
 	var texts: Array[String] = []
 	var told := false
-	for l: Node in card.find_children("*", "Label", true, false):
+	for l: Node in row.find_children("*", "Label", true, false):
 		var t := (l as Label).text
 		texts.append(t)
 		told = told or t.begins_with("Вместе с")
-	_check(told, "карточка выбора несёт строку «Вместе с…»: %s" % str(texts))
-	var plain := AmendmentCard.new().configure(&"lean_staff", data, "Вычеркнуть этот пункт")
+	_check(told, "строка выбора несёт текст «Вместе с…»: %s" % str(texts))
+	var plain := ProgressionRow.new()
 	root.add_child(plain)
+	plain.configure(&"lean_staff", data, "Вычеркнуть этот пункт")
 	await process_frame
 	var extra := false
 	for l: Node in plain.find_children("*", "Label", true, false):
 		extra = extra or (l as Label).text.begins_with("Вместе с")
 	_check(not extra, "на «вычеркнуть» строки о дележе нет (там речь о потере, не о наборе)")
-	card.queue_free()
+	row.queue_free()
 	plain.queue_free()
 	await process_frame
 	Campaign.set_run_items([])

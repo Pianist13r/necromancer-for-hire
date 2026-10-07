@@ -294,16 +294,18 @@ func _menu_state() -> Dictionary:
 	for m in Campaign.maps():
 		var id := String(m.get("id", ""))
 		stars[id] = Campaign.stars(id) if Campaign.is_unlocked(id) else -1
-	var ranks := {}
-	for ab: StringName in LegionMetaCfg.HERO_ABILITIES:
-		ranks[String(ab)] = Campaign.hero_rank(ab)
+	var amendments := []
+	for id in Campaign.upgrades():
+		amendments.append({"id": String(id),
+			"title": String(AmendmentDb.card(id).get("title", id))})
 	return {
 		"turn": turn, "mode": "menu", "over": false,
 		"screen": main.get("screen").get_class() if main.get("screen") != null else "",
 		"buttons": _buttons(), "texts": _texts(),
-		"camp": {"stars": stars, "bounty": Campaign.bounty(), "hero_level": Campaign.hero_level(),
-			"hero_points": Campaign.hero_points_available(), "ranks": ranks,
-			"perks": Campaign.hero_perks(), "upgrades": Campaign.upgrades(),
+		"camp": {"stars": stars, "bounty": Campaign.bounty(),
+			"rank": Campaign.hero_level(), "xp": Campaign.hero_xp(),
+			"amendments": amendments, "upgrades": Campaign.upgrades(),
+			"preparations": RunProgression.preparations(),
 			"pending_reward": Campaign.pending_reward()},
 		"log": _log,
 	}

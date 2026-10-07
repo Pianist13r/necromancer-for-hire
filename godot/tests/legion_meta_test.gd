@@ -1,15 +1,15 @@
 extends SceneTree
 ##
 ## Самопроверка меты (без окна): премия и опыт за бой, услуги подготовки «Конторы» и потолки
-## (одна подготовка на объект, два жетона переброса), Campaign.stat() складывает поправки-карточки
-## и умножает по правилу имени ключа, сборка ограничена тремя карточками, уровень героя открывает
-## карточки, а его собственные ранги/перки в бой не идут, открытия по порядку карт, старое
-## сохранение (без секций [meta]/[hero]) читается значениями по умолчанию. Пишет во временный
-## файл — реальный user://legion.cfg владельца не трогает (Campaign.set_save_path).
+## (два пакета с разряда 4), Campaign.stat() складывает поправки-карточки и умножает по правилу
+## имени ключа, сборка ограничена тремя карточками, разряд открывает карточки, а старые ранги и
+## перки героя в бой не идут, открытия по порядку карт, старое сохранение (без секций
+## [meta]/[hero]) читается значениями по умолчанию. Пишет во временный файл — реальный
+## user://legion.cfg владельца не трогает (Campaign.set_save_path).
 ##
-## OVERHAUL 05.10: старый пул постоянных процентов (уровни покупок «Конторы», ранги и перки
-## героя) заменён колодой AmendmentDb — проверки этого файла переехали на новые покупки и
-## карточки, старые проценты в игру не возвращаются.
+## OVERHAUL 05.10 + переработка 06.10 (D-1006-11): старый пул постоянных процентов (уровни покупок
+## «Конторы», ранги и перки героя) заменён колодой AmendmentDb; ранги/перки героя удалены, их
+## потребители обновлены.
 ##
 ##   "$GODOT" --headless --path godot --script res://tests/legion_meta_test.gd -- --mute
 ##
@@ -45,7 +45,6 @@ func _run() -> void:
 	_test_slots()
 	_test_legacy_keys_dead()
 	_test_hero_profile()
-	_test_hero_reset()
 	_test_unlocks()
 	_test_old_save_without_sections()
 
@@ -69,15 +68,15 @@ func _test_bounty_and_xp() -> void:
 	_check(Campaign.bounty() == 87, "премия накопилась (75+12=87, получили %d)" % Campaign.bounty())
 
 
-## «Контора» стала короткой подготовкой следующего боя (OVERHAUL 05.10): уровней покупок
-## («Дальность» ×3 и т.п.) больше нет — есть разовые услуги AmendmentDb.PREPARATIONS
-## (souls/mana, 35 премии) и жетоны переброса чертежа (30, не больше двух). Прежние проверки
-## уровней и потолка 3 заменены на цены, списание и потолки новых услуг — сами гарантии те же.
+## «Контора» — короткая подготовка (D-1006-12): разовые пакеты AmendmentDb.PREPARATIONS
+## (souls/mana, 35 премии на объект), второй слот открывает разряд 4. Переброски в Конторе
+## больше нет — она живёт на экране выбора поправок (RunProgression.reroll).
 func _test_preparation() -> void:
 	Campaign.set_save_path(TEST_PATH)   # свежий кэш, но прогресс тот же файл
 	Campaign.reset()
 	_check(RunProgression.preparation() == "", "подготовка на свежем прогрессе не выбрана")
 	_check(Campaign.stat(&"start_souls") == 0.0, "start_souls нейтрален без подготовки")
+	_check(RunProgression.preparations_max() == 1, "второй слот закрыт до разряда 4")
 
 	# Провал покупки без хватающей премии не списывает премию и не выдаёт услугу.
 	_check(not RunProgression.buy_service("souls"), "покупка без хватающей премии отклонена")
@@ -85,7 +84,7 @@ func _test_preparation() -> void:
 		"премия не списалась при провале покупки")
 
 	var cost := int(AmendmentDb.PREPARATIONS["souls"]["cost"])
-	Campaign.add_bounty(cost + 65)
+	Campaign.add_bounty(3 * cost)
 	var before := Campaign.bounty()
 	_check(RunProgression.buy_service("souls"), "услуга подготовки куплена")
 	_check(Campaign.bounty() == before - cost, "премия списана на цену услуги (%d)" % cost)
@@ -93,17 +92,20 @@ func _test_preparation() -> void:
 		"подготовка не попадает в постоянную сборку — она на один объект")
 	_check(is_equal_approx(float(RunProgression.preparation_mods().get("start_souls", 0.0)), 45.0),
 		"подготовка несёт +45 душ на следующий объект")
-	_check(not RunProgression.buy_service("mana"), "вторая подготовка поверх первой не берётся")
+	_check(not RunProgression.buy_service("mana"),
+		"второй пакет не берётся, пока разряд ниже 4")
+
+	# Разряд 4 открывает второй слот — на объект влезает второй пакет.
+	Campaign._add_hero_xp(int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[2]))   # ровно порог разряда 4
+	_check(RunProgression.preparations_max() == 2, "разряд 4 открыл второй слот")
+	_check(RunProgression.buy_service("mana"), "второй пакет взят на тот же объект")
+	_check(RunProgression.preparations().size() == 2, "на объект взято два пакета")
+	_check(not RunProgression.buy_service("souls"), "повторный пакет того же вида не берётся")
+	_check(is_equal_approx(float(RunProgression.preparation_mods().get("mana_max_bonus", 0.0)), 30.0),
+		"второй пакет несёт +30 маны вместе с первым")
 	_check(RunProgression.consume_preparation(), "подготовка потреблена стартом боя")
 	_check(RunProgression.preparation() == "" and RunProgression.preparation_mods().is_empty(),
 		"после старта боя подготовка пуста")
-
-	# Потолок перебросов: два жетона за премию, третий не берётся.
-	var banked := 0
-	while RunProgression.buy_service("reroll"):
-		banked += 1
-	_check(banked == 2 and RunProgression.reroll_tokens() == 2, "перебросов в банке: %d" % banked)
-	_check(not RunProgression.buy_service("reroll"), "третий переброс не берётся")
 
 
 ## Campaign.stat() — один котёл меты: поправки-карточки складываются по ключу, а ключ-множитель
@@ -167,48 +169,24 @@ func _test_legacy_keys_dead() -> void:
 		"старые id переведены в карточки: %s" % str(Campaign.upgrades()))
 
 
-## OVERHAUL 05.10: постоянный опыт героя открывает ВАРИАНТЫ карточек, а не покупает проценты.
-## Ранги и перки остались в профиле (экран героя, коллекция), но бой их не читает — это и
-## проверяем (регресс-охрана от возврата покупок в бой через Campaign._hero_mods).
+## Разряд открывает ВАРИАНТЫ карточек, а не покупает проценты. Ранги и перки героя удалены
+## (D-1006-11): их покупку не предлагал ни один экран, а в бой они не шли (раньше — через мёртвый
+## _hero_mods). Проверяем и уровень-открытие, и что легаси-ключи старого профиля нейтральны.
 func _test_hero_profile() -> void:
 	Campaign.reset()
 	_check(Campaign.hero_level() == 1 and not RunProgression.available(&"moving_office"),
-		"«Выездная канцелярия» ждёт уровня героя (сейчас %d)" % Campaign.hero_level())
-	Campaign.record_rewards(true, 3, 1000)   # опыт с большим запасом — герой высокого уровня
-	_check(Campaign.hero_points_available() > 0, "после большого опыта есть свободные очки героя")
-	_check(RunProgression.available(&"moving_office"), "уровень героя открыл карточку")
+		"«Выездная канцелярия» ждёт разряда (сейчас %d)" % Campaign.hero_level())
+	Campaign.record_rewards(true, 3, 1000)   # опыт с большим запасом — высокий разряд
+	_check(Campaign.hero_level() >= 4,
+		"большой опыт поднял разряд (сейчас %d)" % Campaign.hero_level())
+	_check(RunProgression.available(&"moving_office"), "разряд открыл карточку")
 
-	_check(Campaign.hero_rank(&"q") == 0, "ранг Ку — 0 до покупки")
-	_check(Campaign.hero_rank_up(&"q"), "ранг Ку куплен")
-	_check(Campaign.hero_rank(&"q") == 1, "ранг Ку стал 1")
-	_check(is_equal_approx(Campaign.stat(&"ability_rank_q"), 0.0),
-		"ранг героя в бой не идёт: ability_rank_q в stat() нейтрален")
-	Campaign.hero_rank_up(&"q")
-	_check(Campaign.hero_rank(&"q") == 2, "ранг Ку дошёл до потолка (2)")
-	_check(not Campaign.hero_rank_up(&"q"), "третий ранг Ку не покупается — потолок 2")
-
-	# Перк второго ряда ветки без первого не берётся.
-	_check(not Campaign.hero_take_perk(&"perk_big_staff"),
-		"«Раздутый штат» не берётся без «Быстрого найма»")
-	_check(Campaign.hero_take_perk(&"perk_fast_hire"), "«Быстрый найм» берётся первым")
-	_check(Campaign.hero_take_perk(&"perk_big_staff"),
-		"«Раздутый штат» берётся после «Быстрого найма»")
-	_check(is_equal_approx(Campaign.stat(&"perk_perk_fast_hire"), 0.0),
-		"ключ perk_<id> без второго префикса — perk_fast_hire, не perk_perk_fast_hire")
-	_check(is_equal_approx(Campaign.stat(&"perk_fast_hire"), 0.0),
-		"перк героя в бой не идёт: perk_fast_hire в stat() нейтрален")
-	_check(not Campaign.hero_take_perk(&"perk_fast_hire"), "повторно тот же перк не берётся")
-
-
-func _test_hero_reset() -> void:
-	_check(not Campaign.hero_perks().is_empty(), "к моменту сброса перки уже взяты")
-	var level_before := Campaign.hero_level()
-	Campaign.hero_reset()
-	_check(Campaign.hero_perks().is_empty(), "сброс снял все перки")
-	_check(Campaign.hero_rank(&"q") == 0, "сброс обнулил ранг Ку")
-	_check(Campaign.hero_level() == level_before, "сброс не трогает уровень/опыт")
-	_check(Campaign.hero_points_available() == Campaign.hero_points_earned(),
-		"после сброса все очки снова свободны")
+	# Легаси-ключи старого профиля героя скрытой силы в бою не дают.
+	Campaign.raw_file().set_value("hero", "rank_q", 2)
+	Campaign.raw_file().set_value("hero", "perks", ["perk_short_cd", "perk_chain_reaction"])
+	Campaign.save_raw()
+	_check(Campaign.stat(&"ability_rank_q") == 0.0 and Campaign.stat(&"perk_short_cd") == 0.0,
+		"старые ранги/перки в бой не идут: stat нейтрален")
 
 
 func _test_unlocks() -> void:
@@ -269,8 +247,7 @@ func _test_old_save_without_sections() -> void:
 	Campaign.set_save_path(OLD_PATH)
 	_check(Campaign.stars("wasteland") == 2, "старое поле progress читается как прежде")
 	_check(Campaign.bounty() == 0, "премия по умолчанию 0 без секции [meta]")
-	_check(Campaign.hero_level() == 1, "уровень героя по умолчанию 1 без секции [hero]")
-	_check(Campaign.hero_perks().is_empty(), "перков нет без секции [hero]")
+	_check(Campaign.hero_level() == 1, "разряд по умолчанию 1 без секции [hero]")
 	_check(is_equal_approx(Campaign.stat(&"cap_mult_laborer"), 1.0),
 		"cap_mult_laborer нейтрален (1.0) без покупок в старом сохранении")
 
