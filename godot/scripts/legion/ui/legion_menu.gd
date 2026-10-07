@@ -12,7 +12,6 @@ extends Control
 
 signal continue_pressed(map_id: String)
 signal maps_pressed
-signal office_pressed
 signal hero_pressed
 signal howto_pressed
 signal settings_pressed
@@ -253,23 +252,20 @@ func _build_pvp_row(col: VBoxContainer) -> void:
 	col.add_child(note)
 
 
-## Три карточки-ссылки: настоящий Button с декоративным наполнением (иконка + подпись),
-## наполнение мышь не перехватывает. Кликит сама карточка.
+## Две карточки-ссылки («Карты», «Досье»): настоящий Button с декоративным наполнением
+## (иконка + подпись), наполнение мышь не перехватывает. Кликит сама карточка.
 func _build_cards_row(col: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(row)
 
-	var bounty := Campaign.bounty()
 	row.add_child(_make_card("CardMaps", "Карты", "menu_map",
 		"Выбор договора", func() -> void: maps_pressed.emit()))
-	# meta: «Контора» (покупки за премию) и «Герой» — доступны и из меню, и друг из друга
-	# (office_shop.gd → hero_pressed), задание meta п.2–3.
-	row.add_child(_make_card("CardOffice", "Контора", "menu_office",
-		"Премия: %d" % bounty, func() -> void: office_pressed.emit()))
-	row.add_child(_make_card("CardHero", "Герой", "menu_hero",
-		"Развитие некроманта", func() -> void: hero_pressed.emit()))
+	# D-1007-P1: «Контора» как экран убрана — подготовка живёт на брифинге; две карточки ровно.
+	# D-1007-P2: одно «Досье» вместо «Героя» — разряд, поправки и артефакты на одном экране.
+	row.add_child(_make_card("CardDossier", "Досье", "menu_hero",
+		"Разряд, поправки, артефакты", func() -> void: hero_pressed.emit()))
 
 
 func _make_card(card_name: String, caption: String, icon_name: String, tip: String,

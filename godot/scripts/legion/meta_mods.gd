@@ -23,7 +23,7 @@ const MULT_KEYS := ["q_stun", "q_dmg", "e_radius", "line_cost", "mana_regen", "r
 ## Подписи ключей для игрока (экран выбора поправок). Ключ без подписи покажется сам собой — это
 ## сигнал добавить строку, а не молча показать код.
 const KEY_LABELS := {
-	"q_stun": "оглушение разряда", "q_dmg": "урон разряда", "q_chain": "цели разряда",
+	"q_stun": "оглушение молнии", "q_dmg": "урон молнии", "q_chain": "цели молнии",
 	"e_radius": "радиус Аврала", "e_dur": "длительность Аврала", "w_raise": "бойцов за подъём",
 	"charge_dmg_mult": "урон натиска", "charge_speed_mult": "скорость разбега",
 	"charge_dmg": "урон удара с разбега", "mana_cost_mult": "цена договора",
@@ -34,6 +34,8 @@ const KEY_LABELS := {
 	"seg_ttl_bonus": "срок участка", "mana_max_bonus": "запас маны", "start_souls": "стартовые души",
 	"recruit_r": "дальность набора",
 }
+## Единица прибавочного ключа в чипе: «−2 с срок участка», а не голое «−2».
+const KEY_UNITS := {"seg_ttl_bonus": " с", "e_dur": " с"}
 
 
 static func is_mult_key(key: StringName) -> bool:
@@ -89,9 +91,15 @@ static func delta_chips(mods: Dictionary) -> Array[String]:
 
 
 static func _signed(key: StringName, v: float) -> String:
+	var out := ""
 	if is_mult_key(key):
-		return "%+d %%" % roundi(v * 100.0)
-	return ("%+d" % roundi(v)) if is_equal_approx(v, roundf(v)) else ("%+.2f" % v)
+		out = "%+d %%" % roundi(v * 100.0)
+	else:
+		out = ("%+d" % roundi(v)) if is_equal_approx(v, roundf(v)) \
+			else ("%+.2f" % v).rstrip("0").rstrip(".").replace(".", ",")
+		out += String(KEY_UNITS.get(String(key), ""))
+	# Типографский минус, как в текстах карточек («−20 %»), а не дефис.
+	return out.replace("-", "−")
 
 
 ## E-1005 п.6: экрану выбора — с какими УЖЕ ДЕЙСТВУЮЩИМИ источниками карточка делит ключ-множитель

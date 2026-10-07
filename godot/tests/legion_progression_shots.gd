@@ -1,8 +1,9 @@
 extends SceneTree
 ##
-## Кадры экранов меты ОДНИМ запуском движка (не по процессу на экран): выбор поправок, «Контора»,
-## досье — каждый на 1280×720 и 960×540, плюс досье среднего разряда. Окно меняет размер в процессе
-## (DisplayServer.window_set_size), поэтому серия не дёргает фокус владельца многократно.
+## Кадры экранов меты ОДНИМ запуском движка (не по процессу на экран): выбор поправок,
+## брифинг с подготовкой, досье (обе вкладки) — каждый на 1280×720 и 960×540, плюс досье
+## среднего разряда. Окно меняет размер в процессе (DisplayServer.window_set_size), поэтому серия
+## не дёргает фокус владельца многократно.
 ##
 ##   "$GODOT" --path godot --script res://tests/legion_progression_shots.gd -- --mute
 ## Путь вывода — OUT (по умолчанию batches под иконкой-сессией).
@@ -31,7 +32,11 @@ func _run() -> void:
 	Campaign.reset()
 	Campaign.unlock_all()
 	Campaign.add_bounty(900)
-	await _capture(OfficeShop.new(), "office")
+	Campaign.add_upgrade(StringName(AmendmentDb.ORDER[0]))
+	# Подготовка — на брифинге (D-1007-P1): кадр брифинга с панелью и полосой «Действует».
+	var brief := Briefing.new()
+	await _capture(brief, "briefing_prep", func() -> void:
+		brief.populate(Campaign.maps()[1]))
 
 	Campaign.reset()
 	Campaign.unlock_all()
@@ -42,6 +47,14 @@ func _run() -> void:
 	Campaign.unlock_all()
 	Campaign._add_hero_xp(1180)
 	await _capture(HeroScreen.new(), "hero_part")
+
+	# D-1007-P2: та же «Досье» на вкладке «Артефакты» (артефакты кампании, синергия собрана).
+	Campaign.reset()
+	var arts: Array[StringName] = [&"clip_of_fate", &"lightning_rod", &"golden_pen"]
+	Campaign.set_run_items(arts)
+	var items_screen := HeroScreen.new()
+	await _capture(items_screen, "dossier_items", func() -> void:
+		items_screen.view.show_tab(DossierView.TAB_ITEMS))
 
 	var abs_path := ProjectSettings.globalize_path(TEST_PATH)
 	if FileAccess.file_exists(TEST_PATH):

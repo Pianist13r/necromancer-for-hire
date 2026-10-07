@@ -144,7 +144,7 @@ func tick(dt: float) -> void:
 			if is_instance_valid(target) and target.alive:
 				_damage(target, float(echo["damage"]), target.position)
 				_count("amendment_echoes")
-				_flash(target.position, "Копия верна: второй разряд")
+				_flash(target.position, "Копия верна: молния бьёт ещё раз")
 	_tick_ghosts(dt)
 	_tick_vassals(dt)
 	for i in range(_flashes.size() - 1, -1, -1):

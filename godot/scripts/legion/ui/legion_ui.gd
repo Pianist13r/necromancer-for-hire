@@ -197,6 +197,7 @@ static func confirm(parent: Node, message: String, action: Callable) -> void:
 	dialog.dialog_text = message
 	dialog.ok_button_text = "Подтвердить"
 	dialog.cancel_button_text = "Отмена"
+	UiStyle.style_dialog(dialog, "Подтверждение")
 	parent.add_child(dialog)
 	dialog.confirmed.connect(func() -> void:
 		dialog.queue_free()

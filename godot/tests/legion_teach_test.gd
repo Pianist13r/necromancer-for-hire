@@ -12,7 +12,7 @@ extends SceneTree
 ##    ВЫКРИК (каст, волна, простой, души) — только в тишине. Очередь не разбирается на паузе,
 ##    чистится уходом в меню, новым боем и катсценой; отказ по откату её не стирает. Проверки А–Д
 ##    — пункты опровержения verifier 26.09 (катсцены, финал, потеря важной заявки, реплика боя в
-##    меню, реплика поверх паузы) и «Контора»/новый вид после победной реплики.
+##    меню, реплика поверх паузы) и новый вид/покупка подготовки после победной реплики.
 ##
 ## Проверки 2) ходят игровыми путями и через поля, которые есть и на 4c15df3, — на старом коде
 ## компилируются и падают проверками (демонстрация регресса), а не ошибкой разбора. Исключение —
@@ -115,7 +115,7 @@ func _howto_text_checks() -> void:
 
 
 # ── Голос: три класса реплик (сцена / сюжет / выкрик), координатор 26.09 ─────
-# Только через игровые пути (катсцена, бой, постройка, пауза, меню, «Контора») и поля, которые
+# Только через игровые пути (катсцена, бой, постройка, пауза, меню, брифинг) и поля, которые
 # есть и на 4c15df3 (`_voice_last_msec`, `_voice_busy_until_msec`, `_voice_player`,
 # `_voice_rng`), — чтобы на старом коде проверки падали проверками, а не ошибкой компиляции.
 # Никакого сброса занятости: ждём реальное время ОС (занятость голоса — по длине файла и
@@ -397,9 +397,10 @@ func _finale_checks() -> void:
 	await _frames(3)
 
 
-## «Контора» и новый вид договора после победной реплики обычной карты — не теряются.
+## Новый вид договора и покупка подготовки на брифинге после победной реплики обычной карты —
+## не теряются (D-1007-P1: «Конторы» как экрана нет, её голос покупки звучит с брифинга).
 func _office_after_victory_checks() -> void:
-	print("— «Контора» и новый вид после победной реплики")
+	print("— новый вид и покупка подготовки после победной реплики")
 	audio._voice_last_msec.clear()
 	main.start_battle("fork")
 	await _frames(3)
@@ -408,15 +409,22 @@ func _office_after_victory_checks() -> void:
 	await _frames(2)
 	var won := _current_is(&"lg_victory_1") or _current_is(&"lg_victory_2")
 	_check(won, "победа — звучит реплика итога")
-	main.show_office(main.show_menu)
-	await _frames(1)
-	_check(won and _started(&"lg_office_enter") < 0, "приветствие «Конторы» ждёт реплику итога")
 	Campaign.unlock_all()
+	Campaign.add_bounty(100)
 	main.show_briefing("bridge")
 	await _frames(2)
+	var panel := main.screen.find_child("PrepPanel", true, false) as PrepPanel
+	_check(panel != null, "на брифинге есть подготовка")
+	if panel != null:
+		panel.refresh()
+		for row in panel.rows():
+			if row.amendment_id == &"souls" and not row.is_selected():
+				row.button().pressed.emit()
+	await _frames(1)
+	_check(won and _started(&"lg_office_buy") < 0, "голос покупки ждёт реплику итога")
 	await _wait_quiet()
-	var t_office := _started(&"lg_office_enter")
+	var t_buy := _started(&"lg_office_buy")
 	var t_new := maxi(maxi(_started(&"lg_contract_new_1"), _started(&"lg_contract_new_2")),
 		_started(&"lg_contract_new_3"))
-	_check(t_office >= 0, "«Контора» после победной реплики — lg_office_enter не потерян")
-	_check(t_new > t_office, "новый вид договора — lg_contract_new_* следом, не потерян")
+	_check(t_new >= 0, "новый вид договора после победной реплики — lg_contract_new_* не потерян")
+	_check(t_buy > t_new, "покупка подготовки — lg_office_buy следом, не потерян")

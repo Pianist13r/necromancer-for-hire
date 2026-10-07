@@ -134,6 +134,18 @@ func _test_services() -> void:
 	_check(Campaign.bounty() == before and RunProgression.preparation() == "",
 		"failed purchase rolled back")
 	DirAccess.remove_absolute(blocked)
+	# D-1007-P1: снятие на брифинге — полный возврат; отказ записи не меняет ничего.
+	var cost := int(AmendmentDb.PREPARATIONS["mana"]["cost"])
+	_check(RunProgression.buy_service("mana") and Campaign.bounty() == before - cost,
+		"package bought again for cancel check")
+	DirAccess.make_dir_recursive_absolute(blocked)
+	_check(not RunProgression.cancel_service("mana"), "failed disk write refuses cancel")
+	_check(Campaign.bounty() == before - cost and RunProgression.preparations() == ["mana"],
+		"failed cancel rolled back")
+	DirAccess.remove_absolute(blocked)
+	_check(RunProgression.cancel_service("mana") and Campaign.bounty() == before
+		and RunProgression.preparations().is_empty(), "cancel refunds the full price")
+	_check(not RunProgression.cancel_service("mana"), "cancel of a missing package refused")
 
 
 func _test_migration() -> void:
@@ -283,10 +295,10 @@ func _test_screens() -> void:
 		"cancel restores proposal without leak")
 	picker.queue_free()
 	await process_frame
-	var office := OfficeShop.new()
+	var office := PrepPanel.new()
 	root.add_child(office)
 	await process_frame
-	_check(office._services.get_child_count() == 2, "office offers two preparation packages")
+	_check(office.rows().size() == 2, "briefing prep panel offers two preparation packages")
 	var hero := HeroScreen.new()
 	root.add_child(hero)
 	await process_frame

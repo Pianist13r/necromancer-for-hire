@@ -36,7 +36,7 @@ const CUT_INTRO_1_VIDEO_PATH := "res://assets/legion/cutscenes/lg_intro_1.ogv"
 
 var world: LegionWorld = null
 ## polish1: узел озвучки кампании — единственный на весь сеанс, экраны вне боя (меню, карты,
-## брифинг, катсцены, «Контора», герой, итог) зовут `_ensure_audio()`; когда стартует первый бой,
+## брифинг, катсцены, герой, итог) зовут `_ensure_audio()`; когда стартует первый бой,
 ## `start_battle()` передаёт этот же узел миру через `LegionWorld.injected_audio` — второй узел
 ## `LegionAudio` мир больше не создаёт (находка ревью 25.09.2026: экраны до первого боя были немы).
 var audio: LegionAudio = null
@@ -48,6 +48,8 @@ var _args: Dictionary = {}
 var _pause_screen: LegionPause = null
 ## id карты, куда вести игрока после выбора поправки на экране итога; "" — кампания пройдена.
 var _pending_next_map := ""
+## Карта, выбранная на экране карт, пока висела незабранная поправка: после подписи — её брифинг.
+var _reward_then := ""
 ## Катсцена Прораба — один раз за сессию, не за сохранение: это выход конкретного боя,
 ## а не разовый сюжетный момент, как вступление. Флаг в Campaign не нужен.
 var _boss_cutscene_shown := false
@@ -176,6 +178,7 @@ func show_menu() -> void:
 	Campaign.use_campaign_scope()
 	_in_endless_battle = false
 	_in_collection_battle = false
+	_reward_then = ""   # отказ от поправки в меню — выбранная на экране карт карта не ждёт
 	if world != null:
 		world.go_to_menu()   # эмитит menu_entered — LegionAudio сам переключит трек на "menu"
 	else:
@@ -188,9 +191,8 @@ func show_menu() -> void:
 	_set_screen(m)
 	m.continue_pressed.connect(_on_continue_pressed)
 	m.maps_pressed.connect(show_map_select)
-	# meta: «Контора» и «Герой» доступны из меню, оба возвращают в меню (show_menu — Callable
-	# без скобок в GDScript ссылается на метод этого узла).
-	m.office_pressed.connect(func() -> void: show_office(show_menu))
+	# meta: «Досье» (бывший «Герой», D-1007-P2) из меню возвращает в меню (show_menu — Callable
+	# без скобок ссылается на метод этого узла). «Конторы» как экрана нет (D-1007-P1).
 	m.hero_pressed.connect(func() -> void: show_hero(show_menu))
 	m.howto_pressed.connect(_show_howto)
 	m.settings_pressed.connect(func() -> void: _show_settings(true))
@@ -218,9 +220,21 @@ func show_map_select() -> void:
 	_teardown_screen()
 	var s := MapSelect.new()
 	_set_screen(s)
-	s.map_chosen.connect(func(id: String) -> void: show_briefing(id, show_map_select))
-	s.office_pressed.connect(func() -> void: show_office(show_map_select))
+	s.map_chosen.connect(_on_map_chosen)
 	s.back.connect(show_menu)
+
+
+## Карта с экрана карт. Незабранная поправка предлагается ПЕРЕД брифингом выбранной карты, а не
+## пропускается (D-1007-P4): иначе следующая победа не ставит свою награду поверх висящей
+## (Campaign.set_pending_reward) — одна награда терялась, а после подписи игрока уводило на
+## брифинг уже пройденной карты.
+func _on_map_chosen(id: String) -> void:
+	if Campaign.pending_reward() != "":
+		_pending_next_map = Campaign.pending_reward()
+		_reward_then = id
+		_offer_upgrade_or_skip()
+		return
+	show_briefing(id, show_map_select)
 
 
 func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
@@ -249,8 +263,7 @@ func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 	b.call_deferred("populate", data)
 	b.start.connect(start_battle)
 	b.back.connect(on_back if on_back.is_valid() else show_menu)
-	b.office_pressed.connect(func() -> void:
-		show_office(func() -> void: show_briefing(map_id, on_back)))
+	b.prep_bought.connect(_voice_prep_bought)
 
 
 ## Публичный вход в бой — используется и экраном брифинга, и flow-тестом напрямую, и «Как играть →
@@ -314,26 +327,15 @@ func _ensure_world() -> LegionWorld:
 	return world
 
 
-# ── meta: «Контора» и экран героя (DESIGN_V15 §7, §12 п.8–9) ─────────────────────────────────
-## on_back — Callable без аргументов, куда вести по «Дальше»/«Назад» (show_menu, show_map_select
-## или _finish_pending_reward — GDScript даёт ссылку на метод как Callable без скобок).
-## Из «Конторы» можно уйти на экран героя и вернуться обратно в ту же «Контору» (не в on_back
-## напрямую) — иначе кнопка «Герой» из «Конторы» после поправки пропускала бы её «Дальше».
+# ── meta: подготовка на брифинге и экран героя (DESIGN_V15 §7, §12 п.8–9; D-1007-P1) ─────────
+## on_back — Callable без аргументов, куда вести по «Назад» (show_menu и т. п. — GDScript даёт
+## ссылку на метод как Callable без скобок).
 
-## greet — эйчар здоровается при входе в «Контору»; возврат с экрана героя — без приветствия.
-func show_office(on_back: Callable, greet := true) -> void:
-	_ensure_audio().play_menu_music()
-	_teardown_screen()
-	var o := OfficeShop.new()
-	_set_screen(o)
-	o.back.connect(on_back)
-	o.hero_pressed.connect(func() -> void: show_hero(func() -> void: show_office(on_back, false)))
-	# integrate1: озвучка «Конторы» — единым узлом звука кампании (polish1: живёт с первого
-	# экрана, не только с первого боя)
-	if greet:
-		audio.voice(&"lg_office_enter", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
-	o.bought.connect(func() -> void:
-		audio.voice(&"lg_office_buy", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY))
+## Пакет подготовки взят на брифинге (PrepPanel.changed(true)) — эйчар отзывается тем же голосом,
+## что раньше в «Конторе», единым узлом звука кампании. Снятие пакета — молча.
+func _voice_prep_bought() -> void:
+	_ensure_audio().voice(&"lg_office_buy", LegionCfg.AUDIO_V15_PRIORITY_HR,
+		LegionAudio.VoiceClass.STORY)
 
 
 func show_hero(on_back: Callable) -> void:
@@ -437,9 +439,6 @@ func _offer_upgrade_or_skip() -> void:
 		return
 	_teardown_screen()
 	var picker := UpgradePicker.new()
-	var title := "следующего объекта" if _pending_next_map == LegionEndless.PENDING_SENTINEL \
-		else "«%s»" % String(Campaign.map(Campaign.pending_reward()).get("title", ""))
-	picker.next_label = "Дальше: брифинг " + title
 	_set_screen(picker)
 	picker.call_deferred("offer", options)
 	picker.picked.connect(pick_upgrade)
@@ -461,6 +460,12 @@ func _finish_pending_reward() -> void:
 	if not Campaign.end_update(true):
 		return
 	_pending_next_map = ""
+	# Поправку предложили с экрана карт — дальше брифинг той карты, что выбрал игрок.
+	var chosen_map := _reward_then
+	_reward_then = ""
+	if chosen_map != "" and next_id != LegionEndless.PENDING_SENTINEL:
+		show_briefing(chosen_map, show_map_select)
+		return
 	# mode: сентинел вместо id карты кампании — следующий объект забега (LegionEndless.
 	# PENDING_SENTINEL), считается заново из LegionRunStore.endless_k(), а не запомнен здесь: пока
 	# висела ожидающая награда, объект не сменился (endless_object_won() уже отработал до неё).
@@ -549,7 +554,7 @@ func show_endless_briefing() -> void:
 		LegionRunStore.endless_souls(_endless_daily), _endless_daily, LegionRunStore.endless_daily_date())
 	b.start.connect(_start_endless_battle)
 	b.back.connect(show_menu)
-	b.office_pressed.connect(func() -> void: show_office(show_endless_briefing))
+	b.prep_bought.connect(_voice_prep_bought)
 
 
 ## mode (verifier 27.09, п.1): бой забега ЯВНО ставит СВОЙ режим у себя — по _endless_daily, не по
@@ -607,7 +612,7 @@ func _notification(what: int) -> void:
 
 
 ## Итог боя объекта: победа — стаж/души/премия +1 объект, поправка (общий пайплайн
-## _offer_upgrade_or_skip()/pick_upgrade()/show_office()); поражение — некролог, забег закрыт
+## _offer_upgrade_or_skip()/pick_upgrade()); поражение — некролог, забег закрыт
 ## (LegionRunStore.endless_end_run()). «Ещё раз» после ПОБЕДЫ намеренно не предлагается (verifier
 ## 27.09, п.3: старая кнопка засчитывала объект повторно) — в забеге после победы только
 ## «Дальше». Пауза → «Заново» на счёт не влияет: restart() зовёт start_map() напрямую, минуя
@@ -695,7 +700,9 @@ func _show_pause() -> void:
 	# меню заново, а не упрётся в осиротевший узел.
 	var skip_tutorial := world.tutorial != null and world.tutorial.step() >= 0
 	var collectible := _in_endless_battle and _collectible_map_id(world.map_id)
-	var has_items := world.items_of(world.local_side).total() > 0
+	# D-1007-P2: «Досье» — не только артефакты, но и поправки: в бою кампании/забега оно есть
+	# всегда; в «Схватке» (in_campaign снят) — только при артефактах, как раньше.
+	var has_items := world.items_of(world.local_side).total() > 0 or world.in_campaign
 	var pause := LegionPause.new()
 	# Пакет tutorial: пункт «Пропустить обучение» — только пока обучение реально идёт;
 	# выставляется ДО add_child, LegionPause читает его в _ready().
@@ -902,7 +909,7 @@ func _set_screen(node: Control) -> void:
 	_cover_battle(true)
 
 
-## B-093: экраны вне боя (итог, поправки, «Контора», герой, меню) — узлы-Control на холсте 0, а
+## B-093: экраны вне боя (итог, поправки, герой, меню) — узлы-Control на холсте 0, а
 ## слои боя (HUD 5, панель навыков и плашка урока 6) живут с миром и рисовались поверх: панель
 ## волн «Все волны вызваны / Вызвать (F)» и полоска видов висели на экране героя. Пока стоит
 ## экран, слои мира спрятаны; start_battle показывает их снова.
@@ -957,13 +964,16 @@ func _capture_dev_screen(screen_name: String, shot_path: String, shot_frame: int
 			p.call_deferred("offer", Campaign.offer_upgrades(rng))
 		"office":
 			# meta: демо-прогресс, чтобы кадр показывал не только «Премия 0 / всё заперто».
+			# «Конторы» как экрана нет (D-1007-P1): кадр — брифинг с подготовкой и «Действует».
 			Campaign.unlock_all()
 			for m in Campaign.maps():
 				Campaign.record_result(String(m.get("id", "")), true, 0.9)
-			Campaign._add_hero_xp(700)      # разряд 4+ — в Конторе видны оба слота подготовки
+			Campaign._add_hero_xp(700)      # разряд 4+ — на брифинге видны оба места подготовки
 			Campaign.add_bounty(200)
 			RunProgression.buy_service("souls")
-			show_office(show_menu)
+			Campaign.add_upgrade(StringName(AmendmentDb.ORDER[0]))
+			var maps3 := Campaign.maps()
+			show_briefing(String(maps3[mini(1, maps3.size() - 1)].get("id", "")))
 		"hero":
 			Campaign._add_hero_xp(3000)     # разряд высокий — большая часть колоды открыта
 			show_hero(show_menu)

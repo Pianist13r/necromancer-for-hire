@@ -1,9 +1,9 @@
 extends RefCounted
 ##
 ## B-358: забег «Бесконечного подряда» цепочкой — объекты 1..N ОДНОГО забега подряд через
-## настоящий поток LegionMain (брифинг → бой → итог → поправка → брифинг k+1; «Контора» —
-## необязательная кнопка на брифинге), с переносом всего, что переносит игра: поправок,
-## артефактов, покупок «Конторы», стажа, душ.
+## настоящий поток LegionMain (брифинг → бой → итог → поправка → брифинг k+1; подготовка —
+## панель на брифинге, D-1007-P1), с переносом всего, что переносит игра: поправок,
+## артефактов, подготовки (и её автоповтора, D-1007-P5), стажа, душ.
 ## Ядро общее для раннера (legion_run_chain_runner.gd, бой ведёт бот) и регресс-теста
 ## (legion_run_chain_test.gd, бой кончает хук через world.force_end — без полного боя).
 ## Игру не меняет: экраны ведутся их же сигналами, как реальные клики (legion_endless_flow_test).
@@ -11,8 +11,9 @@ extends RefCounted
 ## Политики (D-0930-62, координатор; «Контора» — A1): профиль «ветеран» (все карты кампании
 ## открыты и пройдены на 3★, обучение и вступление пройдены, герой без рангов); поправка —
 ## случайная из предложенных, rng от (сид забега, сид бота, k), или первая
-## (upgrade_policy = "first"); «Контора» — один пакет на объект: жадно берёт «Подъёмные»
-## (souls) с брифинга следующего объекта, пока хватает премии и пакет ещё не взят, переброски не
+## (upgrade_policy = "first"); подготовка — один пакет на объект: жадно берёт «Подъёмные»
+## (souls) на брифинге следующего объекта (или панель берёт их сама, как в прошлый
+## раз), пока хватает премии и пакет ещё не взят, переброски не
 ## покупает; сложность закрепляется на забег до первого боя (lock_difficulty).
 ##
 
@@ -136,7 +137,7 @@ func _on_match_ended(_victory: bool, final: Dictionary) -> void:
 	_got_end = true
 
 
-## Один объект: брифинг → бой → итог; победа — поправка и (по желанию политики) «Контора».
+## Один объект: брифинг → бой → итог; победа — поправка и (по желанию политики) подготовка.
 ## Возвращает "victory", "defeat", "timeout" или "" (сбой потока — текст в error).
 func _play_object(k: int) -> String:
 	var map_id := await _start_battle(k)
@@ -245,27 +246,26 @@ func _after_victory(k: int, row: Dictionary) -> bool:
 		await _frames(2)
 	row["offered"] = _ids(offered)
 	row["upgrade"] = picked
-	# Навигация мышью: после подписи игрок попадает СРАЗУ на брифинг объекта k+1; «Контора» —
-	# необязательная кнопка на брифинге (show_office(show_endless_briefing)), «← Назад» из неё
-	# возвращает на тот же брифинг, оттуда «В бой» (start.emit в _start_battle).
+	# Навигация мышью: после подписи игрок попадает СРАЗУ на брифинг объекта k+1; подготовка —
+	# панель на самом брифинге (D-1007-P1), оттуда «В бой» (start.emit в _start_battle).
+	# D-1007-P5: панель при сборке сама докупает то, что брали в прошлый раз, — это та же покупка
+	# объекта, поэтому премия «до» считается с её возвратом, а пакет — в списке купленного.
 	if not (main.screen is EndlessBriefing):
 		_fail("объект %d: после поправки ждали брифинг забега, экран %s" % [k, main.screen])
 		return false
-	row["bounty_before"] = Campaign.bounty()
+	var panel := main.screen.find_child("PrepPanel", true, false) as PrepPanel
+	if panel == null:
+		_fail("объект %d: на брифинге забега нет подготовки" % k)
+		return false
 	var bought: Array[String] = []
+	var auto_cost := 0
+	for id in panel.auto_taken():
+		bought.append("preparation:" + id)
+		auto_cost += int(AmendmentDb.PREPARATIONS[id]["cost"])
+	row["bounty_before"] = Campaign.bounty() + auto_cost
 	if shop_on and wants_shop():
-		(main.screen as EndlessBriefing).office_pressed.emit()
-		await _frames(2)
-		if not (main.screen is OfficeShop):
-			_fail("объект %d: «Контора» с брифинга не открылась (%s)" % [k, main.screen])
-			return false
-		bought = greedy_shop()
-		(main.screen as OfficeShop).refresh()
-		(main.screen as OfficeShop).back.emit()
-		await _frames(2)
-		if not (main.screen is EndlessBriefing):
-			_fail("объект %d: «← Назад» из «Конторы» вернул не на брифинг (%s)" % [k, main.screen])
-			return false
+		bought.append_array(greedy_shop())
+		panel.refresh()
 	row["bought"] = bought
 	row["bounty_after"] = Campaign.bounty()
 	row["upgrades"] = _ids(Campaign.upgrades())

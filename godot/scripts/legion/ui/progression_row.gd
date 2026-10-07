@@ -12,11 +12,19 @@ extends VBoxContainer
 ##
 
 signal pressed(id: StringName)
+## Двойной щелчок по строке в режиме выбора (opts.select_mode) — «сразу подписать».
+signal activated(id: StringName)
 
 const ROW_H := 72.0
 
 var amendment_id: StringName = &""
 var _btn: Button = null
+var _details: VBoxContainer = null
+var _plate: PanelContainer = null
+var _plate_style: StyleBoxFlat = null
+var _accent := Color.WHITE
+var _selected := false
+var _hover := false
 
 
 ## Кнопка строки — наружу для тестов и экранов (фокус, disabled, connect).
@@ -43,8 +51,18 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	plate.add_theme_stylebox_override("panel", st)
 	plate.custom_minimum_size = Vector2(0.0, row_h)
 	add_child(plate)
+	_plate = plate
+	_plate_style = st
+	_accent = tag_color
+	# Строка и раскрытые детали — внутри одной рамки (D-1007-P4): детали под рамкой выглядели
+	# отдельным текстом экрана, а не частью строки.
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 6)
+	plate.add_child(inner)
 
 	var button := Button.new()
+	button.custom_minimum_size = Vector2(0.0, row_h - st.content_margin_top
+		- st.content_margin_bottom)
 	button.name = "RowButton"
 	_btn = button
 	button.flat = true
@@ -55,7 +73,7 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	button.focus_mode = Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if interactive \
 		else Control.CURSOR_ARROW
-	plate.add_child(button)
+	inner.add_child(button)
 
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 12)
@@ -83,6 +101,14 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	effect.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	names.add_child(effect)
 
+	# B-426: пометка «Аврал появится на «Два отдела»» — золотом справа, до чипов.
+	var badge := String(opts.get("note", ""))
+	if badge != "":
+		var n := UiStyle.label(badge, 16, UiStyle.FONT_TEXT, UiStyle.GOLD)
+		n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(n)
+
 	var right := String(opts.get("right", ""))
 	if right != "":
 		var r := UiStyle.label(right, 17, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
@@ -101,9 +127,12 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 
 	# ── Детали под строкой (скрыты, пока строка не в фокусе/не под курсором) ─────────────────────
 	var details := VBoxContainer.new()
+	details.name = "Details"
 	details.add_theme_constant_override("separation", 4)
 	details.visible = bool(opts.get("expanded", false))
-	add_child(details)
+	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(details)
+	_details = details
 	details.add_child(_line(String(data.get("text", "")), 18, UiStyle.TEXT))
 	var price := String(data.get("tradeoff", ""))
 	if price != "":
@@ -117,7 +146,24 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	if action != "":
 		details.add_child(_line(action, 16, tag_color))
 
-	if interactive:
+	if interactive and bool(opts.get("select_mode", false)):
+		# Режим выбора (D-1007-P4): раскрытием управляет экран через set_selected() — наведение
+		# только подсвечивает, иначе строки прыгали бы под курсором. Двойной щелчок — activated.
+		button.pressed.connect(func() -> void: pressed.emit(amendment_id))
+		var on_double := func(ev: InputEvent) -> void:
+			var mb := ev as InputEventMouseButton
+			if mb != null and mb.pressed and mb.double_click \
+					and mb.button_index == MOUSE_BUTTON_LEFT:
+				activated.emit(amendment_id)
+		button.gui_input.connect(on_double)
+		# Второй щелчок двойного может прийти уже в раскрытые детали этой строки: первый щелчок
+		# свернул детали строки выше, и строка уехала вверх (verifier этапа 2). Детали мышь не
+		# ловят — двойной щелчок слушает вся рамка строки.
+		plate.mouse_filter = Control.MOUSE_FILTER_STOP
+		plate.gui_input.connect(on_double)
+		button.mouse_entered.connect(func() -> void: _set_hover(true))
+		button.mouse_exited.connect(func() -> void: _set_hover(false))
+	elif interactive:
 		button.pressed.connect(func() -> void: pressed.emit(amendment_id))
 		button.focus_entered.connect(func() -> void: details.visible = true)
 		button.mouse_entered.connect(func() -> void: details.visible = true)
@@ -128,10 +174,38 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 
 ## Строка деталей (раскрытие под строкой) — видима только у выбранной/наведённой строки.
 func details() -> VBoxContainer:
-	for c in get_children():
-		if c is VBoxContainer:
-			return c as VBoxContainer
-	return null
+	return _details
+
+
+func is_selected() -> bool:
+	return _selected
+
+
+## Выбранная строка: детали раскрыты, рамка ярче и толще, фон светлее.
+func set_selected(on: bool) -> void:
+	_selected = on
+	if _details != null:
+		_details.visible = on
+	_restyle()
+
+
+func _set_hover(on: bool) -> void:
+	_hover = on
+	_restyle()
+
+
+func _restyle() -> void:
+	if _plate_style == null:
+		return
+	var st := _plate_style.duplicate() as StyleBoxFlat
+	if _selected:
+		st.bg_color = Color(0.13, 0.11, 0.17, 0.98)
+		st.border_color = Color(_accent, 1.0)
+		st.set_border_width_all(3)
+	elif _hover:
+		st.bg_color = Color(0.11, 0.095, 0.145, 0.97)
+		st.border_color = Color(_accent, 0.8)
+	_plate.add_theme_stylebox_override("panel", st)
 
 
 static func _focus_style(accent: Color) -> StyleBoxFlat:

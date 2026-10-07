@@ -195,6 +195,11 @@ static func is_daily_scope() -> bool:
 	return _scope == "daily"
 
 
+## Переигровка из коллекции (D-0927-162): поправки и «Контора» там не копятся.
+static func is_replay_scope() -> bool:
+	return _scope == "replay"
+
+
 static func _run_section() -> String:
 	match _scope:
 		"endless":
@@ -633,6 +638,7 @@ static func record_rewards(victory: bool, stars: int, kills: int) -> Dictionary:
 	return {
 		"bounty": bounty_earned, "xp": xp_earned,
 		"leveled_up": level_after > level_before, "level": level_after,
+		"level_before": level_before,
 	}
 
 

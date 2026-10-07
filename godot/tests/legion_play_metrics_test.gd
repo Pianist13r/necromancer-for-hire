@@ -21,6 +21,23 @@ func _run() -> void:
 	check(not PlayMetrics.consent(), "new player never opts in implicitly")
 	Settings.set_value(PlayMetrics.SECTION, PlayMetrics.KEY, true)
 	check(PlayMetrics.consent(), "explicit opt-in is read")
+	# METRICS_AUDIT_1007 п.1: свои запуски не попадают в статистику рекламного теста.
+	var no_args := PackedStringArray()
+	check(PlayMetrics.may_send(true, "Windows", no_args, ""),
+		"ship build without arguments may send after consent")
+	check(not PlayMetrics.may_send(false, "Windows", no_args, ""), "editor/play.bat never sends")
+	check(not PlayMetrics.may_send(true, "headless", no_args, ""), "headless never sends")
+	check(not PlayMetrics.may_send(true, "Windows", PackedStringArray(["--mute"]), ""),
+		"command-line QA never sends")
+	check(not PlayMetrics.may_send(true, "Windows", no_args, "1"), "NECRO_NO_METRICS=1 silences")
+	check(not PlayMetrics.internal(), "launch is external unless marked")
+	Settings.set_value(PlayMetrics.SECTION, PlayMetrics.INTERNAL_KEY, true)
+	check(PlayMetrics.internal(), "hidden internal mark is read")
+	check(not PlayMetrics.may_send(true, "Windows", no_args, ""),
+		"internal mark silences even a consenting ship build")
+	check(PlayMetrics.consent(), "internal mark leaves the consent answer untouched")
+	Settings.set_value(PlayMetrics.SECTION, PlayMetrics.INTERNAL_KEY, false)
+	check(PlayMetrics.may_send(true, "Windows", no_args, ""), "clearing the mark restores sending")
 	var metrics := PlayMetrics.new()
 	root.add_child(metrics)
 	await process_frame

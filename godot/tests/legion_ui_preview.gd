@@ -6,7 +6,8 @@ extends Node
 ##
 ##   godot --path godot res://scenes/legion_ui_preview.tscn -- --mute \
 ##       --screen menu|maps|briefing|result_win|result_lose|upgrade|howto|pause --shot ПУТЬ
-##   «Контора»/досье: --screen office_poor|office_part|office_rich|hero_poor|hero_part|hero_rich
+##   подготовка на брифинге/досье:
+##       --screen prep_poor|prep_part|prep_rich|hero_poor|hero_part|hero_rich
 ##       --shot ПУТЬ
 ##
 
@@ -61,8 +62,8 @@ func _build_screen(screen: String) -> Control:
 		"result_win": _result_fixture.bind(true), "result_lose": _result_fixture.bind(false),
 		"upgrade": _upgrade_fixture, "howto": _howto_fixture,
 		"pause": func() -> Control: return LegionPause.new(),
-		"office_poor": _office_fixture.bind(0), "office_part": _office_fixture.bind(1),
-		"office_rich": _office_fixture.bind(2), "hero_poor": _hero_fixture.bind(0),
+		"prep_poor": _prep_fixture.bind(0), "prep_part": _prep_fixture.bind(1),
+		"prep_rich": _prep_fixture.bind(2), "hero_poor": _hero_fixture.bind(0),
 		"hero_part": _hero_fixture.bind(1), "hero_rich": _hero_fixture.bind(2),
 	}
 	var builder: Callable = builders.get(screen, Callable())
@@ -140,9 +141,10 @@ func _offer_upgrade(screen: UpgradePicker, options: Array) -> void:
 	screen.offer(options)
 
 
-## «Контора»: 0 — начало кампании, премии мало; 1 — разряд 4 открыл два слота, один пакет взят;
+## Подготовка на брифинге (D-1007-P1, «Конторы» как экрана нет): 0 — начало кампании, премии
+## мало; 1 — разряд 4 открыл два места, один пакет взят, есть поправка и артефакт («Действует»);
 ## 2 — всё открыто, премии много.
-func _office_fixture(stage: int) -> Control:
+func _prep_fixture(stage: int) -> Control:
 	var maps := Campaign.maps()
 	if stage == 0:
 		Campaign._add_bounty(45)
@@ -152,10 +154,15 @@ func _office_fixture(stage: int) -> Control:
 		Campaign._add_bounty(200)
 		RunProgression.buy_service("souls")
 		Campaign._add_bounty(-Campaign.bounty() + 75)
+		Campaign.add_upgrade(StringName(AmendmentDb.ORDER[0]))
+		var arts: Array[StringName] = [&"clip_of_fate"]
+		Campaign.set_run_items(arts)
 	else:
 		Campaign.unlock_all()
 		Campaign._add_bounty(900)
-	return OfficeShop.new()
+	var screen := Briefing.new()
+	call_deferred("_populate_briefing", screen, maps[mini(1, maps.size() - 1)])
+	return screen
 
 
 ## Досье: 0 — разряд 1, только базовая колода; 1 — разряд ~5, часть карт открыта; 2 — потолок.

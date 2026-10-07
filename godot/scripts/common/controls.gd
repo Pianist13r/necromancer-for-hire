@@ -11,7 +11,7 @@ const DEFAULTS := {&"cast_q": KEY_Q, &"cast_w": KEY_W, &"cast_e": KEY_E,
 	&"rally": KEY_R, &"call_wave": KEY_F, &"kassa": KEY_D, &"aim_contract": KEY_SPACE,
 	&"erase_piece": KEY_TAB, &"rune_normal": KEY_1, &"rune_frost": KEY_2,
 	&"rune_ash": KEY_3, &"pause": KEY_P, &"mute": KEY_M}
-const TITLES := {&"cast_q": "Разряд", &"cast_w": "Оформление в штат", &"cast_e": "Аврал",
+const TITLES := {&"cast_q": "Молния", &"cast_w": "Оформление в штат", &"cast_e": "Аврал",
 	&"rally": "Сбор", &"call_wave": "Вызвать волну", &"kassa": "Касса",
 	&"aim_contract": "Поворот стрелки (держать)", &"erase_piece": "Стереть кусок линии",
 	&"rune_normal": "Подряд", &"rune_frost": "Охрана",

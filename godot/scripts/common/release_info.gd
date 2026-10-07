@@ -2,7 +2,7 @@ class_name ReleaseInfo
 extends RefCounted
 ## Один источник версии и публичных ссылок. Удалённый JSON меняет только адрес лобби.
 
-const VERSION := "0.2.1-alpha"
+const VERSION := "0.2.2-alpha"
 const REPOSITORY_URL := "https://github.com/Pianist13r/necromancer-for-hire"
 const RELEASES_URL := REPOSITORY_URL + "/releases"
 const SERVER_INFO_URL := (

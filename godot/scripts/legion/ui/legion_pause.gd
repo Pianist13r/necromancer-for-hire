@@ -91,7 +91,8 @@ func _ready() -> void:
 	box.add_child(_make_button("Настройки", func() -> void: settings_pressed.emit()))
 	box.add_child(_make_button("Как играть", func() -> void: howto_pressed.emit()))
 	if show_dossier:
-		box.add_child(_make_button("Досье артефактов", func() -> void: dossier_pressed.emit()))
+		# D-1007-P2: одно «Досье» (поправки и артефакты) — тот же экран, что из меню.
+		box.add_child(_make_button("Досье", func() -> void: dossier_pressed.emit()))
 	if not hide_restart:
 		box.add_child(_make_button("Заново", func() -> void:
 			LegionUi.confirm(self, "Бой будет начат заново. Награды прошлых боёв сохранены.",

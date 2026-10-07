@@ -12,8 +12,13 @@
 Имена файлов без версии; README указывает конкретный тег «releases/download/<версия>/<имя>».
 Альфа-выпуски открываются со страницы Releases, без зависимости от ссылки latest.
 
-    python -X utf8 tools/release/make_github_release.py 0.1.0-alpha
+    python -X utf8 tools/release/make_github_release.py 0.1.0-alpha [--skip-live-metrics]
+
+До сборки файлов — metrics_preflight.py: версия клиента должна быть принята и кодом сервера
+статистики, и рабочим сервером (сервер выкатывается раньше клиента). Собранный exe проверять
+с NECRO_NO_METRICS=1: запуск без аргументов иначе уйдёт в статистику как игрок.
 """
+import argparse
 import hashlib
 import io
 import shutil
@@ -22,6 +27,9 @@ import tarfile
 import time
 import zipfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import metrics_preflight  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 DIST = REPO / "dist"
@@ -82,9 +90,14 @@ def linux_tar(out: Path) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        raise SystemExit(__doc__)
-    out_dir = DIST / "github-release" / sys.argv[1]
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("version")
+    parser.add_argument("--skip-live-metrics", action="store_true",
+                        help="без сети: сверить только код сервера, рабочий — позже вручную")
+    args = parser.parse_args()
+    metrics_preflight.check(args.version, live=not args.skip_live_metrics, repo=REPO)
+    out_dir = DIST / "github-release" / args.version
     if out_dir.exists():
         raise SystemExit(f"уже есть: {out_dir} — выберите другую версию или уберите папку сами")
     out_dir.mkdir(parents=True)

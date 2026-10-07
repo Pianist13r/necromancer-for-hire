@@ -12,7 +12,6 @@ extends Control
 ##
 
 signal map_chosen(map_id: String)
-signal office_pressed
 signal back
 
 const COLS := 3
@@ -93,8 +92,8 @@ func _ready() -> void:
 	holder.resized.connect(_fit_cards)
 	_fit_cards()
 
-	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit(),
-		"Контора (%d премии)" % Campaign.bounty(), func() -> void: office_pressed.emit())
+	# D-1007-P1: кнопки «Контора» нет — подготовка на брифинге выбранной карты.
+	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
 
 
 ## Ужать карточки под оставшуюся высоту: высота ряда делится поровну, шрифты едут за ней.

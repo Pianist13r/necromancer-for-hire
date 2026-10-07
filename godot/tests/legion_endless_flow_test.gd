@@ -219,7 +219,8 @@ func _test_retry_after_victory_does_not_recount() -> void:
 
 
 ## verifier 27.09, probe3.gd: «Контора» в забеге была мертва — bounty() не рос. Премия должна
-## начисляться за сданный объект и быть доступна к трате в «Конторе» ЗАБЕГА.
+## начисляться за сданный объект и быть доступна к трате на подготовку ЗАБЕГА (с D-1007-P1 —
+## панель подготовки на брифинге забега, отдельного экрана «Контора» нет).
 func _test_bounty_earned_and_spendable_in_office() -> void:
 	await _fresh_main()
 	_reset_progress()
@@ -243,13 +244,15 @@ func _test_bounty_earned_and_spendable_in_office() -> void:
 		main.pick_upgrade(opts[0])
 		await _frames(2)
 	_check(main.screen is EndlessBriefing, "после награды брифинг забега")
-	main.screen.office_pressed.emit()
-	await _frames(2)
-	_check(main.screen is OfficeShop, "необязательная Контора открылась с брифинга")
+	var panel := main.screen.find_child("PrepPanel", true, false) as PrepPanel
+	_check(panel != null, "на брифинге забега есть подготовка")
 	var bounty_before := Campaign.bounty()
-	var bought := Campaign.shop_buy("souls")
-	_check(bought and Campaign.bounty() < bounty_before,
-		"verifier п.4: в «Конторе» забега реально можно что-то купить на накопленную премию")
+	if panel != null:
+		for row in panel.rows():
+			if row.amendment_id == &"souls":
+				row.button().pressed.emit()
+	_check(RunProgression.preparations().has("souls") and Campaign.bounty() < bounty_before,
+		"verifier п.4: на брифинге забега реально можно купить подготовку на накопленную премию")
 
 
 ## verifier 27.09, probe4.gd: свежая сессия с уже стоящей ожидающей наградой ЗАБЕГА (world ==
@@ -416,14 +419,14 @@ func _test_collection_save_from_pause_and_result_and_replay() -> void:
 	var k_before := LegionRunStore.endless_k(false)
 	var tenure_before := LegionRunStore.endless_tenure(false)
 
-	# «Дальше» → поправка/«Контора» → следующий объект — обычный флоу забега, коллекция не мешает.
+	# «Дальше» → поправка → брифинг следующего объекта — обычный флоу забега, коллекция не мешает.
 	(main.screen as LegionResult).next.emit()
 	await _frames(2)
 	if main.screen is UpgradePicker:
 		var opts := Campaign.offer_upgrades(main.world.rng)
 		main.pick_upgrade(opts[0])
 		await _frames(2)
-	_check(main.screen is EndlessBriefing, "следующий объект без обязательной Конторы")
+	_check(main.screen is EndlessBriefing, "после поправки — сразу брифинг следующего объекта")
 	_check(LegionRunStore.endless_k(false) == k_before,
 		"брифинг следующего объекта — ещё не выигран, k не меняется (коллекция забег не трогала)")
 

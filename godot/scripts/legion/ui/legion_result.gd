@@ -86,7 +86,9 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		primary = ""
 	LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
 		primary, action)
-	if show_maps:
+	# После победы с наградой «Карты» нет (D-1007-P4): главное — «Дальше: выбор поправки»,
+	# а экран карт уводил мимо выбора.
+	if show_maps and not (victory and has_next):
 		box.add_child(_make_button("Карты", func() -> void: maps.emit()))
 	if show_retry and victory and has_next:
 		box.add_child(_make_button("Ещё раз", func() -> void: retry.emit()))
@@ -153,7 +155,7 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 	box.add_theme_constant_override("separation", 2)
 
 	var line := UiStyle.label(
-		"Премия: +%d · Опыт героя: +%d" % [int(rewards.get("bounty", 0)), int(rewards.get("xp", 0))],
+		"Премия: +%d · Опыт: +%d" % [int(rewards.get("bounty", 0)), int(rewards.get("xp", 0))],
 		16, UiStyle.FONT_TEXT, UiStyle.GOLD)
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var row := HBoxContainer.new()
@@ -174,13 +176,45 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 		kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(kl)
 
+	# Новичку: на что премия и зачем опыт (D-1007-P3) — одна строка, без экрана объяснений.
+	if rewards.has("xp"):
+		var why := UiStyle.label("Премия — на подготовку перед боем. Опыт растит разряд: "
+			+ "разряд открывает новые поправки.", 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(why)
+
 	if bool(rewards.get("leveled_up", false)):
-		var up := UiStyle.label("Новый уровень героя! (%d)" % int(rewards.get("level", 0)), 18,
+		var up := UiStyle.label(rank_up_text(int(rewards.get("level_before",
+			int(rewards.get("level", 0)) - 1)), int(rewards.get("level", 0))), 18,
 			UiStyle.FONT_TITLE, UiStyle.GOOD)
 		up.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		up.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(up)
 
 	return box
+
+
+## «Новый разряд 2 — открыты поправки «Ночная смена», «Бесплатная смета»» (D-1007-P3): что дал
+## разряд, словами игрока. Открытия — карты колоды с unlock_level в (before, after] и второе место
+## подготовки (AmendmentDb.PREP_SLOT2_LEVEL).
+static func rank_up_text(before: int, after: int) -> String:
+	var names: Array[String] = []
+	for id: String in AmendmentDb.ORDER:
+		var ul := int(AmendmentDb.card(StringName(id)).get("unlock_level", 1))
+		if ul > before and ul <= after:
+			names.append("«%s»" % String(AmendmentDb.card(StringName(id)).get("title", id)))
+	var parts: Array[String] = []
+	if names.size() == 1:
+		parts.append("открыта поправка " + names[0])
+	elif names.size() > 1:
+		parts.append("открыты поправки " + ", ".join(names))
+	if before < AmendmentDb.PREP_SLOT2_LEVEL and after >= AmendmentDb.PREP_SLOT2_LEVEL:
+		parts.append("второе место подготовки перед боем")
+	var out := "Новый разряд %d" % after
+	if not parts.is_empty():
+		out += " — " + "; ".join(parts)
+	return out
 
 
 func _make_button(text: String, on_pressed: Callable) -> Button:

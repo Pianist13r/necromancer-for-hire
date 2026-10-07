@@ -13,6 +13,14 @@ const SECTION := "progression"
 ## массив "preparations". Старые сохранения с одним пакетом открываются без миграции.
 const PREP_KEY := "preparation"
 const PREPS_KEY := "preparations"
+## Что игрок брал в прошлый раз (D-1007-P5): брифинг берёт это само (auto_prepare), снятое
+## щелчком отсюда уходит. Старт боя ключ не трогает — запомненное переживает списание.
+const PREP_LAST_KEY := "prep_last"
+## Имя способности/приёма по ключу `needs` карточки — для пометки B-426.
+const NEEDS_NAMES := {
+	"ability_unlocked_q": "Молния Ку", "ability_unlocked_w": "Дубль-вэ",
+	"ability_unlocked_e": "Аврал", "control_unlocked_rally": "«Сбор»",
+}
 static var _replacement: Dictionary = {}
 
 
@@ -125,6 +133,26 @@ static func available(id: StringName) -> bool:
 			return false
 	var needs := StringName(data.get("needs", ""))
 	return needs == &"" or Campaign.stat(needs) > 0.5
+
+
+## B-426: карточка про способность, которую игрок в кампании ещё не видел (её открывает карта,
+## открытая, но не пройденная), — «Аврал появится на «Два отдела»». Иначе "". Предложение не
+## сужаем: поправка сработает уже на той карте, игроку нужно лишь знать, откуда способность.
+static func unseen_note(id: StringName) -> String:
+	if Campaign.is_endless_scope():
+		return ""
+	var needs := String(AmendmentDb.card(id).get("needs", ""))
+	if needs == "" or not NEEDS_NAMES.has(needs):
+		return ""
+	for m in Campaign.maps():
+		var unlocks: Variant = m.get("unlocks", [])
+		if not (unlocks is Array or unlocks is Dictionary) or not needs in unlocks:
+			continue
+		var mid := String(m.get("id", ""))
+		if Campaign.stars(mid) > 0:
+			return ""
+		return "%s появится на «%s»" % [NEEDS_NAMES[needs], String(m.get("title", mid))]
+	return ""
 
 
 static func offer(rng: RandomNumberGenerator) -> Array[StringName]:
@@ -275,8 +303,53 @@ static func buy_service(id: String) -> bool:
 	var picked := preparations()
 	picked.append(id)
 	Campaign.raw_file().set_value(Campaign._meta_section(), PREPS_KEY, picked)
+	var last := prep_last()
+	if not last.has(id):
+		last.append(id)
+	Campaign.raw_file().set_value(Campaign._meta_section(), PREP_LAST_KEY, last)
 	Campaign.save_raw()
 	return Campaign.end_update(true)
+
+
+## Снять взятый пакет с ПОЛНЫМ возвратом премии (брифинг: повторный щелчок по взятой строке) и
+## забыть его для auto_prepare. false — пакет не взят или запись не удалась (тогда end_update
+## откатывает файл целиком: ни премии, ни пакета не меняется).
+static func cancel_service(id: String) -> bool:
+	var picked := preparations()
+	if not picked.has(id):
+		return false
+	Campaign.begin_update()
+	Campaign.add_bounty(int(AmendmentDb.PREPARATIONS[id]["cost"]))
+	picked.erase(id)
+	var cfg := Campaign.raw_file()
+	var sec := Campaign._meta_section()
+	cfg.set_value(sec, PREPS_KEY, picked)
+	cfg.set_value(sec, PREP_KEY, "")
+	var last := prep_last()
+	last.erase(id)
+	cfg.set_value(sec, PREP_LAST_KEY, last)
+	Campaign.save_raw()
+	return Campaign.end_update(true)
+
+
+## Запомненные пакеты прошлой подготовки (D-1007-P5), без мусора.
+static func prep_last() -> Array[String]:
+	var out: Array[String] = []
+	for id in Campaign.raw_file().get_value(Campaign._meta_section(), PREP_LAST_KEY, []):
+		var sid := String(id)
+		if AmendmentDb.PREPARATIONS.has(sid) and not out.has(sid):
+			out.append(sid)
+	return out
+
+
+## Брифинг: докупить то, что игрок брал в прошлый раз, по обычным правилам buy_service (премия,
+## места, транзакция). Возвращает, что взято автоматически сейчас; уже взятое не трогает.
+static func auto_prepare() -> Array[String]:
+	var got: Array[String] = []
+	for id in prep_last():
+		if not preparations().has(id) and buy_service(id):
+			got.append(id)
+	return got
 
 
 static func reset_run(sec: String) -> void:
@@ -285,5 +358,6 @@ static func reset_run(sec: String) -> void:
 		cfg.set_value(sec, key, [])
 	cfg.set_value(sec, PREP_KEY, "")
 	cfg.set_value(sec, PREPS_KEY, [])
+	cfg.set_value(sec, PREP_LAST_KEY, [])
 	cfg.set_value(sec, "reward_claimed", false)
 	clear_stage()

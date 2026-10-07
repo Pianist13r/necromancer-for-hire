@@ -85,7 +85,7 @@ func _run() -> void:
 	_check(main.screen is UpgradePicker, "итог → выбор поправки")
 
 	# выбор конкретной поправки (клик по карточке)
-	# Поправка сразу открывает брифинг; Контора доступна отдельно.
+	# Поправка сразу открывает брифинг; подготовка — на нём же (D-1007-P1).
 	(main.screen as UpgradePicker).picked.emit(CHOSEN_UPGRADE)
 	await _frames(2)
 	_check(Campaign.upgrades().has(CHOSEN_UPGRADE), "поправка взята в прогресс кампании")

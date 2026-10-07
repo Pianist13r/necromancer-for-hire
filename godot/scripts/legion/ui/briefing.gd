@@ -8,7 +8,8 @@ extends Control
 
 signal start(map_id: String)
 signal back
-signal office_pressed
+## Игрок взял пакет подготовки на брифинге (озвучка покупки — у LegionMain).
+signal prep_bought
 
 ## Ключ типа (LegionCfg.FOES в CORE) → русское имя для игрока (CONCEPT.md, «проверяющие»).
 const FOE_NAMES := {
@@ -82,13 +83,42 @@ func populate(map_data: Dictionary) -> void:
 		threats_row.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(threats_row)
 
-	var row := LegionUi.nav_bar(self, back_label, func() -> void: back.emit(),
-		"В бой", func() -> void: start.emit(_map_id))
-	var office := ProgressionUi.button("Контора (%d премии)" % Campaign.bounty(),
-		func() -> void: office_pressed.emit())
-	row.add_child(office)
-	row.move_child(office, 1)
+	add_prep_block(box).changed.connect(func(bought: bool) -> void:
+		if bought:
+			prep_bought.emit())
 
+	LegionUi.nav_bar(self, back_label, func() -> void: back.emit(),
+		"В бой", func() -> void: start.emit(_map_id))
+
+
+## D-1007-P1/P2: под угрозами — что уже действует (полоса поправок, артефакты кампании) и
+## подготовка к бою прямо здесь, без отдельного экрана «Контора». Общий для брифинга забега.
+static func add_prep_block(box: VBoxContainer) -> PrepPanel:
+	var active := Campaign.upgrades()
+	var items := Campaign.run_items()
+	if not active.is_empty() or not items.is_empty():
+		var head := UiStyle.label("Действует", 15, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(head)
+	if not active.is_empty():
+		var strip := SlotStrip.new()
+		strip.name = "ActiveStrip"
+		box.add_child(strip)
+		strip.configure(active, false, true)
+	if not items.is_empty():
+		var names: PackedStringArray = []
+		for id in items:
+			names.append(String(LegionItemDb.item(id).get("title", id)))
+		var line := UiStyle.label("Артефакты: " + ", ".join(names), 15, UiStyle.FONT_TEXT,
+			UiStyle.SOUL.lightened(0.35))
+		line.name = "ActiveItems"
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD
+		box.add_child(line)
+	var panel := PrepPanel.new()
+	panel.name = "PrepPanel"
+	box.add_child(panel)
+	return panel
 
 
 ## Собирает уникальные русские имена типов врагов из waves[].groups[].type — любых полей

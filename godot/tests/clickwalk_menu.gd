@@ -112,7 +112,9 @@ func _initialize() -> void:
 		push_error("нужен --dev save=%s (получено «%s»)" % [want, _dev_arg(args, "save")])
 		quit(2)
 		return
-	_out_dir = OUT_ROOT.path_join(_res_name)
+	# --out <папка> — свой корень кадров (иначе прогоны разных сессий пишут поверх общего OUT_ROOT).
+	var out_root := _arg(args, "--out")
+	_out_dir = (out_root if out_root != "" else OUT_ROOT).path_join(_res_name)
 	_run.call_deferred()
 
 
@@ -223,9 +225,16 @@ func _phase_d_victory() -> void:
 		func() -> String: return "награда не забрана: pending=" + Campaign.pending_reward())
 	await _click_cta("D6_continue", "screen=UpgradePicker")
 	_check_same_options(_picker_options())
-	await _click_amendment("D7_pick_card", _first(_offered_before), "screen=Briefing")
-	await _click_text("D8_office", ["Контора ("], "screen=OfficeShop", "", true)
-	await _click_nav_back("D9_office_back", "screen=Briefing")
+	# D-1007-P4: щелчок по строке выделяет (экран остаётся), подписывает кнопка «Подписать «…»».
+	await _click_amendment("D7_pick_card", _first(_offered_before), "screen=UpgradePicker")
+	await _click_text("D7b_sign", ["Подписать «"], "screen=Briefing", "", true)
+	# D-1007-P1: «Конторы» нет — подготовка на брифинге. Щелчок по «Подъёмным» берёт пакет за
+	# премию, повторный — снимает с полным возвратом.
+	var b0 := Campaign.bounty()
+	await _click_text("D8_prep_take", ["Подъёмные"], "screen=Briefing", "премия до: %d" % b0)
+	_check_prep("D8_prep_take", b0 - int(AmendmentDb.PREPARATIONS["souls"]["cost"]), true)
+	await _click_text("D9_prep_cancel", ["Подъёмные"], "screen=Briefing")
+	_check_prep("D9_prep_cancel", b0, false)
 	await _click_text("D10_to_battle", ["В бой"], "screen=none,hud=1")
 
 
@@ -249,7 +258,9 @@ func _phase_e_replacement() -> void:
 	await _click_text("E3_result_next", ["Дальше: выбор поправки"], "screen=UpgradePicker")
 	var offered := _picker_options()
 	await _click_amendment("E4_pick_card", _first(offered), "screen=UpgradePicker",
-		"режим замены: активных %d" % Campaign.upgrades().size())
+		"выделена: активных %d" % Campaign.upgrades().size())
+	await _click_text("E4b_sign", ["Подписать «"], "screen=UpgradePicker",
+		"режим замены: активных %d" % Campaign.upgrades().size(), true)
 	# Замена — клик по слоту полосы «Редакция договора» (карточек «Вычеркнуть» больше нет,
 	# D-1006-16). Кликаем слот первой активной поправки по её названию.
 	var evict := String(AmendmentDb.card(was[0]).get("title", String(was[0])))
@@ -263,7 +274,10 @@ func _phase_e_replacement() -> void:
 func _phase_f_dossier() -> void:
 	await _click_text("F1_to_battle", ["В бой"], "screen=none,hud=1")
 	await _click_text("F2_pause", ["❚❚ Пауза"], "paused=1,overlay=LegionPause")
-	await _click_in("F3_dossier", ["Досье артефактов"], LegionPause, "overlay=LegionItemDossier")
+	# D-1007-P2: одно «Досье» — из паузы открывается на «Артефактах», вкладка «Поправки» рядом.
+	await _click_in("F3_dossier", ["Досье"], LegionPause, "overlay=LegionItemDossier")
+	await _click_in("F3b_dossier_upgrades", ["Поправки"], LegionItemDossier,
+		"overlay=LegionItemDossier")
 	await _click_in("F4_dossier_back", ["← Назад"], LegionItemDossier, "paused=1,overlay=LegionPause")
 	await _click_in("F5_resume", ["Продолжить"], LegionPause, "screen=none,hud=1,paused=0")
 
@@ -281,12 +295,9 @@ func _phase_g_defeat() -> void:
 # ── Маршрут 8: экраны меты, которых маршрут H не касался ─────────────────────────────────────
 
 func _phase_h_meta_screens() -> void:
-	await _click_text("H1_hero", ["Герой"], "screen=HeroScreen")
+	await _click_text("H1_hero", ["Досье"], "screen=HeroScreen")
+	await _click_text("H1b_dossier_items", ["Артефакты ("], "screen=HeroScreen", "", true)
 	await _click_nav_back("H2_hero_back", "screen=LegionMenu")
-	await _click_text("H3_office_card", ["Контора"], "screen=OfficeShop")
-	await _click_in("H4_office_hero", ["Досье некроманта"], OfficeShop, "screen=HeroScreen")
-	await _click_nav_back("H5_hero_back2", "screen=OfficeShop")
-	await _click_nav_back("H6_office_back", "screen=LegionMenu")
 	# Коллекция: кладём в неё запись сами (маршрут её не собирал) — кнопка меню появляется
 	# только у непустой коллекции (legion_menu.gd CollectionAction), и только при СБОРКЕ меню,
 	# поэтому меню перестраиваем: show_menu() создаёт экран заново.
@@ -836,6 +847,18 @@ func _check_same_options(after: Array[StringName]) -> void:
 	if not ok:
 		_fails.append("D6_continue: после выхода в меню варианты другие (%s → %s)" % [a, b])
 	_extra_row("D6_same_options", ok, "было=" + a, "стало=" + b)
+
+
+## Маршрут 4: после щелчка по строке подготовки премия и пакет — как ожидалось (D-1007-P1).
+func _check_prep(step: String, want_bounty: int, want_taken: bool) -> void:
+	var got := Campaign.bounty()
+	var taken := RunProgression.preparations().has("souls")
+	var ok := got == want_bounty and taken == want_taken
+	if not ok:
+		_fails.append("%s: премия %d (ждали %d), «Подъёмные» взяты=%s (ждали %s)"
+			% [step, got, want_bounty, taken, want_taken])
+	_extra_row(step + "_check", ok, "премия=%d взято=%s" % [got, taken],
+		"ждали премия=%d взято=%s" % [want_bounty, want_taken])
 
 
 ## Маршрут 5: после замены активных снова три, новая поправка встала на место старой, награда

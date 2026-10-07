@@ -217,9 +217,6 @@ func _test_between_objects_exit_allowed() -> void:
 	if main.screen is UpgradePicker:
 		main.pick_upgrade(Campaign.offer_upgrades(main.world.rng)[0])
 		await _frames(2)
-	if main.screen is OfficeShop:
-		main.screen.back.emit()
-		await _frames(2)
 	_check(main.screen is EndlessBriefing and LegionRunStore.endless_k(true) == 2,
 		"«Продолжить» дня — брифинг объекта 2")
 	_check(not LegionRunStore.daily_attempt_done(LegionEndless.today_date()),

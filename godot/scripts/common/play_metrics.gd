@@ -7,6 +7,10 @@ const ENDPOINT := "https://51-250-12-39.sslip.io/metrics/v1"
 const VERSION := ReleaseInfo.VERSION
 const SECTION := "privacy"
 const KEY := "share_play_metrics"
+## Скрытая пометка «внутренний запуск» (машина автора, свои проверки): в меню её нет,
+## ставится строкой `internal=true` в [privacy] settings.cfg. Без неё запуски автора с
+## согласием смешиваются с игроками рекламного теста (METRICS_AUDIT_1007 п.1).
+const INTERNAL_KEY := "internal"
 const INTERVAL := 60.0
 const NOTICE := ("Помочь улучшить игру?\n\n"
 	+ "Можно отправлять автору версию игры, систему, число сеансов и минуты "
@@ -35,6 +39,18 @@ static func consent() -> bool:
 	return Settings.get_value(SECTION, KEY, false) == true
 
 
+static func internal() -> bool:
+	return Settings.get_value(SECTION, INTERNAL_KEY, false) == true
+
+
+## Отправка возможна только из экспортной сборки, запущенной как у игрока. Пометка
+## «внутренний» гасит и окно согласия: ответ игрока в settings.cfg не меняется.
+static func may_send(ship: bool, display: String, user_args: PackedStringArray,
+		no_metrics_env: String) -> bool:
+	return ship and display != "headless" and user_args.is_empty() \
+		and no_metrics_env != "1" and not internal()
+
+
 static func active_play(world: Node, focused: bool) -> bool:
 	return focused and is_instance_valid(world) and world is LegionWorld \
 		and world.phase == LegionWorld.Phase.BATTLE and not world.paused \
@@ -44,9 +60,8 @@ static func active_play(world: Node, focused: bool) -> bool:
 func _ready() -> void:
 	main = get_parent()
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_allowed = OS.has_feature("ship") and DisplayServer.get_name() != "headless" \
-		and OS.get_cmdline_user_args().is_empty() \
-		and OS.get_environment("NECRO_NO_METRICS") != "1"
+	_allowed = may_send(OS.has_feature("ship"), DisplayServer.get_name(),
+		OS.get_cmdline_user_args(), OS.get_environment("NECRO_NO_METRICS"))
 	if not _allowed:
 		set_process(false)
 		return
@@ -63,22 +78,11 @@ func _ready() -> void:
 
 func show_consent() -> void:
 	var dialog := ConfirmationDialog.new()
-	dialog.title = "Помочь игре стать лучше"
 	dialog.dialog_text = NOTICE
 	dialog.ok_button_text = "Да, отправлять статистику"
 	dialog.cancel_button_text = "Нет, спасибо"
 	dialog.min_size = Vector2i(580, 340)
-	dialog.get_label().autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dialog.get_label().add_theme_font_override("font", UiStyle.FONT_TEXT)
-	dialog.get_label().add_theme_font_size_override("font_size", 20)
-	var panel := UiStyle.panel_style()
-	panel.content_margin_left = 18.0
-	panel.content_margin_right = 18.0
-	panel.content_margin_top = 16.0
-	panel.content_margin_bottom = 16.0
-	dialog.add_theme_stylebox_override("panel", panel)
-	UiStyle.style_button(dialog.get_ok_button())
-	UiStyle.style_button(dialog.get_cancel_button())
+	UiStyle.style_dialog(dialog, "Помочь игре стать лучше")
 	dialog.confirmed.connect(func() -> void:
 		Settings.set_value(SECTION, KEY, true)
 		dialog.queue_free())

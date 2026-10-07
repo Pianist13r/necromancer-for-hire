@@ -120,6 +120,12 @@ func _process(dt: float) -> void:
 		var selected := not button.disabled and world.my_field().current_kind == kind
 		var state := 2 if selected else (0 if button.disabled else 1)
 		var key := Controls.key([&"rune_normal", &"rune_frost", &"rune_ash"][i])
+		# B-423: цена зависит от множителя поля (поправки, артефакты), а он меняется и без смены
+		# состояния кнопки — подпись сверяем на каждом шаге, а не только при смене вида.
+		var price := button.find_child("Price", true, false) as Label
+		var price_text := _price_text(kind)
+		if price.text != price_text:
+			price.text = price_text
 		if state == _state[i] and key == _keys[i]:
 			continue
 		_keys[i] = key
@@ -128,7 +134,6 @@ func _process(dt: float) -> void:
 		button.add_theme_stylebox_override("normal", st["sel"] if selected else st["normal"])
 		button.add_theme_stylebox_override("hover", st["sel"] if selected else st["hover"])
 		button.modulate = Color(1.0, 1.0, 1.0, 0.55) if button.disabled else Color.WHITE
-		(button.find_child("Price", true, false) as Label).text = _price_text(kind)
 		button.queue_redraw()
 		for c in button.find_children("*", "Control", true, false):
 			(c as Control).queue_redraw()

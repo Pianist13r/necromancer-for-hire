@@ -9,7 +9,8 @@ extends Control
 
 signal start(map_id: String)
 signal back
-signal office_pressed
+## Игрок взял пакет подготовки на брифинге (озвучка покупки — у LegionMain).
+signal prep_bought
 
 
 func _ready() -> void:
@@ -107,13 +108,13 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 		var picker := DifficultyPicker.new()
 		box.add_child(picker)
 
-	var row := LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
-		"В бой", func() -> void: start.emit(map_id))
-	var office := ProgressionUi.button("Контора (%d премии)" % Campaign.bounty(),
-		func() -> void: office_pressed.emit())
-	row.add_child(office)
-	row.move_child(office, 1)
+	# D-1007-P1/P2: что действует и подготовка — в карточке, как у брифинга кампании.
+	Briefing.add_prep_block(box).changed.connect(func(bought: bool) -> void:
+		if bought:
+			prep_bought.emit())
 
+	LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
+		"В бой", func() -> void: start.emit(map_id))
 
 
 ## Тот же расчёт угроз, что Briefing кампании (Briefing.FOE_NAMES — общий словарь имён).

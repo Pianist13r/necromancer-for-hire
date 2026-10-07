@@ -110,16 +110,13 @@ func _run() -> void:
 	await _skip()
 	_check(main.screen is LegionResult, "после финала — экран итога")
 
-	# integrate1: озвучка кампании узлом звука живого мира — «Контора» и новый вид на брифинге
+	# integrate1: озвучка кампании узлом звука живого мира — новый вид и покупка подготовки на
+	# брифинге («Конторы» как экрана нет с D-1007-P1, её приветствия — тоже).
 	var audio := main._find_world_audio()
 	_check(audio != null, "мир между картами держит узел озвучки")
 	if audio != null:
 		# Без сброса занятости (verifier 26.09 — сброс прятал потерю реплик): финал пропущен
-		# Esc целиком, вместе с голосом, так что «Контора» здоровается сразу; объявление нового
-		# вида на брифинге — сюжет за сюжетом, встаёт в очередь за приветствием и звучит следом.
-		main.show_office(main.show_menu)
-		await _frames(1)
-		_check(audio._voice_last_msec.has(&"lg_office_enter"), "вход в «Контору» — lg_office_enter")
+		# Esc целиком, вместе с голосом; объявление нового вида на брифинге — сюжет, звучит сразу.
 		Campaign.unlock_all()   # открыты вахтёр/счетовод, плашка «Новое» ещё не показана
 		main.show_briefing(second)
 		await _frames(2)
@@ -128,6 +125,18 @@ func _run() -> void:
 		for id in [&"lg_contract_new_1", &"lg_contract_new_2", &"lg_contract_new_3"]:
 			said_new = said_new or audio._voice_last_msec.has(id)
 		_check(said_new, "брифинг с новым видом — lg_contract_new_*")
+		# Покупка пакета на брифинге — та же реплика, что раньше в «Конторе» (lg_office_buy).
+		await _wait_quiet(audio)
+		Campaign.add_bounty(100)
+		var panel := main.screen.find_child("PrepPanel", true, false) as PrepPanel
+		_check(panel != null, "на брифинге есть подготовка")
+		if panel != null:
+			panel.refresh()
+			for row in panel.rows():
+				if row.amendment_id == &"souls":
+					row.button().pressed.emit()
+			await _frames(1)
+		_check(audio._voice_last_msec.has(&"lg_office_buy"), "покупка подготовки — lg_office_buy")
 
 	main.queue_free()
 	await _frames(1)

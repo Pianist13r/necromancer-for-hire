@@ -154,6 +154,48 @@ static func card_box(parent: Control, min_w: float, separation: int = 12) -> VBo
 	return box
 
 
+## Окно-диалог (подтверждение, согласие) в стиле игры. Без этого Godot рисует встроенное окно
+## серой системной рамкой с английским «Please Confirm…» — так оно и попало в запись для рекламы
+## (B-435). Рамка окна (embedded_border) рисуется вокруг панели и заодно служит полосой
+## заголовка: её верхний край расширен на высоту заголовка.
+static func style_dialog(dialog: AcceptDialog, title: String) -> void:
+	dialog.title = title
+	var frame := StyleBoxFlat.new()
+	frame.bg_color = Color(0.09, 0.07, 0.12, 0.98)
+	frame.border_color = Color(GOLD, 0.75)
+	frame.set_border_width_all(2)
+	frame.set_corner_radius_all(8)
+	frame.expand_margin_left = 10.0
+	frame.expand_margin_right = 10.0
+	frame.expand_margin_bottom = 10.0
+	frame.expand_margin_top = 40.0
+	frame.shadow_color = Color(0.0, 0.0, 0.0, 0.5)
+	frame.shadow_size = 12
+	var unfocused := frame.duplicate() as StyleBoxFlat
+	unfocused.border_color = Color(GOLD, 0.45)
+	dialog.add_theme_stylebox_override("embedded_border", frame)
+	dialog.add_theme_stylebox_override("embedded_unfocused_border", unfocused)
+	dialog.add_theme_constant_override("title_height", 38)
+	dialog.add_theme_font_override("title_font", FONT_TITLE)
+	dialog.add_theme_font_size_override("title_font_size", 22)
+	dialog.add_theme_color_override("title_color", GOLD)
+	# фон панели непрозрачный: под прозрачной панелью видна серая заливка самого окна
+	var panel := panel_style(Color(frame.bg_color, 1.0), 0)
+	panel.content_margin_left = 18.0
+	panel.content_margin_right = 18.0
+	panel.content_margin_top = 16.0
+	panel.content_margin_bottom = 16.0
+	dialog.add_theme_stylebox_override("panel", panel)
+	var text := dialog.get_label()
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.add_theme_font_override("font", FONT_TEXT)
+	text.add_theme_font_size_override("font_size", 20)
+	text.add_theme_color_override("font_color", TEXT)
+	style_button(dialog.get_ok_button())
+	if dialog is ConfirmationDialog:
+		style_button((dialog as ConfirmationDialog).get_cancel_button())
+
+
 ## Тёмная панель со скруглением — фон виджетов HUD.
 static func panel_style(bg: Color = PANEL_BG, radius: int = 6) -> StyleBoxFlat:
 	var st := StyleBoxFlat.new()

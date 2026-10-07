@@ -2,8 +2,8 @@ class_name LegionCollectionScreen
 extends Control
 ##
 ## D-0927-162: экран «Коллекция» — список сохранённых карт объектов, «Играть»/«Убрать» на каждую.
-## Экран сам зовёт LegionCollection.remove()/repopulate() — тот же приём, что OfficeShop.gd зовёт
-## Campaign.shop_buy() напрямую; LegionMain нужен только для запуска боя («Играть»).
+## Экран сам зовёт LegionCollection.remove()/repopulate() — тот же приём, что PrepPanel зовёт
+## RunProgression.buy_service() напрямую; LegionMain нужен только для запуска боя («Играть»).
 ##
 
 signal play_requested(map_id: String)

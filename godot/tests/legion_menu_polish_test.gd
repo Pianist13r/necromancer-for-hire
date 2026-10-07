@@ -108,7 +108,7 @@ func _check_action(menu: LegionMenu, bounds: Rect2) -> void:
 ## Карточки-ссылки: это кнопки с неклипующейся подписью и видимой иконкой; декор внутри
 ## полностью помещается в карточку.
 func _check_cards(menu: LegionMenu, bounds: Rect2) -> void:
-	for card_name in ["CardMaps", "CardOffice", "CardHero"]:
+	for card_name in ["CardMaps", "CardDossier"]:
 		var card := menu.find_child(card_name, true, false) as Button
 		if card == null:
 			_check(false, "карточка найдена: " + card_name)
@@ -168,14 +168,13 @@ func _check_difficulty(menu: LegionMenu) -> void:
 ## Каждая основная кнопка должна вести в свой экран/режим, а не просто иметь любой callback.
 func _check_menu_signals(menu: LegionMenu) -> void:
 	var counts := {
-		"continue_pressed": 0, "maps_pressed": 0, "office_pressed": 0, "hero_pressed": 0,
+		"continue_pressed": 0, "maps_pressed": 0, "hero_pressed": 0,
 		"howto_pressed": 0, "settings_pressed": 0, "quit_pressed": 0,
 		"endless_pressed": 0, "daily_pressed": 0, "collection_pressed": 0,
 	}
 	menu.continue_pressed.connect(func(_id: String) -> void:
 		counts["continue_pressed"] += 1)
 	menu.maps_pressed.connect(func() -> void: counts["maps_pressed"] += 1)
-	menu.office_pressed.connect(func() -> void: counts["office_pressed"] += 1)
 	menu.hero_pressed.connect(func() -> void: counts["hero_pressed"] += 1)
 	menu.howto_pressed.connect(func() -> void: counts["howto_pressed"] += 1)
 	menu.settings_pressed.connect(func() -> void: counts["settings_pressed"] += 1)
@@ -185,7 +184,7 @@ func _check_menu_signals(menu: LegionMenu) -> void:
 	menu.collection_pressed.connect(func() -> void: counts["collection_pressed"] += 1)
 	var routes := {
 		"CampaignAction": "continue_pressed", "CardMaps": "maps_pressed",
-		"CardOffice": "office_pressed", "CardHero": "hero_pressed",
+		"CardDossier": "hero_pressed",
 		"HowtoAction": "howto_pressed", "SettingsAction": "settings_pressed",
 		"QuitAction": "quit_pressed", "EndlessAction": "endless_pressed",
 		"DailyAction": "daily_pressed", "CollectionAction": "collection_pressed",

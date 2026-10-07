@@ -65,6 +65,12 @@ func _slot(index: int, id: StringName, interactive: bool, compact: bool,
 		t.clip_text = true
 		t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		names.add_child(t)
+		# Экран замены: слот — кнопка «вычеркнуть»; без надписи щелчок по слоту не угадать.
+		if interactive:
+			var cross := UiStyle.label("× вычеркнуть", 15, UiStyle.FONT_TEXT, UiStyle.BAD)
+			cross.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(cross)
 	else:
 		var empty := UiStyle.label("пусто", 15 if compact else 17, UiStyle.FONT_TEXT,
 			Color(UiStyle.TEXT_DIM, 0.7))

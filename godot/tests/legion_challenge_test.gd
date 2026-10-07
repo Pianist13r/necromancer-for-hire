@@ -255,6 +255,9 @@ func test_settings_persist() -> void:
 	settings.set("_cfg", null)
 	settings.set("difficulty_override", "")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE))
+	# И запасную копию: SafeConfig читает .bak, когда основного нет, — прерванный прошлый прогон
+	# оставлял там «Ад», и повторный гейт падал на этой проверке (07.10.2026).
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE + ".bak"))
 	check(settings.call("difficulty") == "normal", "без файла — «Штатный» по умолчанию")
 	settings.call("set_difficulty", "hell")
 	settings.set("_cfg", null)
