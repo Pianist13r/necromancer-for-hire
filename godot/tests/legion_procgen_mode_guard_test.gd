@@ -196,7 +196,7 @@ func _test_window_close_mid_daily_battle() -> void:
 	var today := LegionEndless.today_date()
 	main.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
 	var done: Variant = _saved("daily_run", LegionRunStore.DONE_KEY, {})
-	_check(done is Dictionary and (done as Dictionary).has(today),
+	_check(done is Dictionary and (done as Dictionary).has(LegionRunStore.daily_key(today)),
 		"закрытие окна посреди боя дня записало на диск сданную дату")
 	_check(String(_saved("daily_run", LegionRunStore.OPEN_KEY, "x")) == "", "флаг открытого боя снят")
 
@@ -256,7 +256,8 @@ func _test_date_back_and_forth() -> void:
 	var d2 := "2099-02-02"
 	LegionRunStore.daily_enter(d1)
 	LegionRunStore.endless_object_won(10)
-	_check(LegionRunStore.daily_enter(d2), "новая дата при незаконченном забеге старой — новая попытка")
+	_check(LegionRunStore.daily_enter(d2),
+		"новая дата при незаконченном забеге старой — новая попытка")
 	_check(LegionRunStore.daily_attempt_done(d1), "незаконченный забег старой даты засчитан сданным")
 	_check(int(LegionRunStore.daily_done_result(d1).get("tenure", 0)) == 1, "со своим стажем (1)")
 	LegionRunStore.endless_end_run()

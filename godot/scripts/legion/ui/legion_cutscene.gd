@@ -3,7 +3,7 @@ extends Control
 ##
 ## Катсцена нового режима (docs/legion/DESIGN_V15.md §9): последовательность кадров —
 ## картинка 1920×1080 с медленным наездом (Ken Burns) либо короткое видео (.ogv), голос
-## рассказчика через `LegionAudio.voice(id)` и титры внизу. Три места вызова — вступление
+## рассказчика через `LegionVoice.voice(id)` и титры внизу. Три места вызова — вступление
 ## кампании, выход Прораба, финал — собирает legion_main.gd, этот файл только проигрывает
 ## готовый список кадров и не знает про Campaign/карты.
 ##
@@ -49,6 +49,7 @@ var _frames: Array[Frame] = []
 var _index := -1
 var _frame_token := 0
 var _audio: LegionAudio = null
+var _finished := false
 
 var _pic: TextureRect
 var _video_player: VideoStreamPlayer
@@ -171,13 +172,14 @@ func _next_frame() -> void:
 	if _audio != null and f.voice_id != &"":
 		# Сцена: новый кадр обрывает прежнюю реплику и чистит очередь (verifier 26.09: при
 		# одиночном слоте «важной» реплики клик по кадру оставлял звучать прошлый кадр).
-		_audio.voice(f.voice_id, LegionCfg.AUDIO_V15_PRIORITY_NARRATOR, LegionAudio.VoiceClass.SCENE)
+		_audio.speech.voice(f.voice_id, LegionCfg.AUDIO_V15_PRIORITY_NARRATOR,
+			LegionAudio.VoiceClass.SCENE)
 
 	_fade_in()
 
 
 func _advance_if_current(token: int) -> void:
-	if token == _frame_token:
+	if not _finished and token == _frame_token:
 		_next_frame()
 
 
@@ -210,7 +212,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not (event is InputEventKey) or not (event as InputEventKey).pressed:
+	if not (event is InputEventKey) or not (event as InputEventKey).pressed or event.is_echo():
 		return
 	var k := event as InputEventKey
 	if k.keycode == KEY_SPACE:
@@ -234,10 +236,14 @@ func _skip_all() -> void:
 
 
 func _finish() -> void:
+	if _finished:
+		return
+	_finished = true
+	_frame_token += 1
 	# Уход из катсцены любым путём (Esc, клик за последний кадр, конец) гасит голос кадра, если
 	# он ещё звучит: иначе 10-секундная реплика звучала бы поверх брифинга/боя, а брифинг карты
 	# ждал бы её в очереди. До finished — следующий экран уже может заговорить своим.
 	if _audio != null:
-		_audio.end_scene_voice()
+		_audio.speech.end_scene_voice()
 	finished.emit()
 	queue_free()

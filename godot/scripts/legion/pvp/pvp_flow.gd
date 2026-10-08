@@ -16,6 +16,7 @@ static func show_field_select(main: LegionMain) -> void:
 	main._ensure_audio().play_menu_music()
 	main._teardown_screen()
 	var s := PvpFieldSelect.new()
+	s.via_steam = steam_active(main)
 	main._set_screen(s)
 	s.chosen.connect(func(map_id: String) -> void: start(main, map_id))
 	s.back.connect(main.show_menu)
@@ -41,6 +42,9 @@ static func net_session(main: LegionMain) -> NetSession:
 
 
 static func show_net_lobby(main: LegionMain) -> void:
+	if steam_active(main):
+		show_steam_lobby(main, 0)
+		return
 	main._ensure_audio().play_menu_music()
 	main._teardown_screen()
 	var session := net_session(main)
@@ -48,6 +52,28 @@ static func show_net_lobby(main: LegionMain) -> void:
 	main._set_screen(lobby)
 	lobby.back.connect(func() -> void:
 		session.close()
+		show_field_select(main))
+
+
+## Steam-сборка с запущенным клиентом Steam: «По сети» — лобби Steam, не адрес сервера.
+static func steam_active(main: LegionMain) -> bool:
+	var steam := SteamNet.find(main)
+	return steam != null and steam.active()
+
+
+## Лобби Steam (SteamLobby); join_lobby — войти сразу (приглашение / +connect_lobby), 0 — список.
+## Назад: сессия закрывается раньше SteamNet.leave() — иначе её канал закроет ядро ретранслятора
+## хозяина, и она покажет «связь потеряна».
+static func show_steam_lobby(main: LegionMain, join_lobby: int) -> void:
+	main._ensure_audio().play_menu_music()
+	main._teardown_screen()
+	var session := net_session(main)
+	var steam := SteamNet.find(main)
+	var lobby := SteamLobby.new().setup(session, steam, join_lobby)
+	main._set_screen(lobby)
+	lobby.back.connect(func() -> void:
+		session.close()
+		steam.leave()
 		show_field_select(main))
 
 

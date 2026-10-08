@@ -47,25 +47,27 @@ static func cheatsheet() -> Array[String]:
 		"ЛКМ — чертить договор · ПКМ по участку: оттянуть, отпустить в золото — натиск",
 		# рогатка — главная строка выше; Пробел/колесо и щелчок — второстепенные приёмы, в этом
 		# порядке (Игорь 26.09: зажатое колесо — то же самое, что Пробел)
-		"Пробел или колесо (зажать) — стрелка для таяния · щелчок ПКМ — натиск по стрелке",
+		"{key:aim_contract} или колесо (зажать) — стрелка для таяния · щелчок ПКМ — натиск по стрелке",
 		# slow/intuit: правило для игрока одно — золотой щёлкни; пружина сама говорит свой множитель
-		"Золотой участок (враг в зоне) — щелчок ПКМ: «Точно!» · «пружина ×N» — сорви, ударит сильнее",
-		"Круг ЛКМ — «Оцепление»: ПКМ по кольцу срывает его целиком (Пробел снаружи — наружу)",
+		"Золотой участок (враг в зоне) — щелчок ПКМ: «Точно!» · «пружина ×N» — сорвите, ударит сильнее",
+		"Круг ЛКМ — «Оцепление»: ПКМ по кольцу срывает его целиком ({key:aim_contract} снаружи — наружу)",
 		# slow/tab-erase (Игорь 29.09): стереть кусок линии, бойцы — в натиск
-		"Таб над линией — стереть кусок под курсором: его бойцы в натиск, мана не вернётся",
-		"Восьмёрка — бьют чаще · треугольник — «Обряд»: набери полстроя и сорви · квадрат — «Каре»",
+		"{key:erase_piece} над линией — стереть кусок под курсором: его бойцы в натиск, мана не вернётся",
+		"Восьмёрка — бьют чаще · квадрат — «Каре»",
+		"Треугольник — «Обряд»: {charge:triangle}, заряд {cfg:charge} с, ПКМ — срыв",
 		# clarity (26.09): по строке на навык — что делает (v20, D-0926-39: у каждого своя работа);
 		# как целиться — общей строкой
-		"Ку (Q) — молния по цепи врагов: оглушает, срывает Юриста и печать",
-		"Дубль-вэ (W) — до %d свежих трупов врага воюют за вас" % LegionCfg.W_RAISE_MAX,
-		"Е (E) — «Аврал»: свои быстрее и сильнее, строй держит напор ×%s"
+		"{key+:cast_q} — молния по цепи врагов: оглушает, срывает Юриста и печать",
+		"{key+:cast_w} — до %d свежих трупов врага воюют за вас" % LegionCfg.W_RAISE_MAX,
+		"{key+:cast_e} — «Аврал»: свои быстрее и сильнее, строй держит напор ×%s"
 		% LegionAbilityAim.num(LegionCfg.E_PRESS_HOLD_MULT),
 		"Q W E: зажать — видно, кого заденет, отпустить — каст · R — сбор к курсору · F — волна",
-		"Прокрутка колеса или 1/2/3 — вид договора · Esc / П — пауза",
+		"Прокрутка колеса или {keys:runes} — вид договора · Esc / {key:pause} — пауза",
 		"Предметы — из элитных (в короне), на кампанию или забег; наведите на иконку",
+		"{key:kassa} — Касса · {key:mute} — включить / выключить звук",
 	]
 	for i in rows.size():
-		rows[i] = Controls.text(rows[i])
+		rows[i] = Controls.text(preload("res://scripts/legion/legion_teaching_text.gd").render(rows[i]))
 	return rows
 
 
@@ -90,6 +92,7 @@ func _ready() -> void:
 	_box = box
 	box.add_child(_make_button("Настройки", func() -> void: settings_pressed.emit()))
 	box.add_child(_make_button("Как играть", func() -> void: howto_pressed.emit()))
+	box.add_child(_make_button("Клавиши", _show_keys))
 	if show_dossier:
 		# D-1007-P2: одно «Досье» (поправки и артефакты) — тот же экран, что из меню.
 		box.add_child(_make_button("Досье", func() -> void: dossier_pressed.emit()))
@@ -111,6 +114,20 @@ func _ready() -> void:
 	(nav.get_node("NavBack") as Button).shortcut = null
 	(nav.get_node("NavPrimary") as Button).grab_focus.call_deferred()
 
+
+
+func _show_keys() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.name = "ControlsCheatsheet"
+	dialog.dialog_text = "\n".join(cheatsheet())
+	dialog.dialog_autowrap = true
+	dialog.ok_button_text = "Вернуться к паузе"
+	dialog.min_size = Vector2i(900, 480)
+	UiStyle.style_dialog(dialog, "Клавиши и приёмы")
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 
 ## Вернуть то, что спрятал cover, — СИНХРОННО из LegionMain._hide_pause(), а не в _exit_tree:

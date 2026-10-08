@@ -19,8 +19,10 @@ extends RefCounted
 ##          (шаблон фигуры), `road` (откуда идут учебные зомби); без mark — метка по виду урока;
 ##   hold — `true`: волны ждут, пока урок не зачтён (обучение «Пустыря»); число — ждут не дольше
 ##          стольких секунд; нет — волны идут. Держит только урок начала боя.
-## Обучение «Пустыря» — это просто уроки карты 1 (пять шагов: линия, подновление, рогатка,
-## Бытовка, Ку); стрелка, «Сбор», фигуры, Дубль-вэ и Е переехали на следующие карты.
+## Обучение «Пустыря» — это просто уроки карты 1 (шесть шагов: линия, подновление, рогатка,
+## «Точно!», Бытовка, Ку); стрелка, «Сбор», фигуры, Дубль-вэ и Е переехали на следующие карты.
+## Клавиши в текстах уроков — токенами {key:действие} (Controls.text): плашка и подсказки
+## называют ТЕКУЩУЮ клавишу; составной голос выбирает её имя через LessonsCfg.VOICE_KEYS.
 ##
 ## Правила v16 (25.09.2026, «его невозможно пройти…») остаются в силе для каждого урока:
 ## - зачёт — только настоящее действие игрока через сигналы мира; ни одного таймера;
@@ -72,11 +74,12 @@ const HINT_SHORT := "Коротковато: протяните договор �
 const HINT_PLOT := "Нажмите на площадку с кольцом."
 const HINT_EARLY := "Сначала дайте бойцам встать в строй на линии."
 const HINT_REDRAW := "Договор растаял без бойцов. Начертите его заново по светящейся линии."
-const HINT_KIND := "Здесь нужен Подряд — нажмите 1 и ведите по светящейся линии."
+const HINT_KIND := "Здесь нужен Подряд — нажмите {key:rune_normal} и ведите по светящейся линии."
 const HINT_NEW_LINE := "Это новая линия. Ведите прямо по своей — тогда она продлится."
-const HINT_RALLY := "В круге никого: наведите на свободных бойцов и зажмите Эр."
+const HINT_RALLY := "В круге никого: наведите на свободных бойцов и зажмите {key:rally}."
 const HINT_NO_LINE := "Сначала начертите договор: зажмите ЛКМ и ведите."
-const HINT_NOT_PRESSED := "Е бережёт строй, когда его продавливают, — нажмите, пока дуга красная."
+const HINT_NOT_PRESSED := ("{key:cast_e} бережёт строй, когда его продавливают, — нажмите, пока "
+	+ "дуга красная.")
 
 ## Стрелка засчитана, если игрок повернул её хотя бы на столько от той, что была на входе в урок:
 ## нажатие Пробела с курсором ровно по стрелке ещё не показывает, что она ходит за мышью.
@@ -87,10 +90,12 @@ const LINE_AGE_CAP := 0.5
 ## Свободных бойцов для «Сбора» не осталось (всё в строю и никто не бежит в натиск) — столько
 ## подрядчиков выходит у Котла. Штат Котла сам возрождает павших, это — только от тупика.
 const RALLY_SPARE := 3
-## Реплики, чей ТЕКСТ урока изменился в D-1002 (углы, подготовка, мини): старая запись говорит
-## прежнее правило и до переозвучки молчит — урок показывает только текст. Список ведёт
-## координатор: после записи новых файлов (tools/voice/lines.tsv, те же id) строки убираются.
-const STALE_VOICE: Array[StringName] = []
+## Реплики, чей ТЕКСТ урока изменился (D-1002 и позже): старая запись говорит прежнее правило и
+## до переозвучки молчит — урок показывает только текст. Список ведёт координатор: после записи
+## новых файлов (tools/voice/lines.tsv, те же id) строки убираются. 08.10 (slow/keys-texts):
+## lg_tut_stun — «в полтора раза», а удар по оглушённым ×2 (LegionCfg.STUNNED_CHARGE_MULT, TU-01);
+## lg_tut_item — «до конца боя», а артефакт живёт до конца кампании или забега (TU-04).
+const STALE_VOICE: Array[StringName] = [&"lg_tut_stun", &"lg_tut_item"]
 ## Где кучнее всего свои (цель «Сбора» и «Аврала»): соседи в этой доле радиуса способности.
 const CLUSTER_FRAC := 0.5
 
@@ -106,6 +111,8 @@ var entered_at := 0.0
 
 var _step := -1
 var _banner: LegionLessonBanner = null
+## Controls.revision, с которой посчитан текст плашки: клавишу сменили в паузе — пересчитать.
+var _keys_rev := -1
 ## Вводный тост карты уже погашен первым уроком начала боя (один раз за запуск уроков).
 var _brief_toast_dropped := false
 var _marks: LegionTutorialMarks = null
@@ -264,6 +271,12 @@ func tick(dt: float) -> void:
 	_scan_triggers(dt)
 	if _step < 0 or not active:
 		return
+	if _keys_rev != Controls.revision and _banner != null and is_instance_valid(_banner):
+		# KB-06: клавишу переназначили в настройках поверх паузы — плашка называет новую
+		_keys_rev = Controls.revision
+		_banner.retext(step_text(_step))
+		if world.audio != null:
+			world.audio.speech.refresh_tutorial_voice(lesson().get("voice", &""))
 	if _credit:
 		_complete()
 		return
@@ -333,16 +346,37 @@ func passed(id: StringName) -> bool:
 
 ## Текст плашки урока с числами из LegionCfg — базовыми (ранги/перки убраны, D-1006-11; поправки
 ## забега в тексте урока не показываем — он учит базе способности).
+## Клавиши — текущие (токены {key:…} раскрывает Controls.text после подстановки чисел).
 func step_text(i: int) -> String:
-	var text := Controls.text(String(lessons[i]["text"]))
-	if not text.contains("%d"):
-		return text
+	var text := String(lessons[i]["text"])
 	match lessons[i]["kind"]:
 		&"hero_w":
-			return text % roundi(LegionCfg.W_DURATION)
+			if text.contains("%d"):
+				text = text % roundi(LegionCfg.W_DURATION)
 		&"hero_e":
-			return text % roundi(LegionCfg.E_DURATION_BASE)
-	return text
+			if text.contains("%d"):
+				text = text % roundi(LegionCfg.E_DURATION_BASE)
+		&"stun_hit":
+			# TU-01: множитель удара по оглушённым — из LegionCfg (был зашит «×1,5» при ×2)
+			if text.contains("%s"):
+				text = text % _mult(LegionCfg.STUNNED_CHARGE_MULT)
+	return Controls.text(preload("res://scripts/legion/legion_teaching_text.gd").render(text))
+
+
+## Множитель для текста игрока: 2.0 → «2», 1.5 → «1,5».
+static func _mult(x: float) -> String:
+	return ("%.1f" % x).replace(".", ",").trim_suffix(",0")
+
+
+## Реплика урока молчит (только текст): записана под старое правило (STALE_VOICE) или произносит
+## клавишу, которую игрок переназначил (KB-07) — голос спорил бы с плашкой.
+static func voice_muted(voice: StringName) -> bool:
+	if STALE_VOICE.has(voice):
+		return true
+	for action: StringName in LessonsCfg.VOICE_KEYS.get(voice, []):
+		if Controls.renamed(action):
+			return true
+	return false
 
 
 ## Прямоугольник плашки на экране (тест: тосты его не пересекают). Пустой — плашки нет.
@@ -428,19 +462,21 @@ func _enter(i: int) -> void:
 		_brief_toast_dropped = true
 		world.hud.drop_toasts()
 	_banner.set_task(step_text(i), _counter(i))
+	_keys_rev = Controls.revision
 	if not l["start"]:
 		_voiced[l["id"]] = true
 	if world.audio != null and not again:
 		var voice: StringName = l.get("voice", &"")
 		# Реплика, чей ТЕКСТ изменился (D-1002 §6), пока не переозвучена, молчит: старая запись
 		# говорит прежнее правило и спорит с плашкой. Список снимается после переозвучки.
-		if voice != &"" and not STALE_VOICE.has(voice):
-			# Сюжет (LegionAudio.voice()): реплика урока не обрывает брифинг или прошлый урок на
+		var replaced := preload("res://scripts/legion/legion_tutorial_voice.gd").has_replacement(voice)
+		if voice != &"" and (replaced or not voice_muted(voice)):
+			# Сюжет (LegionVoice.voice()): реплика урока не обрывает брифинг или прошлый урок на
 			# полуслове — встаёт в очередь; более поздний урок заменяет в ней устаревший.
-			world.audio.voice(voice, LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
+			world.audio.speech.voice(voice, LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
 		else:
 			# урок без голоса: реплика прошлого, ещё ждущая в очереди, уже устарела
-			world.audio.drop_tutorial_voice()
+			world.audio.speech.drop_tutorial_voice()
 	step_changed.emit(i)
 
 
@@ -528,7 +564,7 @@ func _withdraw() -> void:
 	_step = -1
 	_absent_t = 0.0
 	if world.audio != null:
-		world.audio.drop_tutorial_voice()
+		world.audio.speech.drop_tutorial_voice()
 	_next()
 
 
@@ -653,7 +689,7 @@ func _finish(completed: bool) -> void:
 	if completed and outro != "" and _banner != null and is_instance_valid(_banner) \
 			and (was_start or _all_start()):
 		# плашка доживает сама: «пройдено» ~3 с, затем убирает себя
-		_banner.play_outro(outro)
+		_banner.play_outro(Controls.text(outro))
 		_banner = null
 	else:
 		_teardown_ui()
@@ -673,7 +709,7 @@ func teardown() -> void:
 	active = false
 	if world != null and world.audio != null:
 		# реплика урока, звучащая сейчас, — тоже прочь (конец боя, рестарт, меню)
-		world.audio.end_tutorial_voice()
+		world.audio.speech.end_tutorial_voice()
 	if world != null and world.wave_runner != null and _hold_on:
 		world.wave_runner.held = false
 	_hold_on = false
@@ -686,7 +722,7 @@ func _disconnect(keep_voice := false) -> void:
 		return
 	# конец уроков: их реплики, ждущие в очереди голоса, не звучат (кроме пройденного до конца)
 	if world.audio != null and not keep_voice:
-		world.audio.drop_tutorial_voice()
+		world.audio.speech.drop_tutorial_voice()
 	for pair: Array in [[world.contract_created, _on_contract_created],
 			[world.segment_released, _on_segment_released], [world.tab_erased, _on_tab_erased],
 			[world.hero_cast, _on_hero_cast],
@@ -1080,6 +1116,19 @@ func ghost_points() -> PackedVector2Array:
 
 
 ## Шаблон фигуры урока — по нему бежит метка и чертит бот: {figure, at, r} из mark.
+## Фигура урока уже стоит (живая, подходит по arg): шаблон «где чертить» больше не нужен — урок
+## ждёт заряда и срыва, а пунктир поверх своей фигуры мешал бы видеть углы (TU-02).
+func figure_standing() -> bool:
+	var want := String(lesson().get("arg", ""))
+	for c in world.contracts.contracts:
+		if not c.alive():
+			continue
+		if (want == "mini" and c.size_mini) or (want == "ring" and c.ring) \
+				or (c.figure != &"" and String(c.figure) == want):
+			return true
+	return false
+
+
 func figure_points() -> PackedVector2Array:
 	var m: Dictionary = lesson().get("mark", {})
 	var at: Array = m.get("at", [640, 360])
@@ -1447,7 +1496,7 @@ func _hint(text: String) -> void:
 	if world.now - float(_hint_at.get(text, -INF)) < LegionCfg.TUTORIAL_HINT_GAP:
 		return
 	_hint_at[text] = world.now
-	world.toast(Controls.text(text), &"warn")
+	world.toast(text, &"warn")   # клавиши подставляет сток LegionHud.toast — один раз
 
 
 func _pick_plot() -> Dictionary:

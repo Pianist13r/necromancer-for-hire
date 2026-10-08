@@ -4,7 +4,9 @@ extends HBoxContainer
 ## Карточки видов договора внизу по центру (DESIGN_V17 §1 п.4): бланк, штамп клавиши 1/2/3,
 ## иконка art1, название рукописным и цена «12 маны за аршин» (аршин = HUD_ARSHIN_PX линии;
 ## пиксели игроку не показываем). Выбранная карточка — рамка цветом вида и светлее бумага;
-## закрытая — тусклая. Карточки перехватывают только собственный прямоугольник, корень — IGNORE.
+## закрытая — тусклая. Мышь не ловят ни корень, ни карточки (B-055: кнопка со STOP съедала ЛКМ, и
+## штрих, начатый над нижней полосой, не начинался): протяжка с карточки — обычный штрих поля,
+## короткий щелчок поле отдаёт сюда (tap через LegionHud.ui_tap), наведение подсвечиваем сами.
 ## Карточки используют кэш карты: сохранение не читается при обновлении HUD.
 ##
 
@@ -19,6 +21,8 @@ var _refresh_t := 0.0
 var _styles: Array[Dictionary] = []
 var _state: Array[int] = []
 var _keys: Array[int] = [0, 0, 0]
+## Карточка под курсором (-1 — ни одной): кнопки IGNORE, своей подсветки hover у них нет.
+var _hover := -1
 
 
 static func attach(hud: LegionHud, w: LegionWorld) -> LegionKindBar:
@@ -38,6 +42,7 @@ func _ready() -> void:
 		var button := Button.new()
 		button.custom_minimum_size = LegionCfg.KIND_CARD_SIZE
 		button.focus_mode = Control.FOCUS_NONE
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE   # B-055: см. шапку
 		LegionUi.style_button(button)
 		# рамка карточек — общая художественная девятисрезка UiStyle; выбранная — золотая
 		# версия, модулированная цветом вида. Держим стили готовыми, чтобы не создавать
@@ -107,8 +112,37 @@ func _price_text(kind: StringName) -> String:
 	return "%d маны за аршин" % roundi(per)
 
 
+## B-055: короткий щелчок поля в точке экрана вьюпорта. true — щелчок пришёлся на карточку (и
+## закрытую: tap площадки под полосой не рождается, как и раньше, когда кнопка ловила мышь).
+## act=false — только проверка попадания.
+func tap(screen: Vector2, act := true) -> bool:
+	if not is_visible_in_tree():
+		return false
+	for i in buttons.size():
+		if buttons[i].get_global_rect().has_point(screen):
+			if act and not buttons[i].disabled:
+				world.my_field().choose_kind(LegionCfg.KIND_ORDER[i])
+				_refresh_t = 0.0
+			return true
+	return false
+
+
+func _hovered() -> int:
+	if not is_visible_in_tree() or world.my_field().has_draft():
+		return -1
+	var at := get_viewport().get_mouse_position()
+	for i in buttons.size():
+		if buttons[i].get_global_rect().has_point(at):
+			return i
+	return -1
+
+
 func _process(dt: float) -> void:
 	_refresh_t -= dt
+	var hover := _hovered()
+	if hover != _hover:
+		_hover = hover
+		_refresh_t = 0.0
 	if _refresh_t > 0.0:
 		return
 	_refresh_t = LegionCfg.ASSIGN_INTERVAL
@@ -118,7 +152,8 @@ func _process(dt: float) -> void:
 		var button := buttons[i]
 		button.disabled = not bool(world.my_field().unlocked.get(kind, true)) or world.paused
 		var selected := not button.disabled and world.my_field().current_kind == kind
-		var state := 2 if selected else (0 if button.disabled else 1)
+		# 3 — невыбранная под курсором (рамка «hover», которую кнопка, ловящая мышь, ставила бы сама)
+		var state := 2 if selected else (0 if button.disabled else (3 if i == _hover else 1))
 		var key := Controls.key([&"rune_normal", &"rune_frost", &"rune_ash"][i])
 		# B-423: цена зависит от множителя поля (поправки, артефакты), а он меняется и без смены
 		# состояния кнопки — подпись сверяем на каждом шаге, а не только при смене вида.
@@ -131,7 +166,8 @@ func _process(dt: float) -> void:
 		_keys[i] = key
 		_state[i] = state
 		var st: Dictionary = _styles[i]
-		button.add_theme_stylebox_override("normal", st["sel"] if selected else st["normal"])
+		button.add_theme_stylebox_override("normal",
+			st["sel"] if selected else (st["hover"] if state == 3 else st["normal"]))
 		button.add_theme_stylebox_override("hover", st["sel"] if selected else st["hover"])
 		button.modulate = Color(1.0, 1.0, 1.0, 0.55) if button.disabled else Color.WHITE
 		button.queue_redraw()

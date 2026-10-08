@@ -40,7 +40,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 
 	var noise := FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_PERLIN
-	noise.seed = randi()
+	noise.seed = JuiceeEffect.rng.randi()
 
 	var original_pos: Vector2 = _capture_state(cam, "position")
 	var elapsed := 0.0

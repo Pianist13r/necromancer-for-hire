@@ -53,7 +53,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	var effective_color: Color = _runtime_params.get("color", color)
 
 	var label := Label.new()
-	label.name = StringName("_juicee_float_%d" % randi())
+	label.name = StringName("_juicee_float_%d" % JuiceeEffect.rng.randi())
 	label.text = text_value
 	label.add_theme_color_override("font_color", effective_color)
 	if outline_width > 0:
@@ -90,14 +90,14 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	match rise_direction:
 		RiseDirection.UP:
 			travel = Vector2(0, -travel_distance * intensity_mult)
-			perpendicular_offset = randf_range(-spread, spread) * 0.5
+			perpendicular_offset = JuiceeEffect.rng.randf_range(-spread, spread) * 0.5
 		RiseDirection.DOWN:
 			travel = Vector2(0, travel_distance * intensity_mult)
-			perpendicular_offset = randf_range(-spread, spread) * 0.5
+			perpendicular_offset = JuiceeEffect.rng.randf_range(-spread, spread) * 0.5
 		RiseDirection.RANDOM_HORIZONTAL_DRIFT:
-			var drift_dir := -1.0 if randf() < 0.5 else 1.0
+			var drift_dir := -1.0 if JuiceeEffect.rng.randf() < 0.5 else 1.0
 			travel = Vector2(drift_dir * travel_distance * intensity_mult * 0.6, -travel_distance * intensity_mult * 0.8)
-			perpendicular_offset = randf_range(-spread, spread) * 0.5
+			perpendicular_offset = JuiceeEffect.rng.randf_range(-spread, spread) * 0.5
 
 	var spawn_offset := Vector2(perpendicular_offset, 0)
 	if rise_direction == RiseDirection.RANDOM_HORIZONTAL_DRIFT:

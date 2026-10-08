@@ -700,7 +700,7 @@ func _draw_retry_checks() -> void:
 	await _frames(2)
 	_check(tut.step() == 0 and world.contracts.contracts.is_empty(),
 		"вид: договор вахтёров на шаге 1 не засчитан и снят")
-	_check(_toasts.has(LegionTutorial.HINT_KIND), "вид: подсказка «нужен Подряд — нажми 1»")
+	_check(_toasts.has(Controls.text(LegionTutorial.HINT_KIND)), "вид: подсказка «нужен Подряд — нажми 1»")
 	_check(not _toasts.has(LegionTutorial.HINT_FAR) and not _toasts.has(LegionTutorial.HINT_SHORT),
 		"вид: подсказка не врёт про «далеко»/«коротко»")
 	world.contracts.set_kind(LegionCfg.KIND_LABORER)

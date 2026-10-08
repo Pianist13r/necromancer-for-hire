@@ -12,6 +12,12 @@ build/
 # scripts/dev/mcp_interaction_server.gd; у владельца лежит локально
 .dev_bridge
 
+# Steam: AppID для запуска вне клиента Steam (480 — Spacewar) и копия GodotSteam для проб из
+# редактора — только локально; в поставку не идут (SteamNet грузит расширение из папки рядом с exe)
+steam_appid.txt
+/godotsteam/
+/addons/godotsteam/
+
 # MCP-сервер (godot-mcp) при каждом run_project кладёт СВОЮ копию моста в корень проекта.
 # Наш форк с правками живёт в scripts/dev/ и прописан автолоадом; копия — мусор.
 /mcp_interaction_server.gd

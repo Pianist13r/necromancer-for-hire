@@ -738,6 +738,7 @@ func _tick_boss(dt: float) -> bool:
 	_roar_cd -= dt
 	if ram_t >= 0.0:
 		ram_t -= dt
+		view.prepare_special(maxf(0.0, ram_t), LegionCfg.BOSS_RAM_WARN)
 		if ram_t <= 0.0:
 			ram_t = -1.0
 			_ram_run = 0.0
@@ -746,11 +747,11 @@ func _tick_boss(dt: float) -> bool:
 			# таран шёл со старым направлением, и Прораб, таранящий фланг сбоку, мог не давить)
 			if ram_pos != position:
 				_dir = (ram_pos - position).normalized()
-			view.prepare_special(LegionCfg.BOSS_RAM_TIME, LegionCfg.BOSS_RAM_TIME)
+			view.prepare_special(0.0, LegionCfg.BOSS_RAM_TIME)
 		return true
 	if _ram_run >= 0.0:
 		_ram_run += dt
-		view.prepare_special(LegionCfg.BOSS_RAM_TIME - _ram_run, LegionCfg.BOSS_RAM_TIME)
+		view.prepare_special(0.0, LegionCfg.BOSS_RAM_TIME)
 		var k := minf(1.0, _ram_run / LegionCfg.BOSS_RAM_TIME)
 		position = _safe_push(position, _ram_start.lerp(ram_pos, k))
 		if k >= 1.0:

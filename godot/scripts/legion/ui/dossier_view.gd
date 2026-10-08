@@ -27,28 +27,35 @@ func configure(inventory: LegionItems = null, tab := TAB_UPGRADES) -> DossierVie
 	_tab = tab
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_theme_constant_override("separation", 12)
+	add_theme_constant_override("separation", 8)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 18)
 	add_child(head)
 	head.add_child(UiStyle.label("Досье", 32, UiStyle.FONT_TITLE, UiStyle.GOLD))
-	var rank := UiStyle.label(rank_text(), 17, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
-	rank.name = "RankLine"
-	rank.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	rank.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	head.add_child(rank)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(spacer)
 	_add_tab(head, "TabUpgrades", TAB_UPGRADES, "Поправки")
 	_add_tab(head, "TabItems", TAB_ITEMS, "Артефакты (%d)" % _item_ids().size())
+	var meter := ProgressionUi.experience_meter(Campaign.hero_xp())
+	# В досье полезен и общий опыт. Это единственная строка разряда, над его полосой.
+	(meter.get_node("ExperienceCaption") as Label).text = rank_text()
+	add_child(meter)
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.focus_mode = Control.FOCUS_ALL
+	_scroll.follow_focus = true
 	add_child(_scroll)
 	_body = VBoxContainer.new()
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_body.add_theme_constant_override("separation", 14)
-	_scroll.add_child(_body)
+	_body.add_theme_constant_override("separation", 8)
+	var inset := MarginContainer.new()
+	inset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inset.add_theme_constant_override("margin_right", 12)
+	_scroll.add_child(inset)
+	inset.add_child(_body)
 	resized.connect(_resize_cards)
 	show_tab(_tab)
 	return self
@@ -109,6 +116,7 @@ func _add_tab(head: HBoxContainer, node_name: String, id: String, caption: Strin
 # ── Вкладка «Поправки» (бывший экран «Досье некроманта») ─────────────────────────────────────
 
 func _build_upgrades() -> void:
+	_build_rank_track()
 	var strip := SlotStrip.new()
 	_body.add_child(strip)
 	# В «Схватке» мир сбрасывает поправки (pvp_flow: w.mods = {}), переигровка из коллекции их не
@@ -121,8 +129,8 @@ func _build_upgrades() -> void:
 	else:
 		# B-421: откуда поправка в слоте — щелчок по каталогу ничего не делает, и это надо
 		# сказать. Одной строкой со следующим открытием: вторая сталкивала каталог под прокрутку.
-		_body.add_child(ProgressionUi.text("Новую поправку предлагают на выбор после каждой "
-			+ "победы, действуют три. " + _next_unlock_text(), 17, UiStyle.GOLD))
+		_body.add_child(ProgressionUi.text("Нажмите поправку — прочитайте пользу и цену. "
+			+ "Подписывается после победы. " + _next_unlock_text(), 16, UiStyle.GOLD))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 14)
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -141,27 +149,50 @@ func _build_upgrades() -> void:
 			var level := int(data.get("unlock_level", 1))
 			var state := "с начала" if level <= 1 else \
 				("открыта" if level <= Campaign.hero_level() else "с разряда %d" % level)
+			var needs := StringName(data.get("needs", ""))
+			if level <= Campaign.hero_level() and needs != &"" and Campaign.stat(needs) < 0.5:
+				state = "по кампании"
+			if not off and Campaign.upgrades().has(StringName(id)):
+				state = "✓ действует"
 			var row := ProgressionRow.new()
 			col.add_child(row)
-			row.configure(StringName(id), data, "", {"right": state, "row_h": 50.0,
-				"icon": 38.0, "chips": false, "interactive": false})
+			row.configure(StringName(id), data, "", {"right": state, "row_h": 48.0,
+				"icon": 30.0, "chips": false, "inspect": true, "title_size": 18, "text_size": 16})
 			if level > Campaign.hero_level():
-				row.modulate = Color(1.0, 1.0, 1.0, 0.55)   # закрытая разрядом — приглушена
+				row.modulate = Color(1.0, 1.0, 1.0, 0.8)
 
 
 ## Первая по колоде карта, которую откроет следующий разряд (ближайший unlock_level выше текущего).
 static func _next_unlock_text() -> String:
 	var level := Campaign.hero_level()
-	var best := ""
-	var best_level := 99
-	for id: String in AmendmentDb.ORDER:
-		var ul := int(AmendmentDb.card(StringName(id)).get("unlock_level", 1))
-		if ul > level and ul < best_level:
-			best_level = ul
-			best = String(AmendmentDb.card(StringName(id)).get("title", id))
-	if best == "":
-		return "Следующий разряд не откроет новых записей — колода открыта целиком."
-	return "Следующий разряд откроет: «%s»." % best
+	if level >= LegionMetaCfg.HERO_MAX_LEVEL:
+		return "Колода открыта целиком."
+	return "Дальше: %s." % ProgressionUi.rank_openings(level + 1)
+
+
+func _build_rank_track() -> void:
+	var track := HBoxContainer.new()
+	track.name = "RankTrack"
+	track.add_theme_constant_override("separation", 6)
+	_body.add_child(track)
+	for level in range(1, LegionMetaCfg.HERO_MAX_LEVEL + 1):
+		var btn := Button.new()
+		btn.name = "Rank%d" % level
+		btn.text = "%s %d" % ["✓" if level < Campaign.hero_level() else "Разряд", level]
+		btn.custom_minimum_size.y = 36.0
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var color := UiStyle.GOLD if level == Campaign.hero_level() else UiStyle.TEXT_DIM
+		var style := UiStyle.panel_style(Color(0.12, 0.09, 0.16), 5)
+		style.set_border_width_all(1)
+		style.border_color = color
+		btn.add_theme_stylebox_override("normal", style)
+		btn.add_theme_stylebox_override("focus", ProgressionRow._focus_style(UiStyle.GOLD))
+		btn.add_theme_font_override("font", UiStyle.FONT_TEXT)
+		btn.add_theme_font_size_override("font_size", 16)
+		btn.add_theme_color_override("font_color", color)
+		btn.tooltip_text = ProgressionUi.rank_openings(level)
+		btn.pressed.connect(func() -> void: ProgressionUi.inspect_rank(self, level))
+		track.add_child(btn)
 
 
 # ── Вкладка «Артефакты» (бывший оверлей «Досье артефактов») ──────────────────────────────────
@@ -203,6 +234,8 @@ func _resize_cards() -> void:
 		_cards.columns = 2 if get_viewport_rect().size.x >= 900 else 1
 
 
+## Тексты Досье (KB-08): артефакты и синергии называют способности токенами; раскрывает их
+## ProgressionUi.text — единственный сток, второй Controls.text здесь не нужен.
 func _text(value: String, font_size := 17, color := UiStyle.TEXT) -> Label:
 	var label := ProgressionUi.text(value, font_size, color)
 	return label

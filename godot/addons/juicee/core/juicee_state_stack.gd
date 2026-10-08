@@ -44,7 +44,10 @@ static func capture(target: Object, property: String) -> Variant:
 ## Safe to call even if target was freed — stale entries are pruned automatically.
 ## Pass restore=false to drop the capture WITHOUT restoring — for effects that
 ## intentionally leave a permanent change (return_to_original=false / hold_at_end).
-static func release(target: Object, property: String, restore: bool = true) -> void:
+## Necromancer local patch (B-442, 2026-10-08): `target` is Variant, not Object — a typed
+## Object parameter rejects a freed instance at the call site with SCRIPT ERROR, before the
+## is_instance_valid() guard below can run (Godot 4.7).
+static func release(target: Variant, property: String, restore: bool = true) -> void:
 	if not is_instance_valid(target):
 		# Target gone mid-effect — sweep any stale entries referencing dead instances.
 		_prune_stale()

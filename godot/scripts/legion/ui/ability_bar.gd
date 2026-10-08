@@ -3,15 +3,15 @@ extends CanvasLayer
 ##
 ## Три слота способностей некроманта (DESIGN_V17 §1 п.5) в стиле LegionUi: бланк, иконка art1,
 ## штамп клавиши латиницей (Q/W/E — как на клавиатуре), имя кириллицей один раз мелко под
-## слотом («Ку», «Дубль-вэ», «Е» — канон игры), радиальная заливка отката с секундами, пульс
+## слотом («Ку», «Дубль-вэ», «Е» — канон игры; после переназначения — имя новой клавиши, KB-01:
+## раньше под штампом «Z» оставалось «Ку»), радиальная заливка отката с секундами, пульс
 ## «готово» в момент, когда откат кончился, красное мигание отказа, серый вид закрытого слота.
 ## Отдельный узел, чтобы владение способностями не размазывало чужой файл.
 ##
 
 const SLOT_SIZE := Vector2(64.0, 64.0)
 const GAP := 14.0
-const LABELS := ["Ку", "Дубль-вэ", "Е"]
-const KEYS := ["Q", "W", "E"]
+const SLOT_ACTIONS: Array[StringName] = [&"cast_q", &"cast_w", &"cast_e"]
 const BLINK_DUR := 0.35
 const ICONS := ["ability_q", "ability_w", "ability_e"]
 ## Низ по центру занят карточками видов (LegionKindBar) — слоты у правого края.
@@ -223,16 +223,23 @@ func _draw_bar() -> void:
 			# clarity: слот в прицеле — золотая рамка, чтобы было видно, какой навык зажат
 			_root.draw_rect(rect.grow(3.0), LegionUi.GOLD, false, AIM_FRAME_W)
 		LegionUi.draw_stamp(_root, rect.position + Vector2(rect.size.x - 6.0, 4.0),
-			Controls.label([&"cast_q", &"cast_w", &"cast_e"][i]),
+			Controls.label(SLOT_ACTIONS[i]),
 			LegionUi.STAMP if unlocked else Color(LegionUi.TEXT_DIM, 0.4), 14, 0.12, 20.0)
 		var name_col := LegionUi.TEXT_DIM if unlocked else Color(LegionUi.TEXT_DIM, 0.35)
 		if aimed:
 			name_col = LegionUi.GOLD
-		var nw := LegionUi.FONT_TEXT.get_string_size(LABELS[i], HORIZONTAL_ALIGNMENT_LEFT, -1,
+		var slot_title := slot_name(i)
+		var nw := LegionUi.FONT_TEXT.get_string_size(slot_title, HORIZONTAL_ALIGNMENT_LEFT, -1,
 			NAME_FONT).x
 		LegionUi.draw_text(_root, Vector2(rect.get_center().x - nw * 0.5, rect.end.y + 15.0),
-			LABELS[i], NAME_FONT, name_col)
+			slot_title, NAME_FONT, name_col)
 	_draw_aim_hint()
+
+
+## Имя навыка под слотом — имя ТЕКУЩЕЙ клавиши, как в уроках («Ку» штатно, «Z» после
+## переназначения): то же, что на штампе в углу, а не зашитое «Ку» (KB-01).
+static func slot_name(i: int) -> String:
+	return Controls.label(SLOT_ACTIONS[i], true)
 
 
 ## D-0927-140: цена в мане — в левом нижнем углу слота: капля цвета маны и число. Не хватает —
@@ -258,7 +265,7 @@ func _draw_useful(i: int, rect: Rect2) -> void:
 	if glow <= 0.0:
 		return
 	var cols: Array[Color] = [LegionCfg.Q_COLOR, LegionCfg.W_COLOR, LegionCfg.E_COLOR]
-	var t := float(Time.get_ticks_msec()) * 0.001
+	var t := float(FxClock.ms()) * 0.001
 	var pulse := 0.5 + 0.5 * sin(t * IntuitCfg.SLOT_PULSE_RATE)
 	var col := Color(cols[i], glow * (0.55 + 0.45 * pulse))
 	_root.draw_rect(rect.grow(4.0 + 3.0 * pulse * glow), col, false, 3.0 + 2.0 * glow)
@@ -277,7 +284,7 @@ func _draw_aim_hint() -> void:
 	var font: Font = LegionUi.FONT_TEXT
 	var size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, AIM_HINT_FONT)
 	# якорь — точка мира (подпись прицела рисуется в мире), строка — на слое HUD: в экран (P5a)
-	var at := world.world_to_screen(aim.label_anchor(aim.slot, world.aim_pos())) \
+	var at := world.world_to_hud(aim.label_anchor(aim.slot, world.aim_pos())) \
 		+ Vector2(-size.x * 0.5, LegionAbilityAim.HINT_STEP)
 	# у краёв экрана строку не обрезать — сдвигаем внутрь
 	at.x = clampf(at.x, 6.0, LegionCfg.WORLD_SIZE.x - size.x - 6.0)

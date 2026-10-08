@@ -64,8 +64,8 @@ func _test_contact() -> void:
 		var pts := PgArtHarmony.contact_points(map)
 		var crypts := (map.get("crypts", []) as Array).size()
 		var cauldrons := PgArtScatter.cauldrons(map).size()
-		check(pts.size() == crypts + cauldrons, "%s: точек %d = склепы %d + Котлы %d"
-			% [id, pts.size(), crypts, cauldrons])
+		check(pts.size() == crypts + cauldrons,
+			"%s: пустые участки не оставляют пятен на земле" % id)
 		var root := Node2D.new()
 		var stats := PgArt.compose(root, map, null, 0.0)
 		var contact := root.get_node_or_null("Contact")

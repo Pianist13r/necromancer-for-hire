@@ -37,7 +37,7 @@ func _frames(n: int) -> void:
 
 func _said(ids: Array) -> bool:
 	for id in ids:
-		if audio._voice_last_msec.has(StringName(String(id))):
+		if audio.speech._voice_last_msec.has(StringName(String(id))):
 			return true
 	return false
 
@@ -48,11 +48,11 @@ func _said(ids: Array) -> bool:
 ## меряется по Time.get_ticks_msec() (длина файла), а кадры под --fixed-fps идут быстрее.
 func _wait_quiet() -> void:
 	for i in 4:
-		var left := audio._voice_busy_until_msec - Time.get_ticks_msec()
+		var left := audio.speech._voice_busy_until_msec - Time.get_ticks_msec()
 		if left > 0:
 			OS.delay_msec(left + 80)
 		await _frames(3)
-		if audio._voice_busy_until_msec <= Time.get_ticks_msec():
+		if audio.speech._voice_busy_until_msec <= Time.get_ticks_msec():
 			return
 
 
@@ -73,7 +73,7 @@ func _run() -> void:
 		quit(1)
 		return
 	# у служебной карты _plots нет брифинга (lg_brief__plots.ogg нет) — голос свободен
-	_check(audio._voice_busy_until_msec <= Time.get_ticks_msec(),
+	_check(audio.speech._voice_busy_until_msec <= Time.get_ticks_msec(),
 		"служебная карта без брифинга — голос свободен")
 
 	# каст героя — своим генератором, world.rng не сдвинут
@@ -128,11 +128,11 @@ func _run() -> void:
 	for i in LegionCfg.AUDIO_IDLE_VOICE_MIN_UNITS + 2:
 		w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300 + i * 12, 360))
 	audio._idle_voice_at = w.now - LegionCfg.AUDIO_IDLE_VOICE_GAP - 1.0
-	audio._voice_last_msec.erase(&"lg_idle")
+	audio.speech._voice_last_msec.erase(&"lg_idle")
 	await _frames(int((LegionCfg.IDLE_NOTICE_TIME + 1.5) * 60.0))
 	_check(_said(["lg_idle"]), "простой армии — lg_idle")
 	var first_at := audio._idle_voice_at
-	audio._voice_last_msec.erase(&"lg_idle")
+	audio.speech._voice_last_msec.erase(&"lg_idle")
 	await _frames(180)
 	_check(not _said(["lg_idle"]) and audio._idle_voice_at == first_at,
 		"повтор простоя раньше 20 с боя не звучит")

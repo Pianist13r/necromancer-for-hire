@@ -34,7 +34,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = SHADER
 	material.set_shader_parameter("strength", effective_strength)
-	material.set_shader_parameter("time_offset", randf() * 100.0)
+	material.set_shader_parameter("time_offset", JuiceeEffect.rng.randf() * 100.0)
 	rect.material = material
 
 	var tween: Tween = _track(layer.create_tween())

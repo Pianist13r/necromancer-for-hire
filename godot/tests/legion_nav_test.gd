@@ -107,7 +107,13 @@ func _run() -> void:
 	_nav(main.screen)
 	_click(main.screen, "Ещё раз")
 	await _frames()
-	_check(main.world.phase == LegionWorld.Phase.BATTLE, "повтор после поражения")
+	_check(main.screen is Briefing and main.screen._map_id == second,
+		"повтор после поражения открывает брифинг той же карты")
+	_check(main.screen.find_child("PrepPanel", true, false) != null,
+		"перед повтором доступна подготовка")
+	_click(main.screen, "В бой")
+	await _frames()
+	_check(main.world.phase == LegionWorld.Phase.BATTLE, "повтор из брифинга начинает бой")
 	main.show_menu()
 	await _frames()
 	await _other_screens()

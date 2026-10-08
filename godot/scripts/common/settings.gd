@@ -55,6 +55,36 @@ static var economy_override := ""
 static var hints_override := ""
 
 
+static func is_screen_shake_enabled() -> bool:
+	return bool(get_value(SEC_VIDEO, "screen_shake", true))
+
+
+static func set_screen_shake(on: bool) -> void:
+	set_value(SEC_VIDEO, "screen_shake", on)
+	Juice.sync_accessibility()
+
+
+static func is_flashes_enabled() -> bool:
+	return bool(get_value(SEC_VIDEO, "flashes", true))
+
+
+static func set_flashes(on: bool) -> void:
+	set_value(SEC_VIDEO, "flashes", on)
+	Juice.sync_accessibility()
+	if not on:
+		for view in CharView.registry:
+			view.set("_flash_t", 0.0)
+			view._apply_modulate()
+
+
+static func is_world_grade_enabled() -> bool:
+	return bool(get_value(SEC_VIDEO, "world_grade", true))
+
+
+static func set_world_grade(on: bool) -> void:
+	set_value(SEC_VIDEO, "world_grade", on)
+
+
 ## B-062: `--dev save=user://имя.cfg` (прогон на своём сохранении) уводит и настройки в парный
 ## `user://имя_settings.cfg` — галочки «Настроек» не пишут в настоящий settings.cfg владельца.
 ## Звать ДО Settings.apply(). Пустой путь — обратно общий файл.
@@ -121,7 +151,9 @@ static func is_fullscreen() -> bool:
 ## спрятано за экраном, и полноэкранный режим владельца ему применять нельзя — файл настроек
 ## общий, окно развернулось бы на весь экран владельца.
 static func is_agent_run() -> bool:
-	return OS.get_cmdline_user_args().has("--mute") or FileAccess.file_exists("res://.agent_mute")
+	var user_args := OS.get_cmdline_user_args()
+	return user_args.has("--mute") or user_args.has("--offscreen") \
+		or FileAccess.file_exists("res://.agent_mute")
 
 
 static func set_fullscreen(on: bool) -> void:
@@ -222,6 +254,7 @@ static func apply() -> void:
 	# «живость» — статик-флаг CharView, экрана не трогает: применяем и в безголовом/агентном
 	# прогоне (серии бота на экономной графике должны совпадать с полной по числам боя).
 	CharView.economy_motion = is_economy_graphics()
+	Juice.sync_accessibility()
 	if DisplayServer.get_name() == "headless" or is_agent_run():
 		return
 	_apply_fullscreen(is_fullscreen())

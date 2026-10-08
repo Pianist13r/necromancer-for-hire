@@ -6,7 +6,7 @@ extends SceneTree
 ##       --script res://tests/legion_pvp_read_test.gd -- --mute
 ##
 ## B-346: у бойцов «Схватки» цвет стороны — материал вида (PvpSideLook): у сторон разный, у
-##        одиночки материала нет; Е / тинт / вспышка красят modulate и материал не стирают.
+##        одиночки общий контур без цвета стороны; Е / тинт / вспышка материал не стирают.
 ## B-347: подписи урона Ку (ability_aim._note) не стоят друг на друге: у одной точки они
 ##        разъезжаются по вертикали; число живых подписей ограничено.
 ## B-351: итог «Схватки» зовёт числа «Армия», а не «Бойцов в строю».
@@ -64,10 +64,12 @@ func _run() -> void:
 	impact.free()
 	_check(p0.view.look_material() == mat0 and _hue(p0) >= 0.0,
 		"после Е, тинта элитки и вспышки цвет стороны на месте")
-	# одиночка вида не меняет
+	# Одиночка получает общий контур, а не шейдер цвета PvP-стороны.
 	w.start_map("fork")
 	var solo := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300, 400))
-	_check(solo.view.look_material() == null, "одиночка: материала стороны нет, вид прежний")
+	var solo_material := solo.view.look_material() as ShaderMaterial
+	_check(solo_material != null and solo_material.shader == CharReadability.SHADER,
+		"одиночка: общий контур без материала стороны")
 	# ── B-347 ──
 	var aim := w.ability_aim
 	aim.notes.clear()

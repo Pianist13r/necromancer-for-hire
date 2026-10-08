@@ -18,6 +18,10 @@ config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://assets/img/cauldron.png"
 config/custom_user_dir_name.linuxbsd="godot/app_userdata/Некромант на аутсорсе"
 
+[audio]
+
+buses/default_bus_layout="uid://bvgjm8g4e0e8k"
+
 [autoload]
 
 McpInteractionServer="*res://scripts/dev/mcp_interaction_server.gd"

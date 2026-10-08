@@ -14,7 +14,8 @@ extends RefCounted
 ## Ответ — {ok: bool, reason: String, …}; причина отказа — для подписи у игрока и для журнала.
 ##
 
-const STROKE := "stroke"        ## pts: PackedVector2Array, kind: String, [arrow: Vector2]
+## stroke: pts: PackedVector2Array, kind: String, [arrow: Vector2], [stack: true — Шифт, B-044]
+const STROKE := "stroke"
 const AIM := "aim"              ## contract: int, at: Vector2
 const SLING := "sling"          ## contract: int, seg: int, pull: Vector2 (оттяжка от участка)
 const CLICK := "click"          ## contract: int, seg: int
@@ -46,10 +47,12 @@ const NET_ARROW_REACH := 40.0
 # ── Сборка команд (бот, тесты, будущий разборщик пакетов) ─────────────────────
 
 static func stroke(pts: PackedVector2Array, kind: StringName = LegionCfg.KIND_LABORER,
-		arrow := Vector2.INF) -> Dictionary:
+		arrow := Vector2.INF, stack := false) -> Dictionary:
 	var cmd := {"type": STROKE, "pts": pts, "kind": String(kind)}
 	if arrow != Vector2.INF:
 		cmd["arrow"] = arrow
+	if stack:
+		cmd["stack"] = true   # B-044: Шифт — новая линия поверх живой, без подновления
 	return cmd
 
 
@@ -194,7 +197,8 @@ static func _stroke(world: LegionWorld, s: PvpSide, cmd: Dictionary) -> Dictiona
 	var arrow: Variant = cmd.get("arrow", Vector2.INF)
 	if arrow != Vector2.INF and not _in_field(world, arrow):
 		return _no("out_of_field")
-	var res := s.contracts.stroke(pts, kind, arrow as Vector2)
+	var stack: Variant = cmd.get("stack", false)
+	var res := s.contracts.stroke(pts, kind, arrow as Vector2, stack is bool and stack)
 	var c: Contract = res.get("contract")
 	if c == null:
 		return _no(String(res.get("reason", "rejected")))

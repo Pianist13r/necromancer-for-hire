@@ -1,0 +1,24 @@
+// SteamPipe: сборка приложения «Некромант по найму» (Windows + Linux).
+// Заливка (из папки tools/steam, после python -X utf8 tools/build_steam.py):
+//   steamcmd +login <steam-логин> +run_app_build "C:/Projects/Necromancer/tools/steam/app_build.vdf" +quit
+// Пути ниже — относительно ЭТОГО файла.
+//
+// AppID и DepotID — плейсхолдеры. Где взять: partner.steamgames.com → приложение →
+// AppID — в шапке страницы приложения (число в адресе /apps/landing/<AppID>);
+// DepotID — App Admin → SteamPipe → Depots (по умолчанию Steam создаёт депо AppID+1;
+// второе депо «Linux» добавить там же, у каждого депо задать Operating System).
+"AppBuild"
+{
+	"AppID"       "0000000"   // ← AppID приложения
+	"Desc"        "Necromancer for Hire 0.3.0"   // подпись билда в кабинете; менять на каждую заливку
+	"ContentRoot" "../../dist/steam/"
+	"BuildOutput" "../../dist/steam-buildoutput/"   // кэш и журналы steamcmd (dist/ в .gitignore)
+	"SetLive"     ""   // пусто — билд не публикуется сам; ветку выбирают в кабинете (сначала beta/закрытая)
+	"Preview"     "0"   // "1" — пробный прогон без заливки (проверить состав файлов)
+
+	"Depots"
+	{
+		"0000001" "depot_windows.vdf"   // ← DepotID Windows
+		"0000002" "depot_linux.vdf"     // ← DepotID Linux
+	}
+}

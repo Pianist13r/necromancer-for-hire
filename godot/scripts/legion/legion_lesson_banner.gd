@@ -62,16 +62,20 @@ func _ready() -> void:
 func set_task(text: String, counter: String) -> void:
 	_count.text = counter
 	_count.visible = counter != ""
+	retext(text)
+	_panel.visible = true
+	# короткое проявление вместо резкой подмены строки: глаз замечает, что задание сменилось
+	_panel.modulate.a = 0.25
+	create_tween().tween_property(_panel, "modulate:a", 1.0, POP_TIME)
+
+## Тот же урок, новый текст (клавишу переназначили посреди урока, KB-06) — без проявления.
+func retext(text: String) -> void:
 	_label.text = text
 	var w := _label.get_theme_font("font").get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 		_label.get_theme_font_size("font_size")).x
 	var wrap := w > MAX_TEXT_W
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
 	_label.custom_minimum_size.x = MAX_TEXT_W if wrap else 0.0
-	_panel.visible = true
-	# короткое проявление вместо резкой подмены строки: глаз замечает, что задание сменилось
-	_panel.modulate.a = 0.25
-	create_tween().tween_property(_panel, "modulate:a", 1.0, POP_TIME)
 
 func hide_task() -> void:
 	if _panel != null:

@@ -46,10 +46,12 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(header)
 
-	var tally := UiStyle.label("Стаж: %d · Души: %d" % [tenure, souls], 16, UiStyle.FONT_TEXT,
-		UiStyle.TEXT_DIM)
+	var tally := UiStyle.label("Объектов пройдено: %d · Души: %d" % [tenure, souls],
+		16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(tally)
+	box.add_child(ProgressionUi.text("Разряд открывает варианты поправок. "
+		+ "Опыт растёт только в кампании.", 15, UiStyle.TEXT_DIM))
 
 	# D-0927-96: рекорды — отдельно по сложности («Вызов дня» — ещё и по дате); показываем рекорд
 	# ТОЙ сложности, с которой реально пойдёт объект (закреплённая — у «Вызова дня» ПОСЛЕ старта
@@ -78,7 +80,7 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 
 	var hint := String(map_data.get("hint", ""))
 	if hint != "":
-		var hint_label := UiStyle.label(hint, 16, UiStyle.FONT_TEXT, UiStyle.TEXT)
+		var hint_label := UiStyle.label(Controls.text(hint), 16, UiStyle.FONT_TEXT, UiStyle.TEXT)
 		hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(hint_label)

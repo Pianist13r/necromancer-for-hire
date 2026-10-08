@@ -53,29 +53,29 @@ func _test_voice_pause() -> void:
 	root.add_child(a)
 	a.setup_standalone(false, false)   # не mute: плеер реально играет (звук dummy-драйвера, headless)
 	await _frames(2)
-	a.voice(&"lg_intro_1", 5, LegionAudio.VoiceClass.SCENE)   # ~11 с
-	var until_before: int = a._voice_busy_until_msec
-	_check(a.is_voice_busy(), "реплика звучит")
+	a.speech.voice(&"lg_intro_1", 5, LegionAudio.VoiceClass.SCENE)   # ~11 с
+	var until_before: int = a.speech._voice_busy_until_msec
+	_check(a.speech.is_voice_busy(), "реплика звучит")
 	paused = true
 	await _frames(3)
-	_check(a._voice_player.stream_paused, "на паузе плеер голоса приостановлен")
+	_check(a.speech._voice_player.stream_paused, "на паузе плеер голоса приостановлен")
 	OS.delay_msec(400)
 	await _frames(2)
 	paused = false
 	await _frames(3)
-	_check(not a._voice_player.stream_paused, "после паузы плеер голоса снова идёт")
-	_check(a._voice_busy_until_msec - until_before >= 380,
-		"«занят до» сдвинут на длину паузы (+%d мс)" % (a._voice_busy_until_msec - until_before))
-	_check(a.is_voice_busy(), "реплика не оборвана паузой")
+	_check(not a.speech._voice_player.stream_paused, "после паузы плеер голоса снова идёт")
+	_check(a.speech._voice_busy_until_msec - until_before >= 380,
+		"«занят до» сдвинут на длину паузы (+%d мс)" % (a.speech._voice_busy_until_msec - until_before))
+	_check(a.speech.is_voice_busy(), "реплика не оборвана паузой")
 	# выкрик на паузе без звучащей реплики: ничего не ломается и сдвига нет
-	a.stop_voice()
-	var idle_until: int = a._voice_busy_until_msec
+	a.speech.stop_voice()
+	var idle_until: int = a.speech._voice_busy_until_msec
 	paused = true
 	await _frames(2)
 	OS.delay_msec(100)
 	paused = false
 	await _frames(2)
-	_check(a._voice_busy_until_msec == idle_until, "тишина паузой не «удлиняется»")
+	_check(a.speech._voice_busy_until_msec == idle_until, "тишина паузой не «удлиняется»")
 	a.queue_free()
 	await _frames(1)
 
@@ -98,27 +98,27 @@ func _test_tutorial_end_voice() -> void:
 		w.queue_free()
 		return
 	for done in [true, false]:
-		audio.clear_voice_queue()
-		audio.voice(&"lg_intro_1", 5, LegionAudio.VoiceClass.SCENE)   # занять голос
+		audio.speech.clear_voice_queue()
+		audio.speech.voice(&"lg_intro_1", 5, LegionAudio.VoiceClass.SCENE)   # занять голос
 		var t := LegionTutorial.new()
 		var lesson := {"id": &"x", "start": true, "kind": &"line", "when": "start", "text": "t",
 			"done": "contract_created", "mark": "", "hold": false, "voice": &"lg_tut_1"}
 		t.world = w
 		t.lessons = [lesson]
-		audio.voice(&"lg_tut_1", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
+		audio.speech.voice(&"lg_tut_1", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
 		_check(_queued(audio, "lg_tut_1"), "реплика шага ждёт в очереди (%s)" % ("пройдено" if done else "прервано"))
 		t.call("_disconnect", done) if t.get_method_argument_count("_disconnect") > 0 else t.call("_disconnect")
 		if done:
 			_check(_queued(audio, "lg_tut_1"), "обучение пройдено — реплика последнего шага осталась")
 		else:
 			_check(not _queued(audio, "lg_tut_1"), "обучение прервано — реплика стёрта")
-	audio.stop_voice()
+	audio.speech.stop_voice()
 	w.queue_free()
 	await _frames(1)
 
 
 func _queued(audio: LegionAudio, id: String) -> bool:
-	for e in audio._voice_queue:
+	for e in audio.speech._voice_queue:
 		if String(e["id"]) == id:
 			return true
 	return false

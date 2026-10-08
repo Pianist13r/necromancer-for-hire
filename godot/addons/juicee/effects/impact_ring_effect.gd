@@ -42,7 +42,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 		return
 
 	var root := Node2D.new()
-	root.name = StringName("_juicee_impact_ring_%d" % randi())
+	root.name = StringName("_juicee_impact_ring_%d" % JuiceeEffect.rng.randi())
 	root.scale = Vector2(0.4, 0.4)
 
 	# The ring itself (a closed Line2D circle).

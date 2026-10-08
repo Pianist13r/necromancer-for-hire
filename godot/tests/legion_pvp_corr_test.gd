@@ -173,9 +173,18 @@ func _test_draw() -> void:
 	var grip: Vector2 = w.contracts.contracts[0].seg_center(0)
 	var dir: Vector2 = w.contracts.contracts[0].dir
 	var pull := grip - dir * 80.0
+	# D-1008-C2/C3 (B-345): бойцов на местах нет (spawn_units 0), поэтому остаток после срыва —
+	# «пенёк» и гаснет на том же шаге вместе с договором. Факт срыва рогаткой проверяем по
+	# самому договору (причина срыва участка 0 — ручная) и счётчику рогатки, а не по тому,
+	# что договор остался в списке.
+	var torn_c: Contract = w.contracts.contracts[0]
+	var slung0 := int(w.stats.get("sling_releases", 0))
 	await _move(2, {"actions": [{"sling": [[grip.x, grip.y], [pull.x, pull.y]]}], "wait": 0.2})
-	_check(not w.contracts.contracts.is_empty() and not w.contracts.contracts[0].seg_alive(0),
-		"рогатка по участку в мировых координатах сорвала его")
+	_check(not torn_c.seg_alive(0) and torn_c.release_causes.get(0, &"") == &"manual"
+		and int(w.stats.get("sling_releases", 0)) == slung0 + 1,
+		"рогатка по участку в мировых координатах сорвала его (причины %s)" % torn_c.release_causes)
+	_check(not w.contracts.contracts.has(torn_c),
+		"остаток без бойцов погас пеньком (D-1008-C3)")
 	await _detach()
 
 

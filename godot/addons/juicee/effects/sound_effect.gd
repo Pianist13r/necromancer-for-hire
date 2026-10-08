@@ -23,7 +23,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	if not context or not context.is_inside_tree():
 		return
 
-	var stream := streams[randi() % streams.size()]
+	var stream := streams[JuiceeEffect.rng.randi() % streams.size()]
 	if not stream:
 		return
 
@@ -33,7 +33,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	player.stream = stream
 	player.bus = bus
 	player.volume_db = effective_volume_db
-	player.pitch_scale = randf_range(pitch_min, pitch_max)
+	player.pitch_scale = JuiceeEffect.rng.randf_range(pitch_min, pitch_max)
 	context.add_child(player)
 	player.play()
 	await player.finished

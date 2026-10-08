@@ -9,6 +9,9 @@ extends Node2D
 ##
 ## Аргументы после `--`: --mute --autostart --map ID --bot hold|release|selective|off
 ## --seed N --trace --quit-on-end --bench N --shot ПУТЬ --shot-frame N --dev КЛЮЧ=ЗНАЧ.
+## --offscreen — окно агента за экраном, как при --mute, но звук пишется в файл Movie Maker
+## (только вместе с --write-movie; без записи глушится). --dev director=сценарий.json — режиссёр
+## записи промо (scripts/dev/legion_director.gd, tools/promo/record.py).
 ## Ключи --dev пакета CORE: spawn_units=N (армия на старте), spawn_foes=N (враги на дорогах
 ## на старте), invuln=1 (урона нет ни у кого — замер кадра на постоянной массе), no_waves=1.
 ## Пакет f0: spawn_kind=ВИД:N[,ВИД:N] — сверх армии у Котла ещё N бойцов вида (кадр видов),
@@ -109,6 +112,8 @@ const STAMP_COLOR := CfgFx.C_DANGER
 const TUTORIAL_DRIVER := "res://scripts/dev/legion_tutorial_driver.gd"
 ## Игра по переписке (--dev corr=папка); грузится только по этому ключу.
 const CORR_PLAY := "res://scripts/dev/corr_play.gd"
+## Режиссёр записи промо (--dev director=сценарий.json); грузится только по этому ключу.
+const DIRECTOR := "res://scripts/dev/legion_director.gd"
 
 ## Пакет flow: true — мир встроен в LegionMain и сам не стартует карту в _ready() (интегратор
 ## сам решает, когда и какую карту начать через start_map()). false (по умолчанию) — старое
@@ -134,6 +139,8 @@ var paused := false
 ## думает над ходом. В отличие от paused, ввод и интерфейс продолжают работать — ход вводится
 ## настоящими событиями в стоящий мир.
 var hold := false
+## Подписи HUD идут за камерой (world_to_hud) — ставит только режиссёр записи с крупным планом.
+var hud_follows_camera := false
 var units: Array[Legionnaire] = []
 var foes: Array[Foe] = []
 var crypts: Array[LegionCrypt] = []
@@ -427,6 +434,12 @@ func _ready() -> void:
 			var corr: Node = (load(CORR_PLAY) as GDScript).new()
 			corr.call("setup", self, String(dev["corr"]))
 			add_child(corr)
+		# режиссёр записи промо: --dev director=сценарий.json (только отладочная сборка;
+		# tools/promo/record.py, scripts/dev/legion_director.gd)
+		if dev.has("director") and OS.is_debug_build():
+			var director: Node = (load(DIRECTOR) as GDScript).new()
+			director.call("setup", self, String(dev["director"]))
+			add_child(director)
 
 
 ## Аргументы после `--` (докстринг файла).
@@ -441,6 +454,12 @@ static func parse_args() -> Dictionary:
 		match a:
 			"--mute", "--autostart", "--trace", "--fast":
 				out[a.trim_prefix("--")] = true
+			"--offscreen":
+				# запись промо (REC-02): окно агента за экраном (AgentWindow), звук — только в
+				# файл Movie Maker; без --write-movie звук глушится, как при --mute
+				out["offscreen"] = true
+				if not OS.has_feature("movie"):
+					out["mute"] = true
 			"--quit-on-end":
 				out["quit_on_end"] = true
 			"--pvp-bots":
@@ -623,6 +642,9 @@ func _build() -> void:
 	hud = LegionHud.new()
 	add_child(hud)
 	hud.setup(self)
+	var grade := LegionWorldGrade.new()
+	add_child(grade)
+	grade.setup(self)
 	_build_ctl_widgets()
 	# предметы: вспышки особых эффектов — в мире над фигурами, полоска и карточка — в HUD
 	var item_fx := LegionItemFx.new()
@@ -930,6 +952,7 @@ func _build_side_cauldron(s: PvpSide) -> void:
 	spr.modulate = PvpRules.tint(s.index)
 	entities.add_child(spr)
 	s.cauldron_sprite = spr
+	_add_cauldron_light(spr, s.index)
 	s.necro = CharView.new()
 	entities.add_child(s.necro)
 	s.necro.setup("necromancer", LegionCfg.NECRO_BODY_H)
@@ -1162,7 +1185,8 @@ func net_digest() -> String:
 			f.append_array([c.dir.x, c.dir.y])
 	for u in units:
 		n.append_array([u.side, LegionCfg.KIND_ORDER.find(u.kind), u.state, 1 if u.alive else 0])
-		f.append_array([u.position.x, u.position.y, u.hp])
+		n.append(1 if u.auto_march else 0)
+		f.append_array([u.position.x, u.position.y, u.hp, u.held_t])
 	for e in foes:
 		n.append_array([e.type_id.hash(), e.state, 1 if e.alive else 0])
 		f.append_array([e.position.x, e.position.y, e.hp])
@@ -1321,7 +1345,7 @@ static func load_map(id: String) -> Dictionary:
 	# процедурная карта «Бесконечного подряда»: gen:<сид>:<объект> (STAGE2 §2) — файла нет,
 	# словарь собирает генератор (кэш по id — второй раз за бой не генерирует)
 	if id.begins_with(ProcGen.ID_PREFIX):
-		return PvpMaps.adapt_generated(ProcGen.map_from_id(id))
+		return LegionRunStore.annotate_generated(PvpMaps.adapt_generated(ProcGen.map_from_id(id)))
 	var path := LegionCfg.MAPS_DIR + id + ".json"
 	if not FileAccess.file_exists(path):
 		return {}
@@ -1651,6 +1675,7 @@ func _build_cauldron() -> void:
 	# чтобы «земля» котла совпала с его точкой и бойцы за котлом рисовались позади
 	_cauldron.offset = Vector2(0.0, -LegionCfg.CAULDRON_MASTER_PX * 0.25)
 	entities.add_child(_cauldron)
+	_add_cauldron_light(_cauldron, 0)
 	_necro = CharView.new()
 	entities.add_child(_necro)
 	_necro.setup("necromancer", LegionCfg.NECRO_BODY_H)
@@ -1666,6 +1691,13 @@ func _build_cauldron() -> void:
 	add_child(hero)
 	hero.setup(self, _necro)
 	_s0.hero = hero
+
+
+func _add_cauldron_light(spr: Sprite2D, side: int) -> void:
+	var light := LegionCauldronView.new()
+	entities.add_child(light)
+	entities.move_child(light, 0)  # y=0: под фигурами, без перестановки слоёв мира.
+	light.setup(self, spr, side)
 
 
 func _near_cauldron() -> Vector2:
@@ -1867,6 +1899,24 @@ func screen_to_world(p: Vector2) -> Vector2:
 ## Точка мира → экран вьюпорта (якоря интерфейса у мировых объектов).
 func world_to_screen(p: Vector2) -> Vector2:
 	return view_xf * p
+
+
+## Точка мира → экран для подписей HUD (вид, не ввод). Камеру крупным планом двигает только
+## режиссёр записи (scripts/dev/legion_director.gd, REC-07): он ставит hud_follows_camera, и
+## подписи идут за камерой. В игре флаг выключен — это тот же world_to_screen.
+func world_to_hud(p: Vector2) -> Vector2:
+	if hud_follows_camera and is_inside_tree():
+		return get_viewport().get_canvas_transform() * p
+	return world_to_screen(p)
+
+
+## Видимая часть мира для HUD (телеграф угрозы): при камере режиссёра — то, что в кадре.
+func hud_view_rect() -> Rect2:
+	if hud_follows_camera and is_inside_tree():
+		var inv := get_viewport().get_canvas_transform().affine_inverse()
+		var a := inv * Vector2.ZERO
+		return Rect2(a, inv * Vector2(LegionCfg.WORLD_SIZE) - a)
+	return view_rect()
 
 
 ## Сколько экранных px в пикселе мира (без растяжения окна): одиночка 1, «Дуэль» 0,8.
@@ -2815,7 +2865,7 @@ func rally_preview(at: Vector2, side := 0) -> Dictionary:
 	var cut: Array[Legionnaire] = []
 	var c := rally_center(at)
 	for u in units:
-		if u.alive and u.side == side and u.state == Legionnaire.State.FREE \
+		if u.alive and u.side == side and u.can_rally() \
 				and u.position.distance_to(at) <= LegionCfg.RALLY_R:
 			if c != Vector2.INF and terrain.connected(u.position, c):
 				reach.append(u)
@@ -2857,7 +2907,7 @@ func rally(cursor: Vector2, side := 0) -> int:
 	var picked: Array[Legionnaire] = []
 	var at := rally_center(cursor)
 	for u in units:
-		if at != Vector2.INF and u.alive and u.side == side and u.state == Legionnaire.State.FREE \
+		if at != Vector2.INF and u.alive and u.side == side and u.can_rally() \
 				and u.position.distance_to(cursor) <= LegionCfg.RALLY_R:
 			picked.append(u)
 	picked.sort_custom(func(a: Legionnaire, b: Legionnaire) -> bool:
@@ -3030,6 +3080,7 @@ func tear_segment(c: Contract, seg: int) -> void:
 
 
 func on_contract_created(c: Contract) -> void:
+	LegionStaff.release_held(self, c)
 	stats["lines"] = int(stats["lines"]) + 1
 	# overtime_clause (mods): +с к сроку жизни каждого участка нового договора.
 	c.ttl += mod_add("seg_ttl_bonus") + item_add(&"seg_ttl", c.owner_side)
@@ -3045,15 +3096,18 @@ func on_contract_removed(c: Contract) -> void:
 	contract_removed.emit(c)
 
 
-## Общий с черновиком план: ближайшее достижимое место своего вида в радиусе бойца.
+## Сначала ближний набор, затем автомарш свободного резерва к оставшимся местам своего вида.
 ## Кэш путей и поиск по клеткам принадлежат полю; назначенных на марше не трогаем.
 ## field — поле стороны (PvP: у каждой своя раздача и только свои бойцы).
 func _assign_free(field: ContractField = null) -> void:
 	if field == null:
 		field = contracts
-	for assignment in field.assignment_plan(field.contracts):
+	for assignment in LegionStaff.deployment_plan(field, field.contracts):
 		var u: Legionnaire = assignment["unit"]
 		u.assign(assignment["contract"], assignment["post"], assignment["path"])
+		if assignment.get("automarch", false):
+			u.auto_march = true
+			stats["auto_marches"] = int(stats.get("auto_marches", 0)) + 1
 
 
 # ── Бой ─────────────────────────────────────────────────────────────────────
@@ -3320,7 +3374,8 @@ func pvp_stats() -> Dictionary:
 func toast(text: String, kind: StringName = &"info", time := -1.0) -> void:
 	if hud != null:
 		hud.toast(text, kind, time)
-	toast_posted.emit(text, kind)
+	# слушателям — то, что видит игрок (клавиши подставляет сток LegionHud.toast)
+	toast_posted.emit(Controls.text(text), kind)
 
 
 func foe_in_front(p: Vector2, n: Vector2, dist: float, type: String) -> bool:

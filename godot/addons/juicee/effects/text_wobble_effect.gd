@@ -35,8 +35,8 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	var original_pos: Vector2 = _capture_state(target, "position")
 	var effective_amplitude: float = amplitude * intensity_mult
 	# Independent phases on X and Y for organic wobble.
-	var phase_x_offset: float = randf() * TAU
-	var phase_y_offset: float = randf() * TAU
+	var phase_x_offset: float = JuiceeEffect.rng.randf() * TAU
+	var phase_y_offset: float = JuiceeEffect.rng.randf() * TAU
 	var elapsed: float = 0.0
 	var tree := target.get_tree()
 	if not tree:

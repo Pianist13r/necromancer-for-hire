@@ -80,6 +80,10 @@ func _ready() -> void:
 	var args := LegionWorld.parse_args()
 	_args = args
 	var dev: Dictionary = args.get("dev", {})
+	if dev.has("build_probe"):   # проба сборки: печать версии/фич и выход, сохранения не читаются
+		print(ReleaseInfo.probe_line())
+		get_tree().quit()
+		return
 	Settings.use_dev_save(String(dev.get("save", "")))   # B-062: настройки — в парный файл своего save
 	# сохранённые громкости, звук и полный экран (агентному прогону окно не разворачивает)
 	Settings.apply()
@@ -130,6 +134,7 @@ func _ready() -> void:
 	_ensure_audio()
 	show_menu()
 	add_child(PlayMetrics.new())
+	_boot_steam()
 	# приёмка обучения из кампании настоящим вводом: --dev save=… --dev tutorial_play=campaign|skip
 	# (tools/tutorial_play.sh). Без чужого сохранения не запускаем — водитель жмёт «Начать кампанию».
 	if dev.has("tutorial_play") and Campaign.is_safe_dev_save(dev_save):
@@ -152,6 +157,22 @@ func _ready() -> void:
 		var corr: Node = (load(LegionWorld.CORR_PLAY) as GDScript).new()
 		corr.call("setup_main", self, corr_dir)
 		add_child(corr)
+
+
+## Steam-сборка: SteamNet под main на всю игру (оверлей, приглашения, +connect_lobby). Вне
+## Steam-сборки boot() даёт null — «По сети» идёт в прежнее лобби с адресом сервера.
+## Приглашение посреди боя не рвёт бой: лобби откроется, когда игрок сам зайдёт в «По сети».
+func _boot_steam() -> void:
+	var steam := SteamNet.boot(self)
+	if steam == null:
+		return
+	steam.join_request.connect(func(lobby: int) -> void:
+		if world != null and world.phase == LegionWorld.Phase.BATTLE:
+			return
+		PvpFlow.show_steam_lobby(self, lobby))
+	var pending := steam.take_pending_join()
+	if pending != 0 and steam.active():
+		PvpFlow.show_steam_lobby(self, pending)
 
 
 ## polish1: единственный узел `LegionAudio` кампании — создаётся при первом обращении (обычно
@@ -258,7 +279,7 @@ func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 	# (см. tests/legion_ui_preview.gd), поэтому вызываем деферренно, после add_child выше.
 	# integrate1: открылся новый вид/способность — эйчар объявляет (плашка «Новое» — у брифинга)
 	if not Campaign.pending_unlock_labels().is_empty():
-		audio.voice_any(["lg_contract_new_1", "lg_contract_new_2", "lg_contract_new_3"],
+		audio.speech.voice_any(["lg_contract_new_1", "lg_contract_new_2", "lg_contract_new_3"],
 			LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
 	b.call_deferred("populate", data)
 	b.start.connect(start_battle)
@@ -334,7 +355,7 @@ func _ensure_world() -> LegionWorld:
 ## Пакет подготовки взят на брифинге (PrepPanel.changed(true)) — эйчар отзывается тем же голосом,
 ## что раньше в «Конторе», единым узлом звука кампании. Снятие пакета — молча.
 func _voice_prep_bought() -> void:
-	_ensure_audio().voice(&"lg_office_buy", LegionCfg.AUDIO_V15_PRIORITY_HR,
+	_ensure_audio().speech.voice(&"lg_office_buy", LegionCfg.AUDIO_V15_PRIORITY_HR,
 		LegionAudio.VoiceClass.STORY)
 
 

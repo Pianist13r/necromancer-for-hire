@@ -75,7 +75,7 @@ const _UNLOCK_LABELS := {
 	"aim": ["control_unlocked_aim", "Стрелка отряда: Пробел или зажатое колесо"],
 	"rally": ["control_unlocked_rally", "«Сбор»: Эр (R)"],
 	"ring": ["shape_unlocked_ring", "Фигура «Оцепление»: кольцо"],
-	"hero_w": ["ability_unlocked_w", "Навык Дубль-вэ: трупы встают за тебя"],
+	"hero_w": ["ability_unlocked_w", "Навык Дубль-вэ: трупы встают за вас"],
 	"hero_e": ["ability_unlocked_e", "Навык Е «Аврал»: строй держит давку"],
 	"eight": ["shape_unlocked_eight", "Фигура «Двойная смена»: восьмёрка"],
 	"items": ["loot_unlocked_items", "Элитные проверяющие и предметы"],
@@ -630,6 +630,7 @@ static func record_rewards(victory: bool, stars: int, kills: int) -> Dictionary:
 	var bounty_earned := LegionMetaCfg.bounty_for_result(victory, stars, kills)
 	var xp_earned := LegionMetaCfg.hero_xp_for_result(victory, stars, kills)
 	var level_before := hero_level()
+	var xp_before := hero_xp()
 	begin_update()
 	add_bounty(bounty_earned)
 	_add_hero_xp(xp_earned)
@@ -639,6 +640,7 @@ static func record_rewards(victory: bool, stars: int, kills: int) -> Dictionary:
 		"bounty": bounty_earned, "xp": xp_earned,
 		"leveled_up": level_after > level_before, "level": level_after,
 		"level_before": level_before,
+		"xp_before": xp_before, "xp_after": hero_xp(),
 	}
 
 
@@ -649,37 +651,6 @@ static func grant_endless_bounty(victory: bool, kills: int, ratio: float) -> int
 	var earned := LegionMetaCfg.bounty_for_result(victory, stars, kills)
 	add_bounty(earned)
 	return earned
-
-
-# ── «Контора»: покупки по LegionMetaCfg.OFFICE_SHOP ────────────────────────────────────────────
-
-static func _shop_save_key(id: String, kind: String) -> String:
-	return "shop_%s" % id if kind == "" else "shop_%s_%s" % [id, kind]
-
-
-## Текущий уровень покупки (0 — не куплена). kind — только для per_kind покупок.
-static func shop_level(id: String, kind: String = "") -> int:
-	return int(_file().get_value(_meta_section(), _shop_save_key(id, kind), 0))
-
-
-static func shop_max_level(id: String) -> int:
-	var data: Dictionary = LegionMetaCfg.OFFICE_SHOP.get(id, {})
-	return Array(data.get("costs", [])).size()
-
-
-## Премия за СЛЕДУЮЩИЙ уровень, -1 — уровень уже максимальный (кнопка покупки скрывается).
-static func shop_cost(id: String, kind: String = "") -> int:
-	var data: Dictionary = LegionMetaCfg.OFFICE_SHOP.get(id, {})
-	var costs: Array = data.get("costs", [])
-	var lvl := shop_level(id, kind)
-	if lvl >= costs.size():
-		return -1
-	return int(costs[lvl])
-
-
-static func shop_buy(id: String, kind: String = "") -> bool:
-	# Цепочки процентов заменены услугами; старый API не даёт купить неработающий бонус.
-	return RunProgression.buy_service(id) if kind == "" else false
 
 
 # ── Герой: опыт и разряд (DESIGN_V15 §6; переработка 06.10.2026) ─────────────────────────────────
@@ -701,22 +672,12 @@ static func _add_hero_xp(amount: int) -> void:
 
 ## Уровень по накопленному опыту (HERO_LEVEL_THRESHOLDS — кумулятивные пороги), потолок 10.
 static func hero_level() -> int:
-	var xp := hero_xp()
-	var lvl := 1
-	for threshold in LegionMetaCfg.HERO_LEVEL_THRESHOLDS:
-		if xp >= int(threshold):
-			lvl += 1
-	return mini(lvl, LegionMetaCfg.HERO_MAX_LEVEL)
+	return int(LegionMetaCfg.rank_progress(hero_xp())["level"])
 
 
 ## Для полоски опыта на экране героя: опыт внутри текущего уровня и сколько нужно до следующего.
 static func hero_xp_progress() -> Dictionary:
-	var lvl := hero_level()
-	if lvl >= LegionMetaCfg.HERO_MAX_LEVEL:
-		return {"level": lvl, "cur": 0, "need": 0, "maxed": true}
-	var prev_th := 0 if lvl <= 1 else int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[lvl - 2])
-	var next_th := int(LegionMetaCfg.HERO_LEVEL_THRESHOLDS[lvl - 1])
-	return {"level": lvl, "cur": hero_xp() - prev_th, "need": next_th - prev_th, "maxed": false}
+	return LegionMetaCfg.rank_progress(hero_xp())
 
 
 # ── Открытия кампанией: виды бойцов, способности героя (задание meta п.4) ──────────────────────

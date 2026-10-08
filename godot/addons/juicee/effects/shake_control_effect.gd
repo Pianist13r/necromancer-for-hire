@@ -32,8 +32,8 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	while elapsed < duration and is_instance_valid(target) and not _cancelled:
 		var decay := 1.0 - elapsed / duration
 		var offset := Vector2(
-			randf_range(-eff, eff) * decay,
-			randf_range(-eff * 0.3, eff * 0.3) * decay
+			JuiceeEffect.rng.randf_range(-eff, eff) * decay,
+			JuiceeEffect.rng.randf_range(-eff * 0.3, eff * 0.3) * decay
 		)
 		target.position = original_pos + offset
 		await tree.create_timer(step, true, false, false).timeout

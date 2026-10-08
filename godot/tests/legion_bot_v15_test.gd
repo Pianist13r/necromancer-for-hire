@@ -62,9 +62,24 @@ func test_relay() -> void:
 	w.grid.rebuild()
 	var mana := w.contracts.mana
 	bot._tick_slot(bot.slots[0])
-	check(bot.slots[0]["contracts"].is_empty(), "дальний договор без набора не создаётся")
-	check(w.stats["relay_contracts"] == 1, "армия вне радиуса получает промежуточный договор")
-	check(w.contracts.mana < mana, "relay оплачивается обычной маной")
+	check(not bot.slots[0]["contracts"].is_empty(), "дальний рубеж создаётся с автомаршем резерва")
+	check(w.stats["relay_contracts"] == 0, "достижимому рубежу не нужен промежуточный договор")
+	check(w.contracts.mana < mana, "дальний рубеж оплачивается обычной маной")
+	var marching := 0
+	for u in w.units:
+		if u.state == Legionnaire.State.MARCH and u.auto_march:
+			marching += 1
+	check(marching >= 3, "дальний рубеж действительно получил маршевый отряд")
+	# Сам механизм промежуточной доставки остаётся: проверяем его явно, не требуя от бота
+	# тратить лишнюю ману там, где B-344 теперь разрешает прямой марш.
+	fresh()
+	for i in 8:
+		w.spawn_unit(LegionCfg.KIND_GUARD, Vector2(220, 300 + i * 3))
+	w.grid.rebuild()
+	mana = w.contracts.mana
+	bot._request_relay(bot.slots[0], LegionCfg.KIND_GUARD)
+	check(w.stats["relay_contracts"] == 1, "явный запрос создаёт промежуточный договор")
+	check(w.contracts.mana < mana, "промежуточная доставка также оплачена")
 	var relay: Contract = w.contracts.contracts[0]
 	for post in relay.posts:
 		var u: Legionnaire = post["unit"]
@@ -267,11 +282,15 @@ func test_rear_warning() -> void:
 
 func test_overlap_relay() -> void:
 	fresh()
+	# На фронт длиной 100 px маны нет; короткая доставка (72 px) ещё доступна.
+	w.contracts.mana = 80.0 * w.contracts._kind_price(LegionCfg.KIND_GUARD)
 	for i in 6:
 		w.spawn_unit(LegionCfg.KIND_GUARD, Vector2(220, 300 + i * 3))
 	w.grid.rebuild()
 	bot._tick_slot(bot.slots[0])
-	check(not bot._relays.is_empty(), "relay создан перед нахлёстом")
+	check(not bot._relays.is_empty(), "настоящий tick_slot создал relay перед нахлёстом")
+	if bot._relays.is_empty():
+		return
 	var c: Contract = w.contracts.contracts[0]
 	for post in c.posts:
 		var u: Legionnaire = post["unit"]
@@ -294,7 +313,7 @@ func test_overlap_relay() -> void:
 	for i in 6:
 		w.spawn_unit(LegionCfg.KIND_GUARD, Vector2(220, 300 + i * 3))
 	w.grid.rebuild()
-	bot._tick_slot(bot.slots[0])
+	bot._request_relay(bot.slots[0], LegionCfg.KIND_GUARD)
 	w.now = LegionCfg.BOT_V16_RELAY_TIMEOUT + 1.0
 	bot._relay_step()
 	check(bot._relays.is_empty(), "застрявший марш снимается по сроку доставки")

@@ -142,9 +142,10 @@ func _draw_node(idx: int) -> void:
 			_p_streak.draw(node)
 			_draw_bolts(node, false)
 		3:
-			_p_glow.draw(node)
-			_draw_bolts(node, true)
-			if _screen_t > 0.0:
+			if Settings.is_flashes_enabled():
+				_p_glow.draw(node)
+				_draw_bolts(node, true)
+			if _screen_t > 0.0 and Settings.is_flashes_enabled():
 				var c := _screen_c
 				c.a = CfgFx.BOLT_SCREEN_A * _screen_t / CfgFx.BOLT_SCREEN_LIFE
 				# вспышка на весь ВИДИМЫЙ мир (поле «Схватки» шире кадра одиночки, B-304)
@@ -254,7 +255,8 @@ func bolt_chain(hand: Vector2, chain: Array[Foe]) -> void:
 	# экран: тряска растёт с числом целей, одна короткая слабая вспышка, стоп-кадр мира
 	Juice.shake(world, CfgFx.BOLT_SHAKE + CfgFx.BOLT_SHAKE_PER_HOP * chain.size(),
 		CfgFx.BOLT_SHAKE_DUR)
-	_screen_t = CfgFx.BOLT_SCREEN_LIFE
+	if Juice.screen_flash_allowed(world):
+		_screen_t = CfgFx.BOLT_SCREEN_LIFE
 	_screen_c = lk["c"]
 	world.impact_stop(CfgFx.BOLT_HITSTOP)
 	_tick_bolts(0.0)  # первый прыжок бьёт сразу, в кадре каста
@@ -425,6 +427,8 @@ func _bolt_color() -> Color:
 
 
 func _glow(at: Vector2, size: float, a: float, life: float, c: Color) -> void:
+	if not Settings.is_flashes_enabled():
+		return
 	var i := _add(_p_glow, at, life, size, size * 0.6, a, c)
 	if i >= 0:
 		_p_glow.fin[i] = 0.0

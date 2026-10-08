@@ -1,8 +1,8 @@
 {
   "frames": 16,
-  "fps": 27.5862,
+  "fps": 38.496240602,
   "loop": true,
-  "duration": 0.58,
+  "duration": 0.415625,
   "pivot_px": [
     64.0,
     112.0
@@ -28,6 +28,6 @@
   ],
   "step_canvas_px": 19.0,
   "contact_phase": 0.0,
-  "support_ratio": 0.716594827586207,
-  "residual_slide_world_px_s": 11.336206896551722
+  "support_ratio": 1.0,
+  "residual_slide_world_px_s": 0.0
 }

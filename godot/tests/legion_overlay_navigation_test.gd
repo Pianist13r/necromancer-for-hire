@@ -146,8 +146,8 @@ func _case_settings(with_reset: bool) -> void:
 	_check(first != null and s.is_ancestor_of(first), "настройки: начальный клавиатурный фокус")
 	for section_name in ["Звук", "Изображение", "Управление"]:
 		_check(_has_label(s, section_name), "настройки: секция «%s»" % section_name)
-	_check(s.find_children("*", "CheckBox", true, false).size() == 7,
-		"настройки: семь галочек (звук/изображение/управление/статистика)")
+	_check(s.find_children("*", "CheckBox", true, false).size() == 10,
+		"настройки: десять галочек, включая тряску, вспышки и атмосферу мира")
 	_check(s.find_children("*", "HSlider", true, false).size() == 4,
 		"настройки: четыре громкости")
 	_check((s.find_child("ResetAsk", true, false) != null) == with_reset,

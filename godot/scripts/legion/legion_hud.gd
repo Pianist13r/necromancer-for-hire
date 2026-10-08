@@ -10,7 +10,8 @@ extends CanvasLayer
 ## свои надпись-пауза и итог.
 ##
 ## Все корни — MOUSE_FILTER_IGNORE: HUD, ловящий мышь, съедает клики по арене и руна не чертится.
-## Кликабельны только сами кнопки (карточки, «Вызвать»).
+## Карточки вида и «Вызвать» тоже IGNORE (B-055: штрих, начатый над ними, иначе не начинался) —
+## их короткий щелчок разбирает ui_tap() из ContractField._release; ловят мышь пауза и «Касса».
 ##
 ## Счётчики армии и строка волны пересчитываются 4 раза в секунду (REFRESH), а не каждый кадр:
 ## обход всех бойцов и форматирование строк — лишние аллокации, глаз разницы не видит.
@@ -28,6 +29,9 @@ var pause_button: Button
 ## HUD прячет собственные надпись-паузу и панель итога, чтобы не дублировать поверх них.
 ## По умолчанию true — совместимость с compat-путём (гейт/бот/серии/тесты не трогают LegionMain).
 var show_native_ui := true
+## Запись промо (scripts/dev/legion_director.gd, REC-06): тосты и превью волны спрятаны —
+## плашки поверх боя не перекрывают кадр. Бой и остальной HUD не меняются.
+var cinematic := false
 ## «Схватка» (P5c): плашка соперника с часами и экран итога; создаются на первом матче PvP.
 var pvp_plate: PvpTopPlate = null
 var pvp_result: PvpResult = null
@@ -52,6 +56,9 @@ var _preview_alpha := 1.0
 ## Кегль, которым набраны строки превью прямо сейчас (ставится по числу строк, L).
 var _preview_font_size_now := 0
 var _call: Button
+## B-055: «Вызвать» мышь не ловит (MOUSE_FILTER_IGNORE) — подсветку наведения ставим сами.
+var _call_styles: Dictionary = {}
+var _call_hover := false
 var _kind_bar: LegionKindBar
 ## Подписи дорог gen-карты (B-355) — считаются один раз на карту (_road_labels).
 var _labels_map := "<ещё не считали>"
@@ -142,6 +149,7 @@ func tick(delta: float) -> void:
 	_sync_pvp()
 	_preview.modulate.a = move_toward(_preview.modulate.a, _preview_alpha,
 		delta * LegionCfg.WAVE_PREVIEW_FADE_SPEED)
+	_hover_call()
 	if _t > 0.0:
 		return
 	_t = REFRESH
@@ -154,8 +162,8 @@ func tick(delta: float) -> void:
 			continue
 		if u.state == Legionnaire.State.POSTED:
 			posted += 1
-		elif u.state == Legionnaire.State.FREE or u.state == Legionnaire.State.RALLY:
-			free += 1       # идущие на «Сбор» — тоже свободные, просто в пути
+		else:
+			free += 1       # все живые вне строя: свободные, Сбор, марш и натиск
 	_plate.set_army(posted, free)
 	_threat.avoid = panel_rects()
 	var wr := world.wave_runner
@@ -190,7 +198,7 @@ func panel_rects() -> Array[Rect2]:
 ## «Схватка» (P5c, B-302): панель превью волны спрятана (закрывала правый верхний угол поля,
 ## «Вызвать» в PvP нет), справа встаёт плашка соперника и часов, итог — свой экран.
 func _sync_pvp() -> void:
-	_preview.visible = not world.pvp
+	_preview.visible = not world.pvp and not cinematic
 	# «Схватка»: правый верхний угол занят плашкой соперника (та же строка, до y=45), поэтому
 	# пауза встаёт НИЖЕ верхней строки (y 100…148) — верхние плашки остаются одной строкой
 	# (legion_pvp_hud_test: всё, что начинается выше y=100, обязано кончаться к y=50).
@@ -271,7 +279,10 @@ func toast_rects() -> Array[Rect2]:
 ## Тост-бумажка: бланк по ширине текста (длинный — переносится), рамка по виду сообщения —
 ## warn красными чернилами печати, wave — золотом, остальное — обычными чернилами.
 ## time > 0 — держать тост столько секунд вместо LegionCfg.TOAST_TIME (длинная подсказка).
-func toast(text: String, kind: StringName, time := -1.0) -> void:
+## Единственный сток клавиш для тостов (KB-02): {key:…} и штатные имена — в текущие клавиши.
+## Зовущие (мир, уроки, разовые подсказки, поправки) Controls.text сами не применяют.
+func toast(raw: String, kind: StringName, time := -1.0) -> void:
+	var text := Controls.text(raw)
 	var ink := LegionUi.INK
 	match kind:
 		&"warn":
@@ -340,6 +351,13 @@ func drop_toasts() -> void:
 		c.queue_free()
 
 
+## Кино-режим записи (см. `cinematic`): включить — тосты и превью волны прочь, выключить — вернуть.
+func set_cinematic(on: bool) -> void:
+	cinematic = on
+	_toasts.visible = not on
+	_preview.visible = not on and not world.pvp
+
+
 func _build_preview() -> void:
 	_preview = PanelContainer.new()
 	_preview.position = LegionCfg.WAVE_PREVIEW_POS
@@ -348,8 +366,13 @@ func _build_preview() -> void:
 	# площадка p6 (1020,110), на Прорабе/Стиксе/Развилке — начало северной дороги (verifier 25.09:
 	# с MOUSE_FILTER_STOP человек не мог построить на p6).
 	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_preview.add_theme_stylebox_override("panel", LegionUi.blank_style(LegionUi.INK,
-		Color(LegionUi.PAPER, LegionCfg.WAVE_PREVIEW_BG.a + 0.18), 10.0, 2.0))
+	var preview_style := UiStyle.panel_style(
+		Color(LegionUi.PAPER, LegionCfg.WAVE_PREVIEW_BG.a + 0.18))
+	preview_style.content_margin_left = 10.0
+	preview_style.content_margin_right = 10.0
+	preview_style.content_margin_top = 2.0
+	preview_style.content_margin_bottom = 2.0
+	_preview.add_theme_stylebox_override("panel", preview_style)
 	add_child(_preview)
 	var box := VBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -376,11 +399,45 @@ func _build_preview() -> void:
 	_call = Button.new()
 	_call.text = "Вызвать (%s)" % Controls.label(&"call_wave")
 	_call.focus_mode = Control.FOCUS_NONE
+	# B-055: кнопка мышь не ловит — штрих, начатый на ней, чертится; щелчок разбирает ui_tap()
+	_call.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	LegionUi.style_button(_call, LegionUi.STAMP, 16)
-	_call.pressed.connect(func() -> void:
-		world.call_wave()
-		_update_preview())
+	_call_styles = {"normal": _call.get_theme_stylebox("normal"),
+		"hover": _call.get_theme_stylebox("hover")}
+	_call.pressed.connect(_press_call)
 	box.add_child(_call)
+
+
+func _press_call() -> void:
+	world.call_wave()
+	_update_preview()
+
+
+## B-055: короткий щелчок поля (ContractField._release, экран вьюпорта) по кнопке HUD, которая
+## сама мышь не ловит, — карточке вида или «Вызвать». true — щелчок разобран (не tap площадки).
+## act=false — только проверить попадание (ничего не нажимать).
+func ui_tap(screen: Vector2, act := true) -> bool:
+	if _kind_bar != null and _kind_bar.tap(screen, act):
+		return true
+	if _call != null and _call.is_visible_in_tree() and _call.get_global_rect().has_point(screen):
+		if act and not _call.disabled:
+			_press_call()
+		return true
+	return false
+
+
+## Наведение на «Вызвать»: та же рамка «hover», что дала бы кнопка, ловящая мышь.
+func _hover_call() -> void:
+	if _call == null or _call_styles.is_empty():
+		return
+	var on := _call.is_visible_in_tree() and not _call.disabled \
+		and not world.my_field().has_draft() \
+		and _call.get_global_rect().has_point(_call.get_viewport().get_mouse_position())
+	if on == _call_hover:
+		return
+	_call_hover = on
+	_call.add_theme_stylebox_override("normal", _call_styles["hover" if on else "normal"])
+	_call.add_theme_color_override("font_color", Color.WHITE if on else LegionUi.TEXT)
 
 
 func _update_preview() -> void:

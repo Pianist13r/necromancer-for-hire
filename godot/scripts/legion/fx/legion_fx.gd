@@ -294,6 +294,8 @@ func tick(dt: float) -> void:
 func _draw_layer(idx: int) -> void:
 	var node := _layers[idx]
 	for p: LegionFxPool in _layer_pools[idx]:
+		if p == _glow_g and not Settings.is_flashes_enabled():
+			continue
 		p.draw(node)
 	if idx == 1:
 		_draw_glows(node)
@@ -431,6 +433,16 @@ func emit_foe_death(at: Vector2, body_h: float, boss: bool) -> void:
 	var sc := CfgFx.BOSS_SCALE if boss else 1.0
 	emit_dust(at, CfgFx.BOSS_DUST_N if boss else CfgFx.FOE_DUST_N, 1.4 if boss else 1.0)
 	var from := at - Vector2(0.0, body_h * CfgFx.SOUL_LIFT)
+	# Три клочка дают направление распада; общий CAP по-прежнему обслуживает весь бой.
+	for k in CfgFx.DEATH_CHIPS:
+		var chip := _add(_paper, from, CfgFx.DEATH_CHIP_LIFE, 4.0, 1.0, 0.8, CfgFx.C_BONE)
+		if chip < 0:
+			break
+		_paper.vx[chip] = (float(k) - 1.0) * CfgFx.DEATH_CHIP_SPEED
+		_paper.vy[chip] = -40.0 - 12.0 * float(k % 2)
+		_paper.grav[chip] = 180.0
+		_paper.spin[chip] = (float(k) - 1.0) * 5.0
+		_paper.fin[chip] = 0.0
 	var ph := rng.randf() * TAU
 	var drift := rng.randf_range(-4.0, 4.0)
 	for layer in 2:
@@ -484,6 +496,8 @@ func emit_spawn(at: Vector2) -> void:
 
 
 func emit_hit(v: CharView) -> void:
+	if not Settings.is_flashes_enabled():
+		return
 	if _hits_frame >= CfgFx.HIT_PER_FRAME or not v.is_inside_tree():
 		return
 	var id := v.get_instance_id()
@@ -536,11 +550,13 @@ func emit_gate(at: Vector2) -> void:
 
 
 func emit_breach(at: Vector2) -> void:
-	var i := _add(_glow_g, at, CfgFx.BREACH_LIFE, CfgFx.BREACH_FLASH.x, CfgFx.BREACH_FLASH.y,
-		CfgFx.BREACH_FLASH_ALPHA, CfgFx.C_BREACH)
-	if i >= 0:
-		_glow_g.asp[i] = 0.7
-		_glow_g.fin[i] = 0.05
+	var i := -1
+	if Settings.is_flashes_enabled():
+		i = _add(_glow_g, at, CfgFx.BREACH_LIFE, CfgFx.BREACH_FLASH.x, CfgFx.BREACH_FLASH.y,
+			CfgFx.BREACH_FLASH_ALPHA, CfgFx.C_BREACH)
+		if i >= 0:
+			_glow_g.asp[i] = 0.7
+			_glow_g.fin[i] = 0.05
 	var col := _dust_color(at)
 	for k in CfgFx.BREACH_DUST_N:
 		var ang := TAU * float(k) / float(CfgFx.BREACH_DUST_N) + rng.randf_range(-0.3, 0.3)

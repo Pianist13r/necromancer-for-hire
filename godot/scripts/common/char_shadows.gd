@@ -60,9 +60,9 @@ func _draw() -> void:
 		var a := v.shadow_alpha() * v.shadow_a * parent.modulate.a
 		if a <= 0.01:
 			continue
-		var size := Vector2(v.shadow_w_px, v.shadow_h_px)
+		var size := Vector2(v.shadow_w_px, v.shadow_h_px * 0.85)
 		var c: Vector2 = inv * (parent.global_position + Vector2(0.0, v.ground_px()))
-		var col := Color(0, 0, 0, a)
+		var col := Color(0.075, 0.065, 0.10, minf(a * 1.22, 0.72))
 		if harmony != null and harmony.ready():
 			var tint := harmony.shadow_tint(parent.position)
 			col = Color(tint.r, tint.g, tint.b, a)

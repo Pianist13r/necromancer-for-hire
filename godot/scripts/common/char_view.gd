@@ -246,11 +246,13 @@ func setup(new_char_id: String, new_body_h: float) -> void:
 		_legacy_anim_local = _anim_local
 		_body.add_child(_anim)
 		_anim.setup_frames(entry["frames"], defs, String(_def.get("default", "idle")))
+		_anim.set_death_variant(_rng.randi_range(0, int(_def.get("death_variants", 1)) - 1))
 		_anim.contact_frame.connect(_on_clip_contact)
 		_anim.clip_finished.connect(_on_clip_finished)
 
 	_sprite = Sprite2D.new()
 	_body.add_child(_sprite)
+	set_look_material(CharReadability.for_character(char_id))
 	var start := StringName(String(_def.get("default", "idle")))
 	_loop_state = start
 	if _anim != null and _anim.has_state(String(start)):
@@ -273,14 +275,17 @@ func setup(new_char_id: String, new_body_h: float) -> void:
 func set_locomotion(step_px: float, speed_scale: float = 1.0) -> void:
 	var want: StringName = &"walk" if step_px > 0.0 else &"idle"
 	_walk_flag = step_px > 0.0
-	if _anim != null:
-		# ходьба — темп 1:1 (футпланинг скелета); покой — свой темп у каждого
-		_base_speed = speed_scale * (_idle_jitter if want == &"idle" else 1.0)
-		_anim.speed_scale = _base_speed
-		_tempo_reset()
 	if _anim != null and _anim.has_state(String(want)):
 		var before := _anim.current_state()
 		_anim.play_state(String(want))
+		# Отклонённая заявка локомоции не меняет скорость замаха или смерти.
+		# Повторный walk сохраняет накопленные путь/время: бойцы зовут его каждый тик.
+		if _anim.current_state() == String(want):
+			if before != String(want):
+				_tempo_reset()
+			# Факт перемещения уже включает Аврал/замедление; второй множитель удвоил бы эффект.
+			_base_speed = _idle_jitter if want == &"idle" else (1.0 if _walk_ref > 0.0 else speed_scale)
+			_anim.speed_scale = _base_speed * _tempo
 		_sync_facing()
 		if _anim.current_state() != before:
 			_desync_loop()
@@ -317,6 +322,8 @@ func play_once(state: StringName) -> bool:
 		_tempo_reset()
 		_anim.play_state(String(state))
 		if _anim.current_state() == String(state):
+			if _anim.is_hold(String(state)):
+				_cancel_stub()
 			_state = state
 			_sync_facing()
 			if _anim.is_hold(String(state)):
@@ -465,6 +472,8 @@ func _refresh_clip_layout() -> void:
 
 
 func flash(color: Color = FLASH_COLOR, dur: float = 0.12) -> void:
+	if not Settings.is_flashes_enabled():
+		return
 	_flash_color = color
 	_flash_dur = maxf(dur, 0.001)
 	_flash_t = _flash_dur
@@ -601,6 +610,8 @@ func _process(delta: float) -> void:
 	_sync_facing()
 	_tick_walk_tempo(delta)
 	_tick_stun_visual(delta)
+	if _corpse_t >= 0.0 and _anim != null:
+		_body.transform = _anim.death_pose(_ground, _facing)
 	_tick_life(delta)
 
 
@@ -869,8 +880,8 @@ func _tick_walk_tempo(delta: float) -> void:
 
 ## Вернуть клипу базовый темп и начать замер заново (смена клипа, остановка).
 func _tempo_reset() -> void:
-	if _tempo_on and _anim != null:
-		_anim.speed_scale = _base_speed
+	if _anim != null:
+		_anim.speed_scale = 1.0
 	_tempo_on = false
 	_tempo = 1.0
 	_tempo_dist = 0.0
@@ -890,6 +901,8 @@ func clip_speed_scale() -> float:
 
 func _apply_modulate() -> void:
 	var k := _flash_t / _flash_dur if _flash_t > 0.0 else 0.0
+	if not Settings.is_flashes_enabled():
+		k = 0.0
 	var c := _tint.lerp(Color(_flash_color, _tint.a), k)
 	if _anim != null:
 		_anim.self_modulate = c
@@ -918,6 +931,8 @@ func _show_fallback(state: StringName) -> void:
 
 
 func _start_stub(state: StringName) -> void:
+	if _corpse_t >= 0.0:
+		return
 	var stubs: Dictionary = _def.get("stub", {})
 	var stub: Dictionary = stubs.get(String(state), {})
 	var kind := String(stub.get("kind", "none"))
@@ -946,8 +961,10 @@ func _tick_stub(delta: float) -> void:
 	var k := clampf(_stub_t / maxf(_stub_dur, 0.001), 0.0, 1.0)
 	match _stub_kind:
 		"rise":
-			_body.position.y = (1.0 - k) * body_h * RISE_DEPTH
-			_body.modulate.a = k
+			var eased := smoothstep(0.0, 1.0, k)
+			_body.position.y = (1.0 - eased) * body_h * RISE_DEPTH
+			_body.scale = Vector2(1.0 + 0.12 * (1.0 - eased), 0.55 + 0.45 * eased)
+			_body.modulate.a = smoothstep(0.0, 0.4, k)
 		"fall":
 			_body.position.y = k * body_h * FALL_DROP
 			_body.rotation = k * FALL_TILT * _facing
@@ -955,12 +972,22 @@ func _tick_stub(delta: float) -> void:
 		return
 	var done := _stub_state
 	var kind := _stub_kind
-	_stub_kind = ""
-	_stub_state = &""
+	if kind != "fall":
+		_cancel_stub()
+	else:
+		_stub_kind = ""
+		_stub_state = &""
 	# «fall» оставляет тело лежать; «pose» возвращает зацикленное состояние
 	if kind == "pose":
 		_show_fallback(_loop_state)
 	finished.emit(done)
+
+
+func _cancel_stub() -> void:
+	_stub_kind = ""
+	_stub_state = &""
+	_body.transform = Transform2D.IDENTITY
+	_body.modulate.a = 1.0
 
 
 func _on_clip_contact(state_name: String) -> void:

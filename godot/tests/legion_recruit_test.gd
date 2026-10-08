@@ -205,6 +205,14 @@ func _test_no_return_own_line() -> void:
 		u._arrive()
 		squad.append(u)
 	_check(squad.size() >= 2, "отряд на участке: %d бойцов" % squad.size())
+	# на участке 1 стоит один боец: без него остаток линии после срыва — «пенёк» без людей, он
+	# гаснет и не набирает (B-345, D-1008-C3), а здесь проверяем набор ЖИВОЙ линии
+	for p in a.posts:
+		if int(p["seg"]) == 1:
+			var keeper := w.spawn_unit(LegionCfg.KIND_LABORER, p["pos"])
+			keeper.assign(a, p)
+			keeper._arrive()
+			break
 	# игрок запустил участок: натиск окончен, боец свободен у самой линии
 	w.release_segment(a, 0, &"manual")
 	var freed := 0

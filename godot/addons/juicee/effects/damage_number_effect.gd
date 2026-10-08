@@ -61,7 +61,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	var is_crit: bool = bool(_runtime_params.get("is_crit", false))
 
 	var label := Label.new()
-	label.name = StringName("_juicee_damage_%d" % randi())
+	label.name = StringName("_juicee_damage_%d" % JuiceeEffect.rng.randi())
 	label.text = prefix + str(damage_value)
 	label.add_theme_color_override("font_color", crit_color if is_crit else color)
 	if outline_width > 0:
@@ -92,7 +92,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	if not is_instance_valid(label):
 		return
 
-	var spread_offset := randf_range(-spread, spread) * 0.5
+	var spread_offset := JuiceeEffect.rng.randf_range(-spread, spread) * 0.5
 	var start_pos := target.global_position + Vector2(spread_offset, 0) - label.size * 0.5
 	label.global_position = start_pos
 	label.visible = true
@@ -127,7 +127,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	# Float upward with a gentle horizontal weave + fade, driven per-frame rather than
 	# a straight position tween — otherwise the number slides up in a dead straight line
 	# and looks lifeless while it hangs. Scale/rotation stay free for the crit punch.
-	var phase := randf() * TAU
+	var phase := JuiceeEffect.rng.randf() * TAU
 	var t := 0.0
 	while t < duration and is_instance_valid(label) and not _cancelled:
 		var k: float = t / duration

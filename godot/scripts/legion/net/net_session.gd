@@ -26,6 +26,9 @@ signal room_created(code: String)
 signal lobby(rooms: Array, players: Array, in_game: int)
 signal match_start(seed_value: int, map_id: String, side: int)
 signal failed(text: String)
+## Ретранслятор принял hello — мы в лобби (SteamNet по нему открывает комнату хозяина / входит в
+## комнату хозяина у гостя).
+signal welcomed
 ## Матч оборвался (связь потеряна, соперник ушёл на загрузке): вызывающий уводит игрока в лобби —
 ## без этого мир оставался в фазе боя на месте и выйти можно было только закрыв игру
 ## (проверка 01.10).
@@ -37,7 +40,8 @@ enum Stage { IDLE, CONNECTING, LOBBY, LOADING, PLAYING, OVER }
 const PROTO := 2
 ## Сборка: соперник с другой сборкой в комнату не войдёт (ретранслятор сравнит строки).
 ## 2026-10-05c — угловые фигуры и ульты: NetSnap.VERSION 4.
-const BUILD := "net-2026-10-05c"
+## 2026-10-08b — штрих: флаг stack (Шифт, B-044), подновление линии любого вида, пеньки (B-345).
+const BUILD := "net-2026-10-08b"
 const DT := 1.0 / 60.0
 ## Ход — 3 тика (50 мс); ввод хода t стороны применяется в начале хода t + её задержки у обоих.
 const TURN := 3
@@ -137,6 +141,8 @@ var verdict: Dictionary = {}
 var last_error := ""
 ## Прямое соединение разрешено (галочка лобби): выключено — кандидаты не уходят, IP не виден.
 var direct_enabled := false
+## Как назвать путь в строке «Связь: …» (хозяин и гость Steam-игры — «через Steam»).
+var link_label := "через сервер"
 ## Спрашивать STUN (пробы на одной машине обходятся без интернета).
 var use_stun := true
 ## Отладка проб: глушить UDP, терять процент входящих UDP, подменить по UDP первый непустой
@@ -227,7 +233,9 @@ var _snap_id := -1
 var _snap_n := 0
 var _snap_parts := PackedStringArray()
 
-var _ws: WebSocketPeer
+## Канал к ретранслятору: WebSocket (сервер), пара концов в процессе (хозяин Steam-игры) или
+## соединение Steam (гость). Протокол выше канала один и тот же.
+var _chan: NetLink
 var _pending_hello := {}
 var _connect_t := 0.0
 var _world: LegionWorld
@@ -287,6 +295,13 @@ func connect_lobby(url: String, player_name: String) -> void:
 	_open(url, {"t": "hello", "v": PROTO, "build": BUILD, "name": player_name})
 
 
+## Лобби по готовому каналу (Steam: NetLinkSteam гостя или конец NetLinkPipe хозяина): дальше всё
+## как через сервер — hello, комнаты, матч.
+func connect_link(link: NetLink, player_name: String) -> void:
+	close()
+	_open_link(link, {"t": "hello", "v": PROTO, "build": BUILD, "name": player_name})
+
+
 ## Открыть свою комнату и ждать соперника (map: «pvp:duel» или «gen:» — поле выберет сервер).
 func create_room(map: String) -> void:
 	_send({"t": "create", "map": map})
@@ -310,12 +325,12 @@ func leave_match() -> void:
 	_stop_p2p()
 	room_code = ""
 	side = -1
-	if _ws != null:
+	if _chan != null:
 		stage = Stage.LOBBY
 
 
 func is_online() -> bool:
-	return _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN
+	return _chan != null and _chan.state() == NetLink.State.OPEN
 
 
 func _open(url: String, hello: Dictionary) -> void:
@@ -324,28 +339,28 @@ func _open(url: String, hello: Dictionary) -> void:
 	if u == "":
 		failed.emit("Укажите адрес сервера")
 		return
-	_ws = WebSocketPeer.new()
-	_ws.inbound_buffer_size = 262144
-	_ws.outbound_buffer_size = 65536
-	_ws.max_queued_packets = 512
-	_ws.heartbeat_interval = 20.0   # как у ретранслятора: долгий кадр загрузки не рвёт связь
-	var err := _ws.connect_to_url(u)
+	var link := NetLinkWs.client()
+	var err := link.connect_to_url(u)
 	if err != OK:
-		_ws = null
 		failed.emit("Не удалось подключиться к %s (ошибка %d)" % [u, err])
 		return
+	_open_link(link, hello)
+
+
+func _open_link(link: NetLink, hello: Dictionary) -> void:
+	_chan = link
 	_pending_hello = hello
 	_close_reason = ""
 	_dq.clear()
 	_connect_t = 0.0
 	stage = Stage.CONNECTING
-	status.emit("Подключение к серверу…")
+	status.emit("Подключение к серверу…" if link.kind() == "ws" else "Подключение…")
 
 
 func close() -> void:
-	if _ws != null:
-		_ws.close(1000, "bye")
-	_ws = null
+	if _chan != null:
+		_chan.close(1000, "bye")
+	_chan = null
 	stage = Stage.IDLE
 	_detach_world()
 	_stop_p2p()
@@ -418,16 +433,15 @@ func _on_local_cmd(cmd: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
-	if _ws == null:
+	if _chan == null:
 		return
 	_hitch = delta > HITCH_S
 	while not _hold_q.is_empty() and Time.get_ticks_msec() >= int(_hold_q[0][0]):
-		if _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
-			_ws.send_text(String(_hold_q[0][1]))
+		_chan.send_text(String(_hold_q[0][1]))
 		_hold_q.pop_front()
-	_ws.poll()
-	var st := _ws.get_ready_state()
-	if st == WebSocketPeer.STATE_OPEN:
+	_chan.poll()
+	var st := _chan.state()
+	if st == NetLink.State.OPEN:
 		if not _pending_hello.is_empty():
 			_send(_pending_hello)
 			_pending_hello = {}
@@ -435,28 +449,29 @@ func _process(delta: float) -> void:
 		# UDP — раньше сокета сервера: ход обоими путями за кадр засчитан прямому пути
 		_tick_p2p()
 		_dbg_race()
-		while _ws != null and _ws.get_available_packet_count() > 0:
-			_dq.append([_dbg_release(), _ws.get_packet().get_string_from_utf8()])
-		while _ws != null and not _dq.is_empty() and Time.get_ticks_msec() >= int(_dq[0][0]):
+		while _chan != null and _chan.available() > 0:
+			_dq.append([_dbg_release(), _chan.take_text()])
+		while _chan != null and not _dq.is_empty() and Time.get_ticks_msec() >= int(_dq[0][0]):
 			var text: String = _dq.pop_front()[1]
 			var msg: Variant = JSON.parse_string(text)
 			if msg is Dictionary:
 				_last_text = text   # сырой текст хода — для сверки с прямым путём
 				_handle(msg as Dictionary)
-	elif st == WebSocketPeer.STATE_CONNECTING:
+	elif st == NetLink.State.CONNECTING:
 		_connect_t += delta
-		if _connect_t > CONNECT_TIMEOUT:
-			_fail("Сервер не отвечает — проверьте адрес")
+		if _connect_t > maxf(CONNECT_TIMEOUT, _chan.connect_timeout()):
+			_fail("Сервер не отвечает — проверьте адрес" if _chan.kind() == "ws"
+				else "Соперник не отвечает — соединение не установлено")
 			return
-	elif st == WebSocketPeer.STATE_CLOSED:
+	elif st == NetLink.State.CLOSED:
 		# причина разрыва (error) могла прийти последним пакетом — дочитать, а не «связь потеряна»
-		while _ws.get_available_packet_count() > 0:
-			var m: Variant = JSON.parse_string(_ws.get_packet().get_string_from_utf8())
+		while _chan.available() > 0:
+			var m: Variant = JSON.parse_string(_chan.take_text())
 			if m is Dictionary and (m as Dictionary).get("t") == "error":
 				_close_reason = _error_text(String((m as Dictionary).get("code", "")))
 		_on_closed()
 		return
-	if _ws == null:
+	if _chan == null:
 		return
 	_ping_t += delta
 	# на загрузке — чаще: к старту боя нужен замер RTT без заминок кадра (по нему задержка ввода)
@@ -636,8 +651,8 @@ func _send_turn(k: int, cmds: Array) -> void:
 	var raw := JSON.stringify({"t": "in", "k": k, "c": cmds})
 	if dbg_hold_from >= 0 and k >= dbg_hold_from:
 		_hold_q.append([Time.get_ticks_msec() + dbg_hold_ms, raw])
-	elif _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		_ws.send_text(raw)
+	elif _chan != null:
+		_chan.send_text(raw)
 	if _p2p == null or _p2p.state == NetP2P.State.FAILED or _p2p.state == NetP2P.State.OFF:
 		return
 	if dbg_forge_at >= 0 and k >= dbg_forge_at and not cmds.is_empty() and not _forged:
@@ -714,7 +729,7 @@ func link_text() -> String:
 	var ms := int(round(_oneway_ms(false)))
 	if p2p_mismatch >= 0:
 		return "Связь: через сервер %d мс (прямой путь отключён: ход не сошёлся)" % ms
-	var how := "напрямую" if path_mode == "p2p" else "через сервер"
+	var how := "напрямую" if path_mode == "p2p" else link_label
 	return "Связь: %s %d мс · задержка %d" % [how, ms, delay]
 
 
@@ -738,6 +753,7 @@ func _handle(msg: Dictionary) -> void:
 			stage = Stage.LOBBY
 			_ping_t = PING_EVERY   # первый замер RTT до сервера — сразу (по нему задержка ввода)
 			status.emit("Вы в лобби как «%s»" % my_name)
+			welcomed.emit()
 		"lobby":
 			lobby.emit(msg.get("rooms", []) as Array, msg.get("players", []) as Array,
 				int(msg.get("in_game", 0)))
@@ -1076,8 +1092,10 @@ func _start_p2p(token: String) -> void:
 	_p2p_t0 = Time.get_ticks_msec()
 	_ping_t = PING_EVERY   # замер RTT до сервера — сразу, к кандидатам
 	_cand_due = true   # «cand» уходит всегда (пустой — без прямого пути): в нём и RTT до сервера
-	# токен комнаты — 32 hex от ретранслятора; без него прямой путь не включаем
-	if not direct_enabled or token.length() < 32 or not token.is_valid_hex_number():
+	# токен комнаты — 32 hex от ретранслятора; без него прямой путь не включаем. Через Steam и у
+	# хозяина Steam-игры (канал в своём процессе) пробивать нечего — реле Valve уже прямой путь.
+	if not direct_enabled or token.length() < 32 or not token.is_valid_hex_number() \
+			or _chan == null or not _chan.direct_allowed():
 		return
 	_p2p = NetP2P.new()
 	_p2p.dbg_off = dbg_udp_off
@@ -1211,17 +1229,21 @@ func _on_remote_left() -> void:
 func _on_closed() -> void:
 	var was := stage
 	# код и причина закрытия — в журнал и пробам (разбор «связь потеряна»)
-	last_close = "%d %s" % [_ws.get_close_code(), _ws.get_close_reason()]
-	_log({"ev": "ws_closed", "code": _ws.get_close_code(), "reason": _ws.get_close_reason()})
-	_ws = null
+	last_close = "%d %s" % [_chan.close_code(), _chan.close_reason()]
+	var kind := _chan.kind()
+	_log({"ev": "ws_closed", "code": _chan.close_code(), "reason": _chan.close_reason(),
+		"kind": kind})
+	_chan = null
+	var lost := "Связь с сервером потеряна" if kind == "ws" else "Связь с соперником потеряна"
 	if was == Stage.CONNECTING:
-		failed.emit("Не удалось подключиться к серверу")
+		failed.emit("Не удалось подключиться к серверу" if kind == "ws"
+			else "Не удалось соединиться с хозяином игры")
 	elif (was == Stage.PLAYING and not _remote_left) or was == Stage.LOADING:
 		_log({"ev": "closed"})
-		_abort(_close_reason if _close_reason != "" else "Связь с сервером потеряна")
+		_abort(_close_reason if _close_reason != "" else lost)
 		return
 	elif was == Stage.LOBBY:
-		failed.emit(_close_reason if _close_reason != "" else "Связь с сервером потеряна")
+		failed.emit(_close_reason if _close_reason != "" else lost)
 	if was != Stage.PLAYING:
 		stage = Stage.IDLE
 
@@ -1265,10 +1287,10 @@ func _tick_request(delta: float) -> void:
 	if _req_wait < 0.0:
 		return
 	_req_wait += delta
-	if _req_wait > REQUEST_REPLY_WAIT and _ws != null:
+	if _req_wait > REQUEST_REPLY_WAIT and _chan != null:
 		_log({"ev": "request_timeout"})
 		_req_wait = -1.0
-		_ws.close(1000, "no reply")
+		_chan.close(1000, "no reply")
 
 
 ## Сервер отклонил запрос — без последствий: ждём/играем дальше, следующий — не раньше чем через
@@ -1322,8 +1344,8 @@ static func _error_text(code: String) -> String:
 
 
 func _send(msg: Dictionary) -> void:
-	if _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		_ws.send_text(JSON.stringify(msg))
+	if _chan != null:
+		_chan.send_text(JSON.stringify(msg))
 
 
 # ── Журнал (user://net_logs/) — для повтора боя на одной машине при рассинхроне ─────────

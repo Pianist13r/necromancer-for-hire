@@ -7,8 +7,17 @@ extends RefCounted
 ## убрана (замысел 06.10.2026). «Контора» — короткая подготовка: до двух пакетов на объект
 ## (второй слот — с разряда 4, AmendmentDb.PREP_SLOT2_LEVEL).
 
-const VERSION := 3
+const VERSION := 4
 const SECTION := "progression"
+## Только конверсия v1: цены оплаченных улучшений для возврата премии.
+const LEGACY_OFFICE_SHOP := {
+	"range": {"per_kind": true, "costs": [40, 70, 110]},
+	"staff": {"per_kind": true, "costs": [50, 80, 120]},
+	"respawn": {"per_kind": true, "costs": [40, 70, 110]},
+	"mana": {"costs": [60, 90, 130]},
+	"souls": {"costs": [40, 70, 110]},
+	"settlement": {"costs": [60, 100]},
+}
 ## Ключ одиночной подготовки (до второго слота) — читается как совместимость; новый ключ —
 ## массив "preparations". Старые сохранения с одним пакетом открываются без миграции.
 const PREP_KEY := "preparation"
@@ -37,6 +46,8 @@ static func migrate(cfg: ConfigFile, path: String) -> bool:
 		_migrate_v1_to_v2(cfg)
 	if version < 3:
 		_migrate_v2_to_v3(cfg)
+	if version < 4:
+		_migrate_v3_to_v4(cfg)
 	var hero_legacy := {}
 	for key: String in ["perks", "rank_q", "rank_w", "rank_e"]:
 		if cfg.has_section_key("hero", key):
@@ -59,8 +70,8 @@ static func _migrate_v1_to_v2(cfg: ConfigFile) -> void:
 			Campaign.REPLAY_SECTION]:
 		var archived := {}
 		var refund := 0
-		for id: String in LegionMetaCfg.LEGACY_OFFICE_SHOP_ORDER:
-			var data: Dictionary = LegionMetaCfg.LEGACY_OFFICE_SHOP[id]
+		for id: String in LEGACY_OFFICE_SHOP:
+			var data: Dictionary = LEGACY_OFFICE_SHOP[id]
 			var kinds: Array[String] = [""]
 			if bool(data.get("per_kind", false)):
 				kinds = ["laborer", "guard", "clerk"]
@@ -105,6 +116,25 @@ static func _migrate_v2_to_v3(cfg: ConfigFile) -> void:
 
 static func clear_stage() -> void:
 	_replacement.clear()
+
+
+## v3 → v4: удаляем неработающие ключи, сохраняя ненулевую историю в архиве.
+## Премию здесь не возвращаем: это уже сделала v1 → v2. Выбор награды не трогаем.
+static func _migrate_v3_to_v4(cfg: ConfigFile) -> void:
+	for sec: String in ["meta", Campaign.ENDLESS_SECTION, Campaign.DAILY_SECTION,
+			Campaign.REPLAY_SECTION]:
+		if not cfg.has_section(sec):
+			continue
+		var archive: Dictionary = cfg.get_value(sec, "legacy_purchases", {}).duplicate()
+		for key: String in cfg.get_section_keys(sec):
+			if not key.begins_with("shop_"):
+				continue
+			var value := int(cfg.get_value(sec, key, 0))
+			if value > 0 and not archive.has(key):
+				archive[key] = value
+			cfg.erase_section_key(sec, key)
+		if not archive.is_empty():
+			cfg.set_value(sec, "legacy_purchases", archive)
 
 
 static func stage(slot: int) -> bool:

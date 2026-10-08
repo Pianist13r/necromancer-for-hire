@@ -12,17 +12,13 @@ extends RefCounted
 ##   button    — точная контрольная копия selective: решение сразу исполняется ПКМ;
 ##   melt      — прогноз по видимому движению, последняя подрисовка и ожидание срока.
 ##
-## Рубеж — «слот»: шаблон ломаной и список живых договоров на нём (основной + заплатки).
-## v15: подсказки задают вид, роль, стрелку и граф доставки. Проверка набора — общая
-## с черновиком игрока. Стройка, герой и доставка одинаковы для всех политик; политики
-## различаются только продлением/выпуском боевого рубежа. Доставка завершается у всех.
-##
-
+## Слот хранит шаблон рубежа и его договоры. Набор резерва общий с LegionStaff.
 const HOLD := &"hold"
 const RELEASE := &"release"
 const SELECTIVE := &"selective"
 const BUTTON := &"button"
 const MELT := &"melt"
+const TACTICS := preload("res://scripts/legion/bot_tactics.gd")
 ## «Сбор» на Юриста — только если прибегут хотя бы столько (круг «позовёт N» виден игроку).
 ## Здесь, а не в LegionCfg: там упёрлись в потолок gdlint 1000 строк.
 const LAWYER_RALLY_MIN := 2
@@ -116,6 +112,8 @@ func setup(w: LegionWorld, new_policy: StringName, map: Dictionary) -> void:
 
 func tick(dt: float) -> void:
 	_measure(dt)
+	if world.tutorial != null and world.tutorial.holding():
+		return   # Учебный бот ведёт тот же резерв; не отбираем его у упражнения.
 	_think_t -= dt
 	if _think_t > 0.0:
 		return
@@ -231,7 +229,7 @@ func _build_step() -> void:
 
 
 func _tick_slot(slot: Dictionary) -> void:
-	if slot.get("role", "") == "rear" and not slot.get("rear_active", false):
+	if not TACTICS.rear_ready(slot, _seen):
 		return
 	var list: Array = slot["contracts"]
 	for i in range(list.size() - 1, -1, -1):
@@ -411,6 +409,8 @@ func _selective(slot: Dictionary) -> void:
 	if _spring(slot):
 		return
 	if world.now - float(slot.get("last_release", -INF)) < LegionCfg.BOT_RELEASE_CD:
+		return
+	if TACTICS.release_flank(world, slot, _seen, _velocity):
 		return
 	var list: Array = slot["contracts"]
 	for f in world.foes:
@@ -778,7 +778,7 @@ func _recruits(candidate: Contract) -> int:
 	var lines: Array[Contract] = world.contracts.contracts.duplicate()
 	lines.append(candidate)
 	var count := 0
-	for entry in world.contracts.assignment_plan(lines):
+	for entry in LegionStaff.deployment_plan(world.contracts, lines):
 		if entry["contract"] == candidate:
 			count += 1
 	return count

@@ -27,6 +27,7 @@ var _respawn_mult: Dictionary = {}
 var _unlocked: Dictionary = {}
 var _soul_frac := 0.0   ## дробный остаток душ за убийства (on_foe_killed)
 var _kill_frac := 0.0   ## дробный остаток голов для kills_rewardable (on_foe_killed)
+var _safe_share: Dictionary = {}   ## id площадки → доля безопасных рождений (plot_safe_share)
 
 
 ## Новая карта: души, Котёл со стартовым штатом (выдаётся целиком сразу), участки.
@@ -34,6 +35,7 @@ var _kill_frac := 0.0   ## дробный остаток голов для kills
 func setup(w: LegionWorld, map: Dictionary, start_army: int) -> void:
 	world = w
 	plots.clear()
+	_safe_share.clear()
 	_soul_frac = 0.0
 	_kill_frac = 0.0
 	var stat := stat_fn if stat_fn.is_valid() else Callable(w, &"camp_stat")
@@ -113,6 +115,107 @@ func total_cap() -> int:
 
 func kind_unlocked(kind: StringName) -> bool:
 	return bool(_unlocked.get(kind, false))
+
+
+## B-344: ближний набор сохраняет приоритет, дальний резерв занимает остаток.
+## План без побочных эффектов: бот может оценить тот же автомарш перед платным штрихом.
+## Порядок бойцов/мест устойчив; ручное удержание не отменяется старой линией.
+static func deployment_plan(field: ContractField, lines: Array[Contract]) -> Array[Dictionary]:
+	var plan := field.assignment_plan(lines)
+	plan = plan.filter(func(a: Dictionary) -> bool: return a["unit"].held_t <= 0.0)
+	var chosen: Dictionary = {}
+	var taken: Array[Dictionary] = []
+	for a in plan:
+		chosen[a["unit"]] = true
+		taken.append(a["post"])
+	var vacant: Array[Dictionary] = []
+	for c in lines:
+		if ContractField.is_stump(c):
+			continue   # B-345: пенёк гаснет на ближайшем шаге — бойцов не набирает
+		for p in c.posts:
+			if not p["dead"] and p["unit"] == null and not taken.has(p) \
+					and c.seg_alive(int(p["seg"])):
+				vacant.append({"contract": c, "post": p})
+	for u in field.world.units:
+		if vacant.is_empty():
+			break
+		if chosen.has(u) or not _can_deploy(u, field):
+			continue
+		var best := -1
+		var distance := INF
+		var path := PackedVector2Array()
+		for i in vacant.size():
+			var c: Contract = vacant[i]["contract"]
+			var p: Dictionary = vacant[i]["post"]
+			if c.kind != u.kind or c.id == u.no_return_id:
+				continue
+			var d := u.position.distance_squared_to(p["pos"])
+			if d >= distance:
+				continue
+			var route := field.recruit_path(u.position, p["pos"])
+			if route.is_empty():
+				continue
+			best = i
+			distance = d
+			path = route
+		if best >= 0:
+			var a: Dictionary = vacant[best].duplicate()
+			a.merge({"unit": u, "path": path, "automarch": true})
+			plan.append(a)
+			vacant.remove_at(best)
+	return plan
+
+
+static func _can_deploy(u: Legionnaire, field: ContractField) -> bool:
+	if not u.alive or u.side != field.owner_side or u.state != Legionnaire.State.FREE \
+			or u.is_stunned() or u.held_t > 0.0:
+		return false
+	var w := field.world
+	if w.pvp and w.grid.enemy_cauldron(u.position, float(u.spec["reach"]), u.side) != null:
+		return false   # Осаждающий Котёл занят: не бронирует пустое место в далёком тылу.
+	if w.grid.nearest_hostile_in_zone(u.position, LegionCfg.ASSIGN_BUSY_R, u.side,
+			u.position, LegionCfg.ASSIGN_BUSY_R) != null:
+		return false
+	# Резерв, уже способный перехватить врага у Котла, не уводим на дальнюю линию.
+	return w.grid.nearest_hostile_in_zone(u.position, LegionCfg.HOME_GUARD_PURSUE,
+		u.side, w.cauldron_of(u.side), LegionCfg.HOME_GUARD_R) == null
+
+
+## Новая линия рядом — явный приказ: отменяет удержание только своего вида/стороны.
+static func release_held(w: LegionWorld, c: Contract) -> void:
+	var field := w.sides[c.owner_side].contracts
+	var radius := float(field.recruit_r.get(c.kind, LegionCfg.RECRUIT_R))
+	for u in w.units:
+		if u.alive and u.side == c.owner_side and u.kind == c.kind and u.held_t > 0.0 \
+				and c.live_distance(u.position) <= radius:
+			u.held_t = 0.0
+			if u.state == Legionnaire.State.RALLY:
+				u.set_free()
+
+
+## B-043: доля безопасных рождений площадки — выборка того же _plot_spawn, что при рождении, своим
+## ГСЧ (просмотр меню не расходует боевой RNG). Считается раз на площадку за карту: дорога и
+## рельеф не меняются, а 300 рождений на каждое открытие меню — лишняя работа.
+func plot_safe_share(p: Dictionary) -> float:
+	var key: String = String(p["id"])
+	if _safe_share.has(key):
+		return _safe_share[key]
+	var b := LegionBuilding.new()
+	b.world = world
+	b.side = side
+	b.source = LegionBuilding.SOURCE_PLOT
+	b.position = p["pos"]
+	b.entry = b.position + LegionCfg.BUILDING_ENTRY_OFFSET
+	b.entry_ring = LegionCfg.BUILDING_ENTRY_RING
+	var share := b.plot_safe_share()
+	b.free()
+	_safe_share[key] = share
+	return share
+
+
+## Больше половины пополнения (порог PLOT_SAFE_WARN) рождается у дороги, под удар.
+func plot_near_road(p: Dictionary) -> bool:
+	return plot_safe_share(p) < LegionCfg.PLOT_SAFE_WARN
 
 
 # ── Участки и постройки ─────────────────────────────────────────────────────

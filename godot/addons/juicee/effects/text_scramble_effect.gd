@@ -41,7 +41,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 			if i < locked or final_text[i] == " ":
 				s += final_text[i]
 			else:
-				s += cs[randi() % cs.length()]
+				s += cs[JuiceeEffect.rng.randi() % cs.length()]
 		label.text = s
 		await tree.create_timer(step, true, false, false).timeout
 		elapsed += step

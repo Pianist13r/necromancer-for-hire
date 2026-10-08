@@ -43,6 +43,32 @@ static func endless_seed(daily: bool = false) -> int:
 	return int(Campaign.raw_file().get_value(Campaign._run_section_for(daily), "seed", 0))
 
 
+## До версии 2 забеги не сохраняли версию генератора: это версия 1, а не текущая.
+static func procgen_version(daily: bool = false) -> int:
+	var saved: Variant = Campaign.raw_file().get_value(
+		Campaign._run_section_for(daily), "procgen", {})
+	return int(saved.get("version", 1)) if saved is Dictionary else 1
+
+
+## Подсказка уже показывается в брифинге. Меняем только копию карты своего забега,
+## не кэш генератора, кампанию, коллекцию или PvP. Версию старого забега не затираем.
+static func annotate_generated(map: Dictionary) -> Dictionary:
+	if map.is_empty() or Campaign._scope not in ["endless", "daily"]:
+		return map
+	var daily := Campaign._scope == "daily"
+	if not endless_active(daily) or procgen_version(daily) == ProcGen.VERSION:
+		return map
+	if map.get("id", "") != ProcGen.make_id(endless_seed(daily), endless_k(daily)):
+		return map
+	map["hint"] = "Карта собрана новой версией генератора (v%d → v%d). %s" % [
+		procgen_version(daily), ProcGen.VERSION, String(map.get("hint", ""))]
+	return map
+
+
+static func daily_key(date: String, version: int = ProcGen.VERSION) -> String:
+	return "%s|v%d" % [date, version]
+
+
 ## Дата (ГГГГ-ММ-ДД) «Вызова дня»; "" — ещё не начинался. Только Campaign.DAILY_SECTION.
 static func endless_daily_date() -> String:
 	return String(Campaign.raw_file().get_value(Campaign.DAILY_SECTION, "daily_date", ""))
@@ -66,6 +92,7 @@ static func endless_start(run_seed: int, daily_date: String = "") -> void:
 	var f := Campaign.raw_file()
 	f.set_value(sec, "k", 1)
 	f.set_value(sec, "seed", run_seed)
+	f.set_value(sec, "procgen", {"version": ProcGen.VERSION})
 	f.set_value(sec, "tenure", 0)
 	f.set_value(sec, "souls", 0)
 	# D-0927-120: сложность не закреплена у ОБОИХ забегов до старта первого боя (пикер брифинга
@@ -87,11 +114,6 @@ static func _reset_run_meta(sec: String) -> void:
 	f.set_value(sec, "bounty", 0)
 	f.set_value(sec, "pending_reward", "")
 	RunProgression.reset_run(sec)
-	for id in LegionMetaCfg.OFFICE_SHOP_ORDER:
-		f.set_value(sec, "shop_%s" % id, 0)
-		if bool(LegionMetaCfg.OFFICE_SHOP[id].get("per_kind", false)):
-			for kind: StringName in LegionCfg.KIND_ORDER:
-				f.set_value(sec, "shop_%s_%s" % [id, String(kind)], 0)
 	Campaign.save_raw()
 
 
@@ -147,10 +169,11 @@ static func endless_object_won(souls_gained: int) -> void:
 
 ## Ключ рекорда: своя пара «стаж/души» на сложность (D-0927-96), «Вызов дня» — ещё и на дату.
 ## Старые ключи без сложности молча перестают читаться (пре-релизные цифры, не переносим).
-static func _record_key(daily: bool, daily_date: String, difficulty: String) -> String:
+static func _record_key(daily: bool, daily_date: String, difficulty: String,
+		version: int = ProcGen.VERSION) -> String:
 	var d := LegionChallenge.valid(difficulty)
 	if daily:
-		return "daily_%s_%s" % [daily_date, d]
+		return "daily_%s_%s" % [daily_key(daily_date, version), d]
 	return "endless_%s" % d
 
 
@@ -165,7 +188,7 @@ static func endless_end_run() -> Dictionary:
 	# Закреплённая сложность забега (D-0927-120 — у обоих видов); не закреплена только у забега,
 	# кончившегося без единого боя (юнит-проверки, стаб-кадры) — тогда живой выбор игрока.
 	var difficulty := run_difficulty(daily) if is_difficulty_locked(daily) else Settings.difficulty()
-	var rec_key := _record_key(daily, daily_date, difficulty)
+	var rec_key := _record_key(daily, daily_date, difficulty, procgen_version(daily))
 	var rf := Campaign.raw_file()
 	var rs := Campaign.ENDLESS_RECORDS_SECTION
 	var best_tenure := int(rf.get_value(rs, "%s_tenure" % rec_key, 0))
@@ -181,7 +204,8 @@ static func endless_end_run() -> Dictionary:
 		# D-0927-122: множество сданных дат, а не одна done_date — одна попытка на дату НАВСЕГДА
 		# (verifier, проба A3: сыграл «завтра», вернул дату — «сегодня» снова открывалось).
 		var done := _done_dates()
-		done[daily_date] = {"tenure": tenure, "souls": souls, "difficulty": difficulty}
+		done[daily_key(daily_date, procgen_version(true))] = {
+			"tenure": tenure, "souls": souls, "difficulty": difficulty}
 		rf.set_value(Campaign.DAILY_SECTION, DONE_KEY, done)
 		rf.set_value(Campaign.DAILY_SECTION, OPEN_KEY, "")
 	Campaign.save_raw()
@@ -210,12 +234,12 @@ static func endless_best_souls(daily_date: String = "", difficulty: String = "")
 ## D-0927-96: true — на эту дату попытка уже сыграна до конца, кнопка в меню закрыта до завтра.
 ## Не путать с endless_active(true) — «попытка ЕЩЁ ИДЁТ»; тут — «уже кончилась сегодня».
 static func daily_attempt_done(date: String) -> bool:
-	return _done_dates().has(date)
+	return _done_dates().has(daily_key(date))
 
 
 ## Итог попытки на дату date — для подписи закрытой кнопки в меню ({} — не сдавалась).
 static func daily_done_result(date: String) -> Dictionary:
-	return _done_dates().get(date, {})
+	return _done_dates().get(daily_key(date), {})
 
 
 static func _done_dates() -> Dictionary:
@@ -228,7 +252,8 @@ static func _done_dates() -> Dictionary:
 ## закрывается как сданный на СВОЮ дату, а не молча затирается новым: иначе, вернув дату, его
 ## день снова был бы «не сыгран». false — на date попытка уже была, новой не будет.
 static func daily_enter(date: String) -> bool:
-	if endless_active(true) and endless_daily_date() != date:
+	if endless_active(true) and (endless_daily_date() != date \
+			or procgen_version(true) != ProcGen.VERSION):
 		endless_end_run()
 	if endless_active(true):
 		return true
@@ -265,4 +290,3 @@ static func settle_abandoned_daily() -> Dictionary:
 	report["map_title"] = title
 	report["abandoned"] = true
 	return report
-

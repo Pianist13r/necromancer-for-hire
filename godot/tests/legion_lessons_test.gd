@@ -1,4 +1,6 @@
 extends SceneTree
+## Эталон бота обновлён 08.10 A7: автомарш/тактика, два одинаковых прогона.
+## Происхождение новых хешей: docs/dev/audit-1008/gameplay-report.md.
 ##
 ## Уроки карт кампании v20 (docs/legion/CAMPAIGN_V20.md, D-0926-46; Игорь 26.09: «все эти
 ## элементы постепенно в игре вводились и обучались тоже постепенно… первые два-три уровня»).
@@ -217,7 +219,10 @@ func _test_data() -> void:
 		_check(ids == Array(EXPECT[map_id], TYPE_STRING_NAME, "", null) and raw.size() == ids.size(),
 			"%s: уроки %s" % [map_id, str(ids)])
 		for l in LegionTutorial.parse(LegionWorld.load_map(map_id)):
-			var text := String(l["text"])
+			# Длина именно плашки: и числа механики, и текущие клавиши уже раскрыты.
+			var formatter := LegionTutorial.new()
+			formatter.lessons = [l]
+			var text := formatter.step_text(0)
 			_check(text != "" and not text.contains("\n") and text.length() <= 110,
 				"%s/%s: одна строка ≤110 знаков (%d)" % [map_id, l["id"], text.length()])
 
@@ -717,7 +722,7 @@ func _test_input() -> void:
 	_toasts.clear()
 	w.hero._cd[LegionHero.SLOT_E] = 0.0
 	await _tap_key(KEY_E, c.seg_center(0))
-	_check(not tut.passed(&"hero_e") and _toasts.has(LegionTutorial.HINT_NOT_PRESSED),
+	_check(not tut.passed(&"hero_e") and _toasts.has(Controls.text(LegionTutorial.HINT_NOT_PRESSED)),
 		"Развилка/Е: по спокойной линии не зачтено, подсказка тостом")
 	# Отдельная положительная проба зачёта: предыдущий действительный Е потратил ману.
 	# Как и откат, ресурс восстанавливаем в оснастке, а не дарим его уроком в бою.

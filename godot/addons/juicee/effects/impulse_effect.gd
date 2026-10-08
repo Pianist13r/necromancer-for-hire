@@ -25,7 +25,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	var effective_impulse := impulse * intensity_mult
 	if random_cone_degrees > 0.0:
 		var spread := deg_to_rad(random_cone_degrees)
-		var angle_offset := randf_range(-spread * 0.5, spread * 0.5)
+		var angle_offset := JuiceeEffect.rng.randf_range(-spread * 0.5, spread * 0.5)
 		effective_impulse = effective_impulse.rotated(angle_offset)
 
 	body.apply_central_impulse(effective_impulse)

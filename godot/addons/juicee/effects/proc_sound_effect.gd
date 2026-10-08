@@ -62,7 +62,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	player.stream = stream
 	player.bus = bus
 	player.volume_db = effective_volume_db
-	player.pitch_scale = randf_range(pitch_min, pitch_max)
+	player.pitch_scale = JuiceeEffect.rng.randf_range(pitch_min, pitch_max)
 	context.add_child(player)
 	player.play()
 	await player.finished

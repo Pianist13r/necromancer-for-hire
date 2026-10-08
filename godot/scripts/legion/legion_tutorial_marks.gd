@@ -123,8 +123,15 @@ func _draw() -> void:
 			if at != Vector2.INF:
 				_draw_area(at, LegionCfg.E_RADIUS, pulse)
 				_draw_key(_key_on_area(at, LegionCfg.E_RADIUS, bob), Controls.label(&"cast_e"))
-		&"figure":
-			_draw_template(tut.figure_points(), pulse)
+		&"figure", &"figure_ult", &"figure_mini", &"figure_slung":
+			if shows_template():
+				_draw_template(tut.figure_points(), pulse)
+
+## Шаблон фигуры «где и что чертить» — у ВСЕХ уроков-фигур (TU-02: раньше только у вида
+## figure, 6 из 8 уроков шли без метки), пока своей такой фигуры на поле нет.
+func shows_template() -> bool:
+	return tut != null and tut.active and tut.step_kind() in LegionTutorial.FIGURE_KINDS \
+		and not tut.figure_standing()
 
 ## Значок ПКМ над участком {contract, seg}: кольцо на участке и мышь с горящей правой кнопкой.
 func _draw_rmb(hit: Dictionary, pulse: float, bob: float) -> void:

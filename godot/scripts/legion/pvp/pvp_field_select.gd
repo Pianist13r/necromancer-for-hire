@@ -15,6 +15,9 @@ signal net
 const CARD_W := 560.0
 const FIELD_W := 496.0
 
+## Steam-сборка с клиентом Steam: «По сети» ведёт в лобби Steam (ставит PvpFlow до показа).
+var via_steam := false
+
 
 func _ready() -> void:
 	UiStyle.fill_rect(self)
@@ -40,7 +43,8 @@ func _ready() -> void:
 		"menu_map")
 	rnd.pressed.connect(func() -> void: chosen.emit(random_map_id()))
 	box.add_child(rnd)
-	var online := _field_button("PvpFieldNet", "По сети", "Против человека: общее лобби",
+	var online := _field_button("PvpFieldNet", "По сети",
+		"Против человека: через Steam" if via_steam else "Против человека: общее лобби",
 		"menu_pvp")
 	online.pressed.connect(func() -> void: net.emit())
 	box.add_child(online)

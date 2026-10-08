@@ -18,6 +18,7 @@ const CAPTION_FONT := 15
 const NUM_FONT := 19
 const SMALL_FONT := 15
 const BAR_H := 9.0
+
 const GAIN_TIME := 1.4
 
 var world: LegionWorld = null
@@ -25,6 +26,7 @@ var world: LegionWorld = null
 var wave_hint := ""
 
 var _icons: Dictionary = {}
+var _panel_style := UiStyle.panel_style(Color(0.075, 0.055, 0.09, 0.97), 5)
 var _hp := LegionUi.Meter.new(1.0, false)
 var _mana := LegionUi.Meter.new(8.0, false)
 var _army := LegionUi.Meter.new(1.0, true)
@@ -55,8 +57,10 @@ func setup(w: LegionWorld) -> LegionTopPlate:
 
 
 func _on_cauldron_hit(_amount: float) -> void:
-	_hp.flash = 1.0
-	_shake = 0.3
+	if Settings.is_flashes_enabled() and Juice.permit(self, &"visual_hud_flash", 500):
+		_hp.flash = 1.0
+	if Settings.is_screen_shake_enabled() and Juice.permit(self, &"visual_hud_shake", 300):
+		_shake = 0.3
 
 
 func _on_souls(v: int) -> void:
@@ -78,6 +82,10 @@ func _process(dt: float) -> void:
 		return
 	visible = world.phase == LegionWorld.Phase.BATTLE
 	_hp.update(world.my_side().cauldron_hp, dt)
+	if not Settings.is_flashes_enabled():
+		_hp.flash = 0.0
+	if not Settings.is_screen_shake_enabled():
+		_shake = 0.0
 	_mana.update(world.my_field().mana, dt)
 	_army.update(float(world.army_alive(world.local_side)), dt)
 	_souls.update(float(world.my_side().souls), dt)
@@ -91,7 +99,7 @@ func _process(dt: float) -> void:
 func _draw() -> void:
 	if world == null:
 		return
-	LegionUi.draw_blank(self, Rect2(Vector2.ZERO, size))
+	draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))
 	var x := PAD
 	var widths := LegionCfg.HUD_BLOCK_W
 	_block_cauldron(Rect2(x, 0.0, widths[0], size.y))

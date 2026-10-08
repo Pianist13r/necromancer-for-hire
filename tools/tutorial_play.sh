@@ -6,7 +6,7 @@
 #   tools/tutorial_play.sh good|clumsy|pause|campaign|skip|short|kind [ещё сценарии…]
 #   tools/tutorial_play.sh all            # все семь подряд
 # good/clumsy/pause/short/kind — бой напрямую (--map wasteland --dev tutorial=1). campaign/skip — путь
-# владельца: главное меню → «Начать кампанию» → вступление → брифинг → бой → обучение
+# владельца: главное меню → «Начать смену» → вступление → брифинг → бой → обучение
 # (LegionMain без --map, сохранение — во временный user://legion_menu_test.cfg).
 # Переменные: GODOT (путь к движку), OUT (куда класть ролики и логи; по умолчанию
 # C:/AI/necro/batches/legion/v16/tutorial/after).
@@ -22,6 +22,9 @@ set -u
 GODOT="${GODOT:-C:/Projects/SharedTools/godot/Godot_v4.7.2-stable_win64_console.exe}"
 OUT="${OUT:-C:/AI/necro/batches/legion/v16/tutorial/after}"
 mkdir -p "$OUT"
+export APPDATA="${APPDATA_TUTORIAL:-$OUT/appdata}"
+export NECRO_NO_DEV_BRIDGE=1
+mkdir -p "$APPDATA"
 scenarios=("$@")
 if [ ${#scenarios[@]} -eq 0 ] || [ "${scenarios[0]}" = "all" ]; then
   scenarios=(good clumsy pause campaign skip short kind)

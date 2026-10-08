@@ -82,6 +82,8 @@ const WORLD_SKIP: Array[String] = [
 	"_ground_loading_layer", "_depth_decor", "_depth_generation", "_plot_view", "_fx",
 	"_shadows_node", "_gfx_fx", "_cauldron", "_necro", "_breach_marks", "_impacts",
 	"_impact_r", "_tears", "_rallies", "_mouse_pos", "_mouse_seen",
+	# режиссёр записи (REC-07): подписи HUD за камерой — только вид, в снимок не идёт
+	"hud_follows_camera",
 	# замеры, кадры, трасса (--trace печатает, бой не читает)
 	"_trace_t", "_frames", "_bench_s", "_bench_el", "_bench_n", "_bench_tick_us",
 	"_bench_ticks", "_bench_wall0", "_shot_path", "_shot_frame",

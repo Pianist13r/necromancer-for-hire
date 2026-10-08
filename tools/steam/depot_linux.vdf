@@ -1,0 +1,15 @@
+// Депо Linux (+ Steam Deck): всё из dist/steam/linux/ (Necromancer.x86_64 с вшитым pck + licenses/,
+// godotsteam/ и libsteam_api.so рядом с Necromancer.x86_64 — Steam-сеть «Схватки», кладёт build_steam.py; LocalPath * Recursive их берёт).
+// DepotID — тот же, что в app_build.vdf (App Admin → SteamPipe → Depots, ОС: Linux + SteamOS).
+"DepotBuild"
+{
+	"DepotID"     "0000002"   // ← DepotID Linux
+	"ContentRoot" "../../dist/steam/linux/"
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "."
+		"Recursive" "1"
+	}
+	"FileExclusion" "*.log"
+}

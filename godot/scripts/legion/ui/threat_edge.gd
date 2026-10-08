@@ -38,6 +38,8 @@ func setup(w: LegionWorld) -> LegionThreatEdge:
 
 
 func _on_cauldron_hit(amount: float) -> void:
+	if not Juice.screen_flash_allowed(self, &"visual_threat", 0):
+		return
 	_vig = 1.0
 	# мелкий укол (курьер 6) — вполсилы, прорыв Прораба (140) — во всю
 	_vig_k = clampf(0.55 + amount / 25.0, 0.55, 1.0)
@@ -90,7 +92,7 @@ func _add(by_road: Dictionary, g: Dictionary, k: float) -> void:
 		return
 	# телеграф — в координатах экрана (HUD): вход дороги в ВИДИМЫЙ мир, переведённый на экран
 	# (B-304; одиночка — кадр 1280×720 и тождество)
-	var at := world.world_to_screen(entry_point(path, world.view_rect()))
+	var at := world.world_to_hud(entry_point(path, world.hud_view_rect()))
 	var n := int(g.get("count", 1))
 	var type := String(g.get("type", "zombie"))
 	# ключ — точка входа, а не id дороги: на Мосту две дороги выходят из одних ворот
@@ -130,7 +132,7 @@ static func foe_color(type: String) -> Color:
 func _draw() -> void:
 	for t in _threats:
 		_draw_threat(t)
-	if _vig > 0.0:
+	if _vig > 0.0 and Settings.is_flashes_enabled():
 		_draw_vignette(LegionCfg.HUD_VIGNETTE_ALPHA * _vig_k * _vig * _vig)
 
 
@@ -152,7 +154,7 @@ func _draw_threat(t: Dictionary) -> void:
 	var col := foe_color(String(t["type"]))
 	var k := float(t["k"])
 	# пульс ускоряется к выходу: сначала медленное «дыхание», в момент выхода — частое мигание
-	var beat := 0.6 + 0.4 * sin(_pulse * lerpf(4.0, 10.0, k))
+	var beat := Juice.flash_alpha(0.6 + 0.4 * sin(_pulse * lerpf(4.0, 10.0, k)))
 	var a := (0.25 + 0.55 * k) * beat
 	var half := LegionCfg.HUD_THREAT_LEN * 0.5
 	var depth := LegionCfg.HUD_THREAT_DEPTH

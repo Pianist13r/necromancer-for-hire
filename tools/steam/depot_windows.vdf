@@ -1,0 +1,15 @@
+// Депо Windows: всё из dist/steam/windows/ (Necromancer.exe с вшитым pck + licenses/,
+// godotsteam/ и steam_api64.dll рядом с Necromancer.exe — Steam-сеть «Схватки», кладёт build_steam.py; LocalPath * Recursive их берёт).
+// DepotID — тот же, что в app_build.vdf (App Admin → SteamPipe → Depots, ОС: Windows).
+"DepotBuild"
+{
+	"DepotID"     "0000001"   // ← DepotID Windows
+	"ContentRoot" "../../dist/steam/windows/"
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "."
+		"Recursive" "1"
+	}
+	"FileExclusion" "*.log"
+}

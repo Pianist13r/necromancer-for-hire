@@ -75,8 +75,8 @@ func _apply(context: Node, intensity_mult: float) -> void:
 				var ch: String = text_source.substr(i, 1)
 				if skip_whitespace_clicks and ch.strip_edges().is_empty():
 					continue
-				sfx.stream = click_sounds.pick_random()
-				sfx.pitch_scale = randf_range(1.0 / click_pitch_variance, click_pitch_variance)
+				sfx.stream = click_sounds[JuiceeEffect.rng.randi() % click_sounds.size()] if not click_sounds.is_empty() else null
+				sfx.pitch_scale = JuiceeEffect.rng.randf_range(1.0 / click_pitch_variance, click_pitch_variance)
 				sfx.play()
 		last_revealed_chars = now_chars
 

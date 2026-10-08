@@ -308,8 +308,10 @@ func _mx(v: Vector2) -> Vector2:
 ## проходимых и вне проезжей части, берётся случайная из тех, что не ближе SPAWN_ROAD_SAFE к оси
 ## дороги; таких нет — самая далёкая от дороги. Случайная, а не одна «лучшая»: стопку в одной
 ## точке накрывала одна печать нотариуса (B-037). Веер — нижней полуокружностью: перед дверью,
-## не на крыше.
-func _plot_spawn() -> Vector2:
+## не на крыше. rng — для оценки доли безопасных рождений (plot_safe_share); в бою — world.rng.
+func _plot_spawn(rng: RandomNumberGenerator = null) -> Vector2:
+	if rng == null:
+		rng = world.rng
 	var safe: Array[Vector2] = []
 	var best := Vector2.INF
 	var best_d := -1.0
@@ -317,8 +319,8 @@ func _plot_spawn() -> Vector2:
 		var p := (
 			entry
 			+ _mx(
-				Vector2.from_angle(world.rng.randf() * PI)
-				* world.rng.randf_range(entry_ring.x, entry_ring.y + LegionCfg.SPAWN_FAN_EXTRA)
+				Vector2.from_angle(rng.randf() * PI)
+				* rng.randf_range(entry_ring.x, entry_ring.y + LegionCfg.SPAWN_FAN_EXTRA)
 			)
 		)
 		if not _door_reach(p) or not _off_road(p):
@@ -330,10 +332,25 @@ func _plot_spawn() -> Vector2:
 			best_d = d
 			best = p
 	if not safe.is_empty():
-		return safe[world.rng.randi() % safe.size()]
+		return safe[rng.randi() % safe.size()]
 	if best != Vector2.INF:
 		return best
-	return _plot_fallback()
+	return _plot_fallback(rng)
+
+
+## B-043 (verifier 08.10): доля рождений площадки не ближе SPAWN_ROAD_SAFE к оси дороги — по той
+## же логике _plot_spawn, а не по проверке «есть ли в веере хоть одна безопасная точка». Прежняя
+## проверка ошибалась в обе стороны: «Мост» p6 (полоска веера 66 px) не предупреждалась при 12 %
+## безопасных рождений, «Лабиринт» p6 — из-за запасного круга, до которого доходит часть рождений.
+## Свой ГСЧ с постоянным сидом: итог одинаков между запусками и не расходует боевой world.rng.
+func plot_safe_share(samples: int = LegionCfg.PLOT_SAFE_SAMPLES) -> float:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = LegionCfg.PLOT_SAFE_SEED
+	var safe := 0
+	for i in samples:
+		if world.road_dist(_plot_spawn(rng)) >= LegionCfg.SPAWN_ROAD_SAFE:
+			safe += 1
+	return float(safe) / float(maxi(1, samples))
 
 
 ## Проверка verifier (B-083): веер 46 px и выбор «дальше от дороги» клали ~6 % рождений
@@ -367,7 +384,7 @@ func _off_road(p: Vector2) -> bool:
 ## «самая далёкая» рождала всех стопкой, и её накрывала одна печать нотариуса (B-037, урок B-018).
 ## Вне дороги ни одной — самая далёкая от дороги; совсем некуда — прежний запасной выход с
 ## проверкой проходимости (verifier 26.09).
-func _plot_fallback() -> Vector2:
+func _plot_fallback(rng: RandomNumberGenerator) -> Vector2:
 	var best := Vector2.INF
 	var best_d := -1.0
 	var clear: Array[Vector2] = []
@@ -383,7 +400,7 @@ func _plot_fallback() -> Vector2:
 				best_d = d
 				best = p
 	if not clear.is_empty():
-		return clear[world.rng.randi() % clear.size()]
+		return clear[rng.randi() % clear.size()]
 	if best != Vector2.INF:
 		return best
 	return entry if world.terrain.walkable(entry) else position

@@ -74,14 +74,21 @@ func test_recruit() -> void:
 	var c := line_at(Vector2(500, 100), LegionCfg.KIND_LABORER, 400)
 	var u := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(280, 120))
 	w.grid.rebuild()
+	check(w.contracts.assignment_plan(w.contracts.contracts).is_empty(),
+		"ближний набор и превью по-прежнему ограничены радиусом")
 	w._assign_free()
-	check(u.state == Legionnaire.State.FREE, "вне 200 px набора нет")
+	check(u.state == Legionnaire.State.MARCH and u.auto_march, "вне 200 px включается автомарш")
+	u.set_free()
 	u.position.x = 320
 	for p in c.posts:
 		if (p["pos"] as Vector2).y < 400:
 			p["dead"] = true
+	check(w.contracts.assignment_plan(w.contracts.contracts).is_empty(),
+		"близкая мёртвая геометрия не расширяет радиус ближнего набора")
 	w._assign_free()
-	check(u.state == Legionnaire.State.FREE, "близкий конец не тянет к дальнему месту")
+	check(u.state == Legionnaire.State.MARCH and u.auto_march and u.post["pos"].y >= 400,
+		"автомарш выбирает только живое дальнее место")
+	u.set_free()
 	for p in c.posts:
 		p["dead"] = false
 	w._assign_free()

@@ -653,15 +653,15 @@ func _test_upgrades() -> void:
 	# Пул постоянных процентов (22 поправки + 35 узлов) заменён колодой AmendmentDb из 12 карточек
 	# с крупными правилами (OVERHAUL 05.10). Прежнее «поправок в пуле ≥ старых + 8» потеряло смысл:
 	# теперь колода — сам UPGRADE_ORDER, и важно, что каждый старый id из неё переведён миграцией.
-	var order := LegionMetaCfg.UPGRADE_ORDER
+	var order := AmendmentDb.ORDER
 	var covers := order.size() == AmendmentDb.CARDS.size()
 	for card_id: String in AmendmentDb.CARDS:
 		covers = covers and order.has(card_id)
 	_check(covers and order.size() >= 12, "поправок в колоде: %d" % order.size())
 	var all_in := true
 	for id: String in order:
-		all_in = all_in and LegionMetaCfg.UPGRADE_POOL.has(id)
-	_check(all_in and LegionMetaCfg.UPGRADE_POOL.size() == order.size(), "порядок и пул совпадают")
+		all_in = all_in and AmendmentDb.CARDS.has(id)
+	_check(all_in and AmendmentDb.CARDS.size() == order.size(), "порядок и пул совпадают")
 	# У каждой старой поправки определена судьба: перевод в карточку (LEGACY_MAP) либо архив.
 	# «Кофемашина» (реген маны) и «Расширенный бюджет» (запас маны) осмысленного аналога в колоде
 	# не имеют — новых постоянных процентов не заводим (OVERHAUL 05.10), обе уходят в архив, как

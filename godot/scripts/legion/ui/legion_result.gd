@@ -12,6 +12,8 @@ signal menu
 ## D-0927-162: «В коллекцию» — сохранить сгенерированную карту объекта (см. show_collect).
 signal collect_pressed
 
+var _reward_tween: Tween
+
 
 func _ready() -> void:
 	UiStyle.fill_rect(self)
@@ -38,43 +40,49 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		show_maps: bool = true, show_collect: bool = false) -> void:
 	for c in get_children():
 		c.queue_free()
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.02, 0.01, 0.04, 0.88)
-	UiStyle.fill_rect(backdrop)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(backdrop)
-
-	var box := UiStyle.card_box(self, 560.0, 12)
-
+	if _reward_tween != null:
+		_reward_tween.kill()
 	var map_title := String(stats.get("map_title", ""))
 	var stamp_text := "Договор расторгнут"
 	if victory:
 		stamp_text = "Кампания пройдена" if campaign_complete else "Договор исполнен"
-	var stamp := UiStyle.label(stamp_text, 40, UiStyle.FONT_TITLE,
-		UiStyle.GOOD if victory else UiStyle.BAD)
-	stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(stamp)
-
-	if map_title != "":
-		var sub := UiStyle.label(map_title, 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
-		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(sub)
+	var shell := ProgressionUi.shell(self, stamp_text, map_title,
+		{"shade": 0.64, "title_color": UiStyle.GOOD if victory else UiStyle.BAD})
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 24)
+	shell["body"].add_child(columns)
+	var box := _result_panel(columns, "Этот бой")
+	var reward_box := _result_panel(columns, "Награда")
 
 	# mode: «Бесконечный подряд»/«Вызов дня» переиспользует этот экран для итога объекта, но
 	# звёзд там нет (stars == 0 не значит «худший результат» — значит «эта шкала не при деле»,
 	# ставить три пустых было бы неверным сигналом игроку).
 	if victory and stars > 0:
-		var stars_label := UiStyle.label("★".repeat(stars) + "☆".repeat(3 - stars), 30,
+		var stars_label := UiStyle.label("★".repeat(stars) + "☆".repeat(3 - stars), 20,
 			UiStyle.FONT_TITLE, UiStyle.GOLD)
-		stars_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(stars_label)
+		stars_label.name = "ResultStars"
+		box.get_node("PanelHeading").add_child(stars_label)
 
 	box.add_child(_stats_block(stats))
-	box.add_child(BattleDebrief.panel(stats.get("debrief", {})))
+	# Полная ширина сохраняет три строки разбора даже с длинными названиями подходов.
+	# Он не растягивает ни статистику, ни награду до высоты соседней панели.
+	shell["body"].add_child(_debrief_panel(stats.get("debrief", {})))
 
 	if not rewards.is_empty():
-		box.add_child(_rewards_block(rewards, victory))
+		reward_box.add_child(_rewards_block(rewards, victory))
+	elif stats.has("tenure"):
+		reward_box.add_child(ProgressionUi.text("Премия — на подготовку и переброску. "
+			+ "В забеге опыт не начисляется: разряд растёт в кампании.", 19))
+	else:
+		reward_box.add_child(ProgressionUi.text("Разряд и подписанные поправки — в «Досье».", 19))
+	if victory and has_next:
+		reward_box.add_child(ProgressionUi.text("Дальше — выберите и подпишите поправку. "
+			+ "Она действует до конца %s." % ("забега" if stats.has("tenure") else "кампании"),
+			18, UiStyle.GOLD))
+	elif not victory:
+		reward_box.add_child(ProgressionUi.text("Дальше — «Ещё раз»: подготовьтесь "
+			+ "на брифинге и повторите бой." if show_retry else
+			"Дальше — в главное меню, чтобы начать новый подряд.", 18, UiStyle.GOLD))
 
 	var primary := "Дальше: выбор поправки" if victory and has_next else "Ещё раз"
 	var action := func() -> void:
@@ -84,16 +92,74 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 			retry.emit()
 	if not show_retry and not has_next:
 		primary = ""
-	LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
+	var nav := LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
 		primary, action)
+	var main_button := nav.get_node_or_null("NavPrimary") as Button
+	if main_button != null:
+		# Enter принадлежит кнопке в фокусе: глобальный shortcut вызывал ещё и «Ещё раз».
+		main_button.shortcut = null
 	# После победы с наградой «Карты» нет (D-1007-P4): главное — «Дальше: выбор поправки»,
 	# а экран карт уводил мимо выбора.
 	if show_maps and not (victory and has_next):
-		box.add_child(_make_button("Карты", func() -> void: maps.emit()))
+		_add_secondary(nav, _make_button("Карты", func() -> void: maps.emit()))
 	if show_retry and victory and has_next:
-		box.add_child(_make_button("Ещё раз", func() -> void: retry.emit()))
+		var again := _make_button("Ещё раз", func() -> void: retry.emit())
+		again.tooltip_text = "Сначала забрать поправку, затем подготовиться к повторному бою."
+		_add_secondary(nav, again)
 	if show_collect:
-		box.add_child(_make_button("В коллекцию", func() -> void: collect_pressed.emit()))
+		_add_secondary(nav, _make_button("В коллекцию", func() -> void: collect_pressed.emit()))
+	ModalFocus.contain.call_deferred(self)
+	if main_button != null:
+		main_button.grab_focus.call_deferred()
+	var appear := create_tween()
+	columns.modulate.a = 0.0
+	appear.tween_property(columns, "modulate:a", 1.0, 0.2)
+
+
+func _result_panel(parent: HBoxContainer, title: String) -> VBoxContainer:
+	var panel := PanelContainer.new()
+	panel.name = "BattlePanel" if title == "Этот бой" else "RewardPanel"
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var style := UiStyle.panel_style(Color(0.09, 0.075, 0.13, 0.9), 10)
+	style.border_color = Color(UiStyle.GOLD, 0.4)
+	style.set_border_width_all(1)
+	for side: String in ["left", "right", "top", "bottom"]:
+		style.set("content_margin_" + side, 12.0)
+	panel.add_theme_stylebox_override("panel", style)
+	parent.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	panel.add_child(box)
+	var heading := HBoxContainer.new()
+	heading.name = "PanelHeading"
+	box.add_child(heading)
+	heading.add_child(ProgressionUi.text(title, 24, UiStyle.GOLD))
+	return box
+
+
+func _debrief_panel(report: Dictionary) -> Control:
+	var panel := PanelContainer.new()
+	panel.visible = not BattleDebrief.lines(report).is_empty()
+	var style := UiStyle.panel_style(Color(0.09, 0.075, 0.13, 0.94), 6)
+	style.border_color = Color(UiStyle.GOLD, 0.3)
+	style.set_border_width_all(1)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", style)
+	panel.add_child(BattleDebrief.panel(report, UiStyle.TEXT))
+	return panel
+
+
+func _add_secondary(nav: HBoxContainer, button: Button) -> void:
+	nav.add_child(button)
+	# Перед растяжкой: второстепенные действия слева, главное остаётся у правого края.
+	for i in nav.get_child_count():
+		if not nav.get_child(i) is Button:
+			nav.move_child(button, i)
+			break
 
 
 
@@ -101,14 +167,14 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 ## недостающие поля (kills, lost, charges, refreshes, releases, cauldron_hp/_max, time).
 func _stats_block(stats: Dictionary) -> Control:
 	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 3)
+	box.add_theme_constant_override("separation", 2)
 
 	var lines: Array[String] = []
 	# mode: «Бесконечный подряд»/«Вызов дня» кладёт сюда стаж и души забега ПОСЛЕ этого объекта
 	# (LegionMain._on_endless_match_ended) — кампания этих ключей не пишет, строка не появится.
 	if stats.has("tenure"):
-		lines.append("Стаж: %d · Души: %d" % [int(stats["tenure"]), int(stats.get("souls", 0))])
+		lines.append("Объектов пройдено: %d · Души: %d" % [
+			int(stats["tenure"]), int(stats.get("souls", 0))])
 	if stats.has("bounty"):
 		lines.append("Премия за объект: +%d" % int(stats["bounty"]))
 	if stats.has("kassa"):   # «Касса» (D-1001-01): в забеге — только с победой (поражение — некролог)
@@ -142,21 +208,72 @@ func _stats_block(stats: Dictionary) -> Control:
 		lines.append("Время на объекте: %d:%02d" % [int(t) / 60, int(t) % 60])
 
 	for line in lines:
-		var l := UiStyle.label(line, 17, UiStyle.FONT_TEXT)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		box.add_child(l)
+		var icon := ""
+		if line.begins_with("HP Котла"):
+			icon = "hud_cauldron"
+		elif line.begins_with("Упокоено"):
+			icon = "soul"
+		elif line.begins_with("Потеряно"):
+			icon = "hud_army"
+		elif line.begins_with("Время"):
+			icon = "perk_short_cd"
+		elif line.begins_with("Премия") or line.begins_with("Касса"):
+			icon = "premium"
+		var row := _stat_row(icon, line)
+		row.name = "StatRow%d" % box.get_child_count()
+		box.add_child(row)
+		if icon == "hud_cauldron":
+			box.add_child(_health_bar(stats))
 	return box
+
+
+func _health_bar(stats: Dictionary) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.name = "CauldronHealth"
+	bar.custom_minimum_size.y = 8
+	bar.max_value = maxf(1.0, float(stats["cauldron_max"]))
+	bar.value = float(stats["cauldron_hp"])
+	bar.show_percentage = false
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_theme_stylebox_override("background", UiStyle.panel_style(Color(0.2, 0.1, 0.16), 4))
+	bar.add_theme_stylebox_override("fill", UiStyle.panel_style(
+		UiStyle.GOOD if bar.value / bar.max_value > 0.3 else UiStyle.BAD, 4))
+	return bar
+
+
+func _stat_row(icon_name: String, value: String) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "StatRow"
+	row.custom_minimum_size.y = 26
+	row.add_theme_constant_override("separation", 8)
+	var badge := PanelContainer.new()
+	badge.custom_minimum_size = Vector2(24, 24)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var background: StyleBox = StyleBoxEmpty.new()
+	if icon_name in ["hud_cauldron", "perk_short_cd"]:
+		background = UiStyle.panel_style(Color(0.72, 0.66, 0.54), 4)
+	badge.add_theme_stylebox_override("panel", background)
+	row.add_child(badge)
+	if icon_name != "":
+		var icon := LegionIcons.rect(icon_name, 22.0)
+		if icon_name == "soul":
+			icon.texture = load("res://assets/img/icons/soul.png") as Texture2D
+		badge.add_child(icon)
+	var label := ProgressionUi.text(value, 20)
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label)
+	return row
 
 
 ## meta: премия и опыт за бой, «Новый уровень героя!» при повышении (задание meta п.7).
 func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 2)
+	box.add_theme_constant_override("separation", 8)
 
 	var line := UiStyle.label(
 		"Премия: +%d · Опыт: +%d" % [int(rewards.get("bounty", 0)), int(rewards.get("xp", 0))],
-		16, UiStyle.FONT_TEXT, UiStyle.GOLD)
+		24, UiStyle.FONT_TITLE, UiStyle.GOLD)
+	line.name = "RewardCounters"
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -164,6 +281,22 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 	row.add_child(LegionIcons.rect("premium", 22.0))
 	row.add_child(line)
 	box.add_child(row)
+	_reward_tween = create_tween().set_parallel(true)
+	var count := func(fraction: float) -> void:
+		line.text = "Премия: +%d · Опыт: +%d" % [
+			roundi(float(rewards.get("bounty", 0)) * fraction),
+			roundi(float(rewards.get("xp", 0)) * fraction)]
+	count.call(0.0)
+	_reward_tween.tween_method(count, 0.0, 1.0, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(
+		Tween.EASE_OUT)
+	if rewards.has("xp"):
+		var after := int(rewards.get("xp_after", Campaign.hero_xp()))
+		var before := int(rewards.get("xp_before", maxi(0, after - int(rewards.get("xp", 0)))))
+		var meter := ProgressionUi.experience_meter(before)
+		box.add_child(meter)
+		_reward_tween.tween_method(func(value: float) -> void:
+			ProgressionUi.update_experience(meter, roundi(value)), float(before), float(after),
+			0.85).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 	# «Касса» (D-1001-01): строка — только если в бою закладывали (LegionMain._grant_kassa)
 	if rewards.has("kassa_souls"):
@@ -191,6 +324,27 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 		up.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		up.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(up)
+		up.name = "RankUp"
+		LegionAudio.ui(&"rank_up")
+		up.modulate = Color(1.15, 1.1, 0.8, 0.0)
+		_reward_tween.tween_property(up, "modulate", Color.WHITE, 0.3).set_delay(0.55)
+		var icons := HFlowContainer.new()
+		icons.alignment = FlowContainer.ALIGNMENT_CENTER
+		icons.add_theme_constant_override("h_separation", 16)
+		box.add_child(icons)
+		for id: String in AmendmentDb.ORDER:
+			var data := AmendmentDb.card(StringName(id))
+			var rank := int(data.get("unlock_level", 1))
+			if rank > int(rewards.get("level_before", 1)) and rank <= int(rewards.get("level", 1)):
+				var opening := VBoxContainer.new()
+				opening.custom_minimum_size.x = 170
+				icons.add_child(opening)
+				var icon := LegionIcons.rect(String(data["icon"]), 44.0)
+				icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+				opening.add_child(icon)
+				var caption := ProgressionUi.text(String(data["title"]), 18, UiStyle.GOLD)
+				caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				opening.add_child(caption)
 
 	return box
 

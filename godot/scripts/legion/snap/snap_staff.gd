@@ -27,6 +27,7 @@ const STAFF_SAVED: Array[String] = ["plots", "_soul_frac", "_kill_frac",   # plo
 	"_cap_mult", "_respawn_mult", "_unlocked"]
 const STAFF_SKIP: Array[String] = [
 	"world", "side", "cauldron", "stat_fn",          # структура: setup в start_map
+	"_safe_share",   # кэш меню (B-043): выводится из карты своим ГСЧ, setup его очищает
 ]
 const BUILDING_SAVED: Array[String] = [
 	"side", "kind", "source", "level", "cap", "respawn_t", "entry", "entry_ring", "frozen",

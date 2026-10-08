@@ -27,7 +27,7 @@ const KEY_LABELS := {
 	"e_radius": "радиус Аврала", "e_dur": "длительность Аврала", "w_raise": "бойцов за подъём",
 	"charge_dmg_mult": "урон натиска", "charge_speed_mult": "скорость разбега",
 	"charge_dmg": "урон удара с разбега", "mana_cost_mult": "цена договора",
-	"ability_mana_mult": "мана способностей", "settlement_mult": "расчёт за срок",
+	"ability_mana_mult": "цена способностей", "settlement_mult": "расчёт за срок",
 	"hold_armor": "броня строя",
 	"line_cost": "цена линии", "mana_regen": "реген маны", "rally_cd": "откат «Сбора»",
 	"perfect_zone": "зона «Точно!»", "press_hold": "стойкость строя", "souls": "души за голову",
@@ -65,7 +65,7 @@ static func key_label(key: StringName) -> String:
 	if k.begins_with("cap_mult_"):
 		return "штат построек"
 	if k.begins_with("respawn_mult_"):
-		return "возврат в строй"
+		return "время возврата в строй"
 	if k.begins_with("recruit_r_"):
 		return "дальность набора"
 	return String(KEY_LABELS.get(k, k))
@@ -87,6 +87,25 @@ static func delta_chips(mods: Dictionary) -> Array[String]:
 			continue
 		seen[chip] = true
 		out.append(chip)
+	return out
+
+
+## Цвет отражает пользу, а не арифметический знак: короткий возврат в строй выгоден.
+static func delta_entries(mods: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var seen := {}
+	for key: String in mods:
+		var value := float(mods[key])
+		if is_zero_approx(value):
+			continue
+		var lower_is_better := key.begins_with("respawn_mult_") or key in [
+			"mana_cost_mult", "ability_mana_mult", "line_cost", "rally_cd"]
+		var benefit := value < 0.0 if lower_is_better else value > 0.0
+		var caption := ("Польза: " if benefit else "Цена: ") + "%s %s" % [
+			_signed(StringName(key), value), key_label(StringName(key))]
+		if not seen.has(caption):
+			seen[caption] = true
+			out.append({"text": caption, "benefit": benefit})
 	return out
 
 

@@ -18,6 +18,8 @@ extends RefCounted
 signal ready(texture: Texture2D)
 
 const POST_SHADER := "res://scripts/legion/procgen/pg_post.gdshader"
+const SEAM_SHADER := preload("res://scripts/legion/procgen/pg_ground_seam.gdshader")
+const SEAM_FEATHER := 128.0
 ## Мир ×1,5 — то же соотношение, что у нарисованных фонов кампании (BOOK §8.1: «1920×1080,
 ## мир ×1,5»); раскладка (roads/rocks/...) остаётся в мировых 1280×720 без пересчёта.
 const TEX_SCALE := 1.5
@@ -276,6 +278,22 @@ static func _mirrored_ground(root: Node2D, tex: Texture2D, world: Vector2) -> vo
 		sprite.scale = Vector2.ONE * (half.x / maxf(crop.x, 1.0))
 		sprite.position = Vector2(half.x * side, 0.0)
 		root.add_child(sprite)
+	# На оси одинаковые мазки сходились «пятном Роршаха». Узкая растушёванная
+	# полоса продолжает исходный рисунок через стык, под всеми игровыми объектами.
+	var band := Polygon2D.new()
+	band.name = "GroundSeam"
+	band.polygon = PackedVector2Array([Vector2(half.x - SEAM_FEATHER, 0),
+		Vector2(half.x + SEAM_FEATHER, 0), Vector2(half.x + SEAM_FEATHER, world.y),
+		Vector2(half.x - SEAM_FEATHER, world.y)])
+	var mat := ShaderMaterial.new()
+	mat.shader = SEAM_SHADER
+	mat.set_shader_parameter("ground_tex", tex)
+	mat.set_shader_parameter("uv_scale", Vector2.ONE * (crop.x / half.x) / src)
+	mat.set_shader_parameter("uv_offset", region.position / src)
+	mat.set_shader_parameter("middle", half.x)
+	mat.set_shader_parameter("feather", SEAM_FEATHER)
+	band.material = mat
+	root.add_child(band)
 
 
 func _apply_post(mat: ShaderMaterial, map: Dictionary, used_tex: bool) -> void:

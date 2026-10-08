@@ -230,6 +230,9 @@ func _test_scroll_quiet() -> void:
 	OS.delay_msec(QUIET_WAIT_MS)   # прошлая проверка отпустила колесо только что
 	await _wheel_tick(true)
 	_check(f.current_kind == LegionCfg.KIND_GUARD, "прокрутка по-прежнему меняет вид: подряд → охрана")
+	# B-057 (slow/controls-1008): тик в пределах окна ДО нажатия колеса откатывается — нажатие
+	# здесь осознанное, после паузы, иначе оно вернуло бы «подряд»
+	OS.delay_msec(QUIET_WAIT_MS)
 	await _btn(at, MOUSE_BUTTON_MIDDLE, true)
 	await _wheel_tick(true)
 	await _wheel_tick(false)

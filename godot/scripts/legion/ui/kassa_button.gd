@@ -39,7 +39,8 @@ func _update_key_hint() -> void:
 	if key == _key:
 		return
 	_key = key
-	tooltip_text = Controls.text(("Касса (Дэ): заложить %d душ в премию «Конторы». "
+	tooltip_text = Controls.text(("Касса ({key:kassa}): заложить %d душ в премию "
+		+ "на подготовку и переброску. "
 		+ "Заложенное в бою не вернуть; курс к концу боя хуже; при поражении касса сгорает")
 		% LegionCfg.KASSA_PORTION)
 

@@ -2,7 +2,7 @@ class_name ReleaseInfo
 extends RefCounted
 ## Один источник версии и публичных ссылок. Удалённый JSON меняет только адрес лобби.
 
-const VERSION := "0.2.2-alpha"
+const VERSION := "0.3.0-alpha"
 const REPOSITORY_URL := "https://github.com/Pianist13r/necromancer-for-hire"
 const RELEASES_URL := REPOSITORY_URL + "/releases"
 const SERVER_INFO_URL := (
@@ -10,6 +10,25 @@ const SERVER_INFO_URL := (
 const DEFAULT_RELAY := "wss://51-250-12-39.sslip.io"
 const SERVER_BODY_LIMIT := 4096
 const SERVER_TIMEOUT := 8.0
+
+## Канал сборки: "" — по фиче экспорта; тесты подставляют "steam" или "standalone"
+## (в headless-прогоне фичу пресета не задать).
+static var channel_override := ""
+
+
+## Steam-сборка (пресеты «Steam Windows»/«Steam Linux», фича `steam`): обновляет клиент Steam,
+## ссылок на раздачу вне Steam в игре быть не должно (STEAM_PLAN §4).
+static func is_steam() -> bool:
+	if channel_override != "":
+		return channel_override == "steam"
+	return OS.has_feature("steam")
+
+
+## Строка пробы собранного exe (`-- --dev build_probe=1`, tools/build_steam.py): версия и фичи
+## изнутри сборки. `--script` release-шаблон игнорирует, поэтому проба — через игру.
+static func probe_line() -> String:
+	return "PROBE version=%s steam=%s is_steam=%s ship=%s debug=%s" % [
+		VERSION, OS.has_feature("steam"), is_steam(), OS.has_feature("ship"), OS.is_debug_build()]
 
 
 ## Только wss с доменным именем: без учётных данных, пробелов, управляющих символов,

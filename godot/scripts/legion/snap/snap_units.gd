@@ -22,7 +22,7 @@ extends RefCounted
 const READY := true
 
 const UNIT_PROPS: Array[String] = [
-	"position", "side", "last_hit_side", "state", "kind", "hp", "max_hp", "no_return_id",
+	"position", "side", "last_hit_side", "state", "auto_march", "kind", "hp", "max_hp", "no_return_id",
 	"alive", "item_slow_t", "haste_speed_mult", "haste_dmg_mult", "elite", "elite_dmg_mult",
 	"rite_dmg_mult", "idle_time", "idle_reason", "projectile_sealed",
 	# D-1002: защита «Каре», личный щит и метка группы «Комиссии» — боевые поля
@@ -32,7 +32,7 @@ const UNIT_PROPS: Array[String] = [
 	"_aura_t", "_aura_near",
 	"_seal_t", "_seal_cd", "_path", "_path_i", "_atk_cd", "_bonus_t", "_charge_t", "_charge_dir",
 	"_charge_run", "_charge_cap", "_bonus_mult", "_first_strike", "_dead_t", "_stun_t",
-	"_rally_t", "_scan_skip", "_guard_skip",
+	"_rally_t", "held_t", "_scan_skip", "_guard_skip",
 ]
 ## spec — обычно общий LegionCfg.UNIT_KINDS[kind]; «бодрый выход» (building.gd _spawn_into)
 ## подменяет его копией со скоростью ×BRISK_EXIT_MULT — тогда копия идёт в снимок.
@@ -211,7 +211,12 @@ static func _take_unit(w: LegionWorld, pool: Array, i: int, d: Dictionary,
 	used[u.get_instance_id()] = true
 	var plain := {}
 	for k in UNIT_PROPS:
-		plain[k] = d[k]
+		if k == "auto_march":
+			plain[k] = d.get(k, false)
+		elif k == "held_t":
+			plain[k] = d.get(k, 0.0)
+		else:
+			plain[k] = d[k]
 	NetSnap.props_load(u, plain)
 	var spec: Dictionary = d["spec"]
 	u.spec = LegionCfg.UNIT_KINDS[u.kind] if spec.is_empty() else spec.duplicate(true)

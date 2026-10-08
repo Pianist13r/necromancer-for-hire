@@ -40,6 +40,9 @@ static func encode(cmd: Dictionary) -> Dictionary:
 			out["kind"] = String(cmd.get("kind", ""))
 			if cmd.has("arrow"):
 				out["arrow"] = _qv(cmd["arrow"])
+			var stack: Variant = cmd.get("stack", false)
+			if stack is bool and stack:
+				out["stack"] = true
 		"aim":
 			out["contract"] = int(cmd.get("contract", -1))
 			out["at"] = _qv(cmd.get("at", Vector2.ZERO))
@@ -148,6 +151,14 @@ static func _decode_stroke(src: Dictionary) -> Dictionary:
 		if a == null:
 			return {}
 		out["arrow"] = a
+	if src.has("stack"):
+		# B-044: штрих с Шифтом — новая линия поверх живой. Не bool — команда негодна целиком
+		# (как кривая стрелка), сравнение чужого типа с true не должно ронять разбор
+		var stack: Variant = src["stack"]
+		if not stack is bool:
+			return {}
+		if stack:
+			out["stack"] = true
 	return out
 
 

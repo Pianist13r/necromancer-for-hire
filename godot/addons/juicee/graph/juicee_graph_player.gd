@@ -96,13 +96,13 @@ func _execute(data: JuiceeGraphNodeData, context: Node) -> void:
 ## preview honors weights the same way a real play would.
 static func _weighted_random_index(weights: Array, fallback_size: int) -> int:
 	if weights.is_empty() or weights.size() < fallback_size:
-		return randi() % fallback_size
+		return JuiceeEffect.rng.randi() % fallback_size
 	var total: float = 0.0
 	for w in weights.slice(0, fallback_size):
 		total += max(0.0, float(w))
 	if total <= 0.0:
-		return randi() % fallback_size
-	var roll := randf() * total
+		return JuiceeEffect.rng.randi() % fallback_size
+	var roll := JuiceeEffect.rng.randf() * total
 	var acc: float = 0.0
 	for i in fallback_size:
 		acc += max(0.0, float(weights[i]))

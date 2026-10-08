@@ -36,8 +36,8 @@ func _apply(context: Node, intensity_mult: float) -> void:
 		var t := elapsed / duration
 		var current_amp := eff_amp * (1.0 - t if decay else 1.0)
 		var offset := Vector2(
-			randf_range(-current_amp, current_amp),
-			randf_range(-current_amp, current_amp)
+			JuiceeEffect.rng.randf_range(-current_amp, current_amp),
+			JuiceeEffect.rng.randf_range(-current_amp, current_amp)
 		)
 		target.position = original_pos + offset
 		await tree.create_timer(step, true, false, false).timeout

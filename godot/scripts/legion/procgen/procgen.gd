@@ -14,13 +14,17 @@ extends RefCounted
 ##                                                  id "gen:7:3:pvp"
 ##
 
-const VERSION := 1
+const VERSION := 2
+## Экспериментальная расстановка: включение в игре — только после решения Игоря.
+## Оснастка передаёт одноимённый ключ opts; кэш map_from_id всегда использует конфиг.
+const CONFIG := {"new_layout_schemes": false}
 const ID_PREFIX := "gen:"
 ## Попытки раскладки: по ATTEMPTS_PER_CARD на карточку, затем следующая по близости к цели
 ## карточка того же объекта; исчерпаны — «спокойная» карточка (передышка, змейка).
 const ATTEMPTS_PER_CARD := 4
 const MAX_ATTEMPTS := 12
 const CALM_ATTEMPT_BASE := 100
+const REROLL_LIMIT := 8
 ## Заданная карточка: попыток на вариант, всего, и свой диапазон номеров попыток (сиды шага
 ## раскладки не пересекаются с обычными).
 const FORCED_PER_VARIANT := 4
@@ -67,6 +71,35 @@ static func map_from_id(id: String) -> Dictionary:
 
 
 static func generate(run_seed: int, k: int, opts := {}) -> Dictionary:
+	last_error = ""
+	var map := _generate_seed(run_seed, k, opts)
+	if not map.is_empty() or opts.has("card"):
+		return map
+	# Сид запроса остаётся ключом забега/матча; фактический сид раскладки указан явно.
+	# Переброс детерминирован, не зависит от часов, кадров и общего RNG боя.
+	return _reroll(run_seed, k, opts)
+
+
+static func _reroll(run_seed: int, k: int, opts: Dictionary) -> Dictionary:
+	for retry in range(1, REROLL_LIMIT + 1):
+		var layout_seed := PgRng.hash64("%d|reroll|%d" % [run_seed, retry])
+		var map := _generate_seed(layout_seed, k, opts)
+		if map.is_empty():
+			continue
+		map["id"] = PgPvp.make_id(run_seed, k) if bool(opts.get("pvp", false)) \
+			else make_id(run_seed, k)
+		map["procgen"]["seed"] = run_seed
+		map["procgen"]["layout_seed"] = layout_seed
+		map["procgen"]["reroll"] = retry
+		last_error = ""
+		_log("переброс сида: %d → %d" % [run_seed, layout_seed])
+		return map
+	last_error = "исчерпаны %d детерминированных перебросов сида %d" % [REROLL_LIMIT, run_seed]
+	push_error("ProcGen: " + last_error)
+	return {}
+
+
+static func _generate_seed(run_seed: int, k: int, opts: Dictionary) -> Dictionary:
 	if bool(opts.get("pvp", false)):
 		return PgPvp.generate(run_seed, k, opts)
 	# одиночная карта — всегда в рамке кадра 1280×720 (рамку половины PvP ставит и снимает PgPvp)
@@ -79,18 +112,17 @@ static func generate(run_seed: int, k: int, opts := {}) -> Dictionary:
 	cards.append_array(card.get("alts", []))
 	for a in MAX_ATTEMPTS:
 		var c: Dictionary = cards[mini(a / ATTEMPTS_PER_CARD, cards.size() - 1)]
-		var map := _try(run_seed, k, c, a)
+		var map := _try(run_seed, k, c, a, opts)
 		if not map.is_empty():
 			return map
 	var prev_biome := String(chain[-2]["biome"]) if chain.size() > 1 else ""
 	var calm := PgCard.calm(k, "ash" if prev_biome != "ash" else "grave",
 		float(card["difficulty"]))
 	for a in MAX_ATTEMPTS:
-		var map := _try(run_seed, k, calm, CALM_ATTEMPT_BASE + a)
+		var map := _try(run_seed, k, calm, CALM_ATTEMPT_BASE + a, opts)
 		if not map.is_empty():
 			return map
-	push_error("ProcGen: и спокойная карточка не разложилась (сид %d, объект %d)" % [
-		run_seed, k])
+	_log("не разложилась спокойная карточка: %d:%d" % [run_seed, k])
 	return {}
 
 
@@ -121,9 +153,16 @@ static func _generate_forced(run_seed: int, k: int, base: Dictionary, forced: Di
 	return {}
 
 
-static func _try(run_seed: int, k: int, card: Dictionary, attempt: int) -> Dictionary:
+static func _try(run_seed: int, k: int, card: Dictionary, attempt: int,
+		opts: Dictionary = {}) -> Dictionary:
 	var clean := card.duplicate(true)
 	clean.erase("alts")
+	clean.erase("plot_pattern")
+	var pattern := ""
+	if bool(opts.get("new_layout_schemes", CONFIG.new_layout_schemes)):
+		pattern = String(opts.get("plot_pattern", PgPlotPatterns.choose(run_seed, k, attempt)))
+	if not pattern.is_empty():
+		clean["plot_pattern"] = pattern
 	var layout := PgLayout.new()
 	var map := layout.build(clean, PgRng.make(run_seed, "layout:%d" % k, attempt))
 	if map.is_empty():
@@ -140,8 +179,11 @@ static func _try(run_seed: int, k: int, card: Dictionary, attempt: int) -> Dicti
 	pg["difficulty"] = clean["difficulty"]
 	map["waves"] = PgWaves.build(map, clean, PgRng.make(run_seed, "waves:%d" % k, attempt))
 	PgNames.apply(map, clean, PgRng.make(run_seed, "names:%d" % k, attempt))
+	if not pattern.is_empty():
+		map["hint"] = PgPlotPatterns.HINTS[pattern] + " " + String(map["hint"])
 	var bad := PgLayout.self_check(map)
-	bad.append_array(PgFilter.check(map))
+	if bad.is_empty():
+		bad.append_array(PgFilter.rejection(map))
 	if not bad.is_empty():
 		_log(String(clean["archetype"]) + ": проверка — " + bad[0])
 		return {}

@@ -143,14 +143,20 @@ func _campaign_entry() -> bool:
 		return false
 	_mark("menu")
 	await _wait(READ_WAIT)
-	var start := _find_button(main.screen, "Начать кампанию")
+	var start := main.screen.find_child("CampaignAction", true, false) as Button
 	if start == null:
-		_done(false, "в меню нет «Начать кампанию» (%s)" % str(_button_texts(main.screen)))
+		_done(false, "в меню нет кнопки кампании (%s)" % str(_button_texts(main.screen)))
 		return false
-	_log("click «Начать кампанию»")
+	_log("click «%s»" % start.text)
 	await _click_control(start)
 	if await _until(func() -> bool: return _find_child(LegionCutscene) != null, 5.0):
 		_mark("cutscene")
+		if scenario == "campaign":
+			await _wait(READ_WAIT)
+			var skip := _find_button(_find_child(LegionCutscene), "Пропустить")
+			if skip != null:
+				await _click_control(skip)
+				_log("cutscene: clicked visible skip button")
 		var clicks := 0
 		while _find_child(LegionCutscene) != null and clicks < CUT_MAX_CLICKS:
 			await _wait(CUT_READ)

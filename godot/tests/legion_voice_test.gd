@@ -26,7 +26,7 @@ const VOICE_IDS: Array[String] = [
 	"lg_cast_e_1", "lg_cast_e_2", "lg_souls_low",
 	"lg_building_ready", "lg_upgrade_done",
 	"lg_contract_new_1", "lg_contract_new_2", "lg_contract_new_3",
-	"lg_office_enter", "lg_office_buy",
+	"lg_office_buy",
 	"lg_tut_1", "lg_tut_2", "lg_tut_3", "lg_tut_4",
 	"lg_wave_1", "lg_wave_2", "lg_wave_3", "lg_idle",
 	"lg_boss_appear",

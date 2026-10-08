@@ -55,7 +55,7 @@ func populate(map_data: Dictionary) -> void:
 
 	var hint := String(map_data.get("hint", ""))
 	if hint != "":
-		var hint_label := UiStyle.label(hint, 17, UiStyle.FONT_TEXT, UiStyle.TEXT)
+		var hint_label := UiStyle.label(Controls.text(hint), 17, UiStyle.FONT_TEXT, UiStyle.TEXT)
 		hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(hint_label)
@@ -65,8 +65,8 @@ func populate(map_data: Dictionary) -> void:
 	# (Campaign.mark_unlocks_seen сразу после показа).
 	var new_labels := Campaign.pending_unlock_labels()
 	if not new_labels.is_empty():
-		var new_label := UiStyle.label("Новое: " + ", ".join(new_labels), 16, UiStyle.FONT_TITLE,
-			UiStyle.GOOD)
+		var new_label := UiStyle.label(Controls.text("Новое: " + ", ".join(new_labels)), 16,
+			UiStyle.FONT_TITLE, UiStyle.GOOD)
 		new_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		new_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(new_label)

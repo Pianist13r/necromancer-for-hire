@@ -33,7 +33,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	if use_noise:
 		noise = FastNoiseLite.new()
 		noise.noise_type = FastNoiseLite.TYPE_PERLIN
-		noise.seed = randi()
+		noise.seed = JuiceeEffect.rng.randi()
 
 	var effective_intensity := intensity * intensity_mult
 	var original_pos: Vector3 = _capture_state(cam, "position")
@@ -55,9 +55,9 @@ func _apply(context: Node, intensity_mult: float) -> void:
 			)
 		else:
 			offset = Vector3(
-				randf_range(-current_intensity, current_intensity),
-				randf_range(-current_intensity, current_intensity),
-				randf_range(-current_intensity, current_intensity)
+				JuiceeEffect.rng.randf_range(-current_intensity, current_intensity),
+				JuiceeEffect.rng.randf_range(-current_intensity, current_intensity),
+				JuiceeEffect.rng.randf_range(-current_intensity, current_intensity)
 			)
 		cam.position = original_pos + offset * axis_scale
 		await tree.create_timer(step, true, false, false).timeout

@@ -40,6 +40,12 @@ signal delay_started(seconds: float)
 ## Automatically consulted in apply() so subclasses need zero extra code.
 static var accessibility: JuiceeAccessibility = JuiceeAccessibility.new()
 
+## Local modification (Necromancer for Hire, 2026-10-08): every effect draws its randomness
+## from this generator instead of the global randf()/randi(). The game keeps the global RNG
+## untouched by the view layer so a battle plays out identically with any visual settings
+## (regression: tests/legion_view_rng_test.gd). Seeded from the OS at start like the global one.
+static var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
 ## Runtime parameters passed by the caller (e.g., {"hit_direction": Vector2.LEFT}).
 var _runtime_params: Dictionary = {}
 
@@ -142,7 +148,7 @@ func apply(context: Node, params: Dictionary = {}) -> void:
 			return
 		_last_apply_time = now
 
-	if chance < 1.0 and randf() > chance:
+	if chance < 1.0 and JuiceeEffect.rng.randf() > chance:
 		_pending_start = false
 		return
 
@@ -163,7 +169,7 @@ func apply(context: Node, params: Dictionary = {}) -> void:
 			return  # superseded by a later apply() or stop()
 	var mult: float = 1.0
 	if intensity_min != 1.0 or intensity_max != 1.0:
-		mult = randf_range(intensity_min, intensity_max)
+		mult = JuiceeEffect.rng.randf_range(intensity_min, intensity_max)
 	# Accessibility gate — scales or silences effects based on player preferences.
 	mult *= accessibility.effective_multiplier(get_accessibility_tag())
 	if mult <= 0.0:
@@ -231,7 +237,10 @@ func _capture_state(target: Object, property: String) -> Variant:
 ## of calling JuiceeStateStack.release() directly.
 ## Pass restore=false to keep the property at its current value instead of restoring
 ## the captured original — for effects that intentionally leave a permanent change.
-func _release_state(target: Object, property: String, restore: bool = true) -> void:
+## Necromancer local patch (B-442, 2026-10-08): `target` is Variant — effects call this after
+## their loop exits because the target (e.g. the Camera2D) was freed mid-effect, and a typed
+## Object parameter turned that into SCRIPT ERROR. JuiceeStateStack.release prunes freed targets.
+func _release_state(target: Variant, property: String, restore: bool = true) -> void:
 	for i in _state_captures.size():
 		if _state_captures[i][0] == target and _state_captures[i][1] == property:
 			_state_captures.remove_at(i)
@@ -435,7 +444,7 @@ func _sweep_overlay_layers(context: Node, layer_name: StringName) -> void:
 		if n.begins_with(prefix):
 			# Rename first so add_child(new) below can take the canonical name
 			# immediately without a collision-rename.
-			child.name = StringName("_juicee_dying_%d" % randi())
+			child.name = StringName("_juicee_dying_%d" % JuiceeEffect.rng.randi())
 			child.queue_free()
 
 ## Cancel the currently-running effect.

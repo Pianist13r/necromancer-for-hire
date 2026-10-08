@@ -323,7 +323,7 @@ func _test_texts() -> void:
 	_check(e_text == "некого ускорять", "превью Е без бойцов — «некого ускорять»")
 	var w_text := String(aim.call("preview_text", LegionHero.SLOT_W, A))
 	_check(w_text == "нет свежего трупа", "превью Дубль-вэ без трупов — «нет свежего трупа»")
-	var d_q := String(aim.call("describe", LegionHero.SLOT_Q))
+	var d_q := Controls.text(String(aim.call("describe", LegionHero.SLOT_Q)))
 	_check(d_q.contains("Ку") and d_q.contains(str(n)), "строка «что делает» Ку: «%s»" % d_q)
 	var d_e := String(aim.call("describe", LegionHero.SLOT_E))
 	_check(d_e.contains(str(LegionCfg.E_SPEED_MULT).replace(".", ",")), "строка «что делает» Е берёт множитель из LegionCfg: «%s»" % d_e)

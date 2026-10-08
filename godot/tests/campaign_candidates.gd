@@ -48,7 +48,7 @@ func _run() -> void:
 				candidate[key] = source[key].duplicate(true) if source[key] is Array \
 					or source[key] is Dictionary else source[key]
 		_validate_identity(source, candidate, issues)
-		_remap_lessons(candidate, issues)
+		_remap_lessons(candidate, issues, review_notes)
 		_ensure_lesson_triggers(candidate, source, issues, review_notes)
 		var path := "%s/%s.json" % [out, IDS[i]]
 		var file := FileAccess.open(path, FileAccess.WRITE)
@@ -108,7 +108,8 @@ func _validate_identity(source: Dictionary, candidate: Dictionary, issues: Array
 				issues.append("Identity changed: lesson %s.%s" % [old_lesson.get("id", i), key])
 
 
-func _remap_lessons(map: Dictionary, issues: Array[String]) -> void:
+static func _remap_lessons(map: Dictionary, issues: Array[String],
+		review_notes: Array[String] = []) -> void:
 	var lines: Array = map.get("bot_lines", [])
 	var plots: Array = map.get("plots", [])
 	for lesson: Dictionary in map.get("lessons", []):
@@ -129,7 +130,26 @@ func _remap_lessons(map: Dictionary, issues: Array[String]) -> void:
 					found = true
 					break
 			if not found:
-				issues.append("No preferred plot for " + wanted)
+				# Только кандидат «Архив»: выделяем существующий участок под писаря.
+				# Он первый в предпочтениях: бот иначе выбрал бы стража/подрядчика.
+				if map.get("id", "") != "archive" or wanted != "clerk":
+					issues.append("No preferred plot for " + wanted)
+					continue
+				var nearest := {}
+				var distance := INF
+				var cauldron := LegionMapChecks.v(map["cauldron"])
+				for plot: Dictionary in plots:
+					var d := LegionMapChecks.v(plot["pos"]).distance_squared_to(cauldron)
+					if d < distance:
+						distance = d
+						nearest = plot
+				if nearest.is_empty():
+					issues.append("No plot for " + wanted)
+				else:
+					nearest["preferred_kinds"] = ["clerk", "laborer"]
+					mark["plot"] = nearest["id"]
+					review_notes.append("Archive: plot %s now prefers clerk first; bot priority unchanged"
+						% nearest["id"])
 		if mark.has("at"):
 			# A figure needs free area, not simply the closest point on a road.
 			var found := _figure_area(map, float(mark.get("r", 60.0)))
@@ -241,7 +261,7 @@ func _add_card_foe(map: Dictionary, foe_type: String) -> void:
 	map["procgen"] = procgen
 
 
-func _figure_area(map: Dictionary, radius: float) -> Vector2:
+static func _figure_area(map: Dictionary, radius: float) -> Vector2:
 	# Reuse conservative clearance; roads are permitted for contracts/figures.
 	var c: Array = map["cauldron"]
 	var free := PgArtScatter.Free.new(map, Vector2(c[0], c[1]))

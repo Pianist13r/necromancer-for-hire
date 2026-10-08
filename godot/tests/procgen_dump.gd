@@ -56,7 +56,7 @@ func _initialize() -> void:
 		return int(ProcGen.fail_log[a]) > int(ProcGen.fail_log[b]))
 	for w: String in why.slice(0, 40):
 		print("  провал ×%d: %s" % [ProcGen.fail_log[w], w])
-	quit(0)
+	quit(1 if failed > 0 else 0)
 
 
 static func _range(s: String) -> Vector2i:

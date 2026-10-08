@@ -10,6 +10,9 @@ extends Node2D
 ## Рисуется один раз при старте карты; видимость — только альфа (modulate).
 ##
 
+## На собранной карте предметы уже видны; полная подсветка остаётся при рисовании.
+const GENERATED_FLASH_ALPHA := 0.24
+
 var world: LegionWorld = null
 var _polys: Array[PackedVector2Array] = []
 ## Штриховка — пары точек отрезков для draw_multiline, обрезанные по контурам.
@@ -41,7 +44,8 @@ func _process(delta: float) -> void:
 func tick(dt: float) -> void:
 	if world == null or world.my_field() == null:
 		return
-	var running := world.phase == LegionWorld.Phase.BATTLE and not world.paused and not world.hold
+	var running := world.phase == LegionWorld.Phase.BATTLE and not world.paused \
+		and not world.hold and not world.is_ground_loading()
 	# вспышка — один раз, когда бой впервые пошёл: под брифингом и на удержании не сгорает
 	if not _flashed and running:
 		_flashed = true
@@ -53,6 +57,9 @@ func tick(dt: float) -> void:
 		target = 1.0
 	elif _flash > 0.0 or (not _flashed and world.phase == LegionWorld.Phase.BATTLE):
 		target = LegionCfg.HINT_FLASH_ALPHA
+		if world.map.has("procgen"):
+			var remaining := _flash / LegionCfg.HINT_FLASH_TIME if _flashed else 1.0
+			target = GENERATED_FLASH_ALPHA * remaining * remaining
 	var rate := LegionCfg.HINT_FADE_IN if target > modulate.a else LegionCfg.HINT_FADE_OUT
 	modulate.a = move_toward(modulate.a, target, rate * dt)
 

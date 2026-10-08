@@ -21,8 +21,6 @@ const NONE := -1
 ## Имя константы LegionCfg «во сколько раз строй под Авралом держит напор давки» — её добавит
 ## slow/action; при слиянии поправить имя здесь, если там оно другое.
 const E_PRESS_KEY := &"E_PRESS_HOLD_MULT"
-## Имена навыков — канон игры (кириллица клавиш).
-const NAMES: Array[String] = ["Ку", "Дубль-вэ", "Е"]
 
 # ── вид прицела ─────────────────────────────────────────────────────────────────
 ## Заливка круга — как у «Сбора» (LegionCfg.RALLY_AIM_FILL), чтобы все прицелы читались одинаково.
@@ -149,21 +147,22 @@ func tick(dt: float) -> void:
 # ── тексты ──────────────────────────────────────────────────────────────────────
 
 ## Одна строка «что делает навык» — для подписи у курсора во время прицела (AbilityBar).
+## Клавиша — токеном {key:…}: раскрывает сток AbilityBar._draw_aim_hint (Controls.text).
 func describe(s: int) -> String:
 	var hero := world.my_hero()
 	if hero == null:
 		return ""
 	match s:
 		LegionHero.SLOT_Q:
-			return "Ку — молния по цепи до %d врагов" % hero.q_chain_len()
+			return "{key:cast_q} — молния по цепи до %d врагов" % hero.q_chain_len()
 		LegionHero.SLOT_W:
 			var k := hero.w_raise_max()
 			if k > 1:
-				return "Дубль-вэ — до %d свежих трупов врагов бьются за вас %s с" % [
+				return "{key:cast_w} — до %d свежих трупов врагов бьются за вас %s с" % [
 					k, num(hero.w_duration())]
-			return "Дубль-вэ — свежий труп врага бьётся за вас %s с" % num(hero.w_duration())
+			return "{key:cast_w} — свежий труп врага бьётся за вас %s с" % num(hero.w_duration())
 		_:
-			return "Е — Аврал: свои быстрее ×%s и сильнее ×%s%s" % [
+			return "{key:cast_e} — Аврал: свои быстрее ×%s и сильнее ×%s%s" % [
 				num(LegionCfg.E_SPEED_MULT), num(LegionCfg.E_DMG_MULT), _e_press_tail()]
 
 

@@ -73,19 +73,19 @@ func _test_voice_started_on_pause() -> void:
 	await _frames(2)
 	paused = true
 	await _frames(3)
-	a.voice(&"lg_intro_1", 5, LegionAudio.VoiceClass.SCENE)   # ~11 с, начата НА паузе
+	a.speech.voice(&"lg_intro_1", 5, LegionAudio.VoiceClass.SCENE)   # ~11 с, начата НА паузе
 	var started: int = Time.get_ticks_msec()
-	var until_start: int = a._voice_busy_until_msec
+	var until_start: int = a.speech._voice_busy_until_msec
 	await _frames(2)
-	_check(a._voice_player.stream_paused, "флаг stream_paused на плеере стоит")
+	_check(a.speech._voice_player.stream_paused, "флаг stream_paused на плеере стоит")
 	OS.delay_msec(500)
 	await _frames(3)
-	var pos := a._voice_player.get_playback_position()
+	var pos := a.speech._voice_player.get_playback_position()
 	_check(pos < 0.2, "на паузе новая реплика не продвинулась (позиция %.2f с)" % pos)
 	paused = false
 	await _frames(3)
-	_check(not a._voice_player.stream_paused, "после паузы плеер идёт")
-	var shift: int = a._voice_busy_until_msec - until_start
+	_check(not a.speech._voice_player.stream_paused, "после паузы плеер идёт")
+	var shift: int = a.speech._voice_busy_until_msec - until_start
 	var held: int = Time.get_ticks_msec() - started
 	_check(shift >= 480 and shift <= held + 40,
 		"«занят до» сдвинут на паузу после старта реплики (+%d мс, пауза %d мс)" % [shift, held])

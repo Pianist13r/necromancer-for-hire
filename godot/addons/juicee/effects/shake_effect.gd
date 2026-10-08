@@ -39,7 +39,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	if use_noise:
 		noise = FastNoiseLite.new()
 		noise.noise_type = FastNoiseLite.TYPE_PERLIN
-		noise.seed = randi()
+		noise.seed = JuiceeEffect.rng.randi()
 
 	var effective_intensity := intensity * intensity_mult
 	var effective_roll := deg_to_rad(roll_degrees) * intensity_mult
@@ -68,8 +68,8 @@ func _apply(context: Node, intensity_mult: float) -> void:
 			)
 		else:
 			offset = Vector2(
-				randf_range(-current_intensity, current_intensity),
-				randf_range(-current_intensity, current_intensity)
+				JuiceeEffect.rng.randf_range(-current_intensity, current_intensity),
+				JuiceeEffect.rng.randf_range(-current_intensity, current_intensity)
 			)
 		# Add directional bias on top of the random noise (recoil away from hit).
 		if has_direction:
@@ -78,7 +78,7 @@ func _apply(context: Node, intensity_mult: float) -> void:
 		cam.offset = original_offset + offset
 		if rolling:
 			var r: float = noise.get_noise_1d(noise_offset + 200.0) if use_noise \
-				else randf_range(-1.0, 1.0)
+				else JuiceeEffect.rng.randf_range(-1.0, 1.0)
 			cam.rotation = original_rotation + r * effective_roll * falloff
 		await tree.create_timer(step, true, false, false).timeout
 		elapsed += step

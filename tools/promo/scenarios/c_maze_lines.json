@@ -1,0 +1,68 @@
+{
+  "name": "c_maze_lines",
+  "about": "«Лабиринт»: толпы врагов с трёх въездов сразу (север, восток, запад), несколько линий, кольцо и треугольник в коридорах, рогатка, Ку/Дубль-вэ/Е, камера за стычкой.",
+  "map": "maze",
+  "seed": 31,
+  "dev": {},
+  "seconds": 19,
+  "hud": "clean",
+  "cursor": true,
+  "stills": [3.0, 6.0, 9.5, 13.0, 15.7, 16.5],
+  "setup": {
+    "hints": false,
+    "hold_waves": true,
+    "souls": 400,
+    "mana": 600,
+    "mana_regen": 2.5,
+    "build": [
+      {"plot": "p2", "kind": "clerk", "level": 2},
+      {"plot": "p3", "kind": "guard", "level": 2},
+      {"plot": "p1", "kind": "laborer", "level": 1}
+    ],
+    "army": [
+      {"kind": "laborer", "n": 30, "at": [455, 300], "r": 34},
+      {"kind": "guard", "n": 26, "at": [640, 410], "r": 30},
+      {"kind": "clerk", "n": 18, "at": [650, 330], "r": 26},
+      {"kind": "laborer", "n": 20, "at": [290, 215], "r": 28}
+    ],
+    "foes": [
+      {"road": "north", "from": 0.3, "to": 0.5, "n": 30, "width": 52, "jitter": 4, "types": ["zombie", "zombie", "beetle", "signer", "zombie", "ghost"]},
+      {"road": "east", "from": 0.3, "to": 0.45, "n": 30, "width": 52, "jitter": 4, "types": ["zombie", "shield_inspector", "zombie", "beetle", "zombie"]},
+      {"road": "west", "from": 0.2, "to": 0.36, "n": 16, "width": 40, "jitter": 4, "types": ["zombie", "zombie", "signer"]}
+    ]
+  },
+  "steps": [
+    {"t": 0.1, "do": "mark", "name": "c_start"},
+    {"t": 0.1, "do": "camera", "zoom": 1.0, "cut": true},
+    {"t": 0.2, "do": "draw", "kind": 1, "hand": 3, "pts": [[488, 246], [512, 240], [550, 244], [578, 238]], "toward": [530, 170]},
+    {"t": 1.2, "do": "camera", "zoom": 1.45, "follow": "fight", "time": 1.0},
+    {"t": 1.3, "do": "ring", "kind": 2, "center": [560, 525], "r": 45, "from": 180},
+    {"t": 2.6, "do": "draw", "kind": 1, "hand": 3, "pts": [[244, 228], [240, 258], [246, 298]], "toward": [160, 260]},
+    {"t": 3.0, "do": "shot", "name": "c_01_lines"},
+    {"t": 3.4, "do": "poly", "kind": 3, "hand": 2, "pts": [[606, 436], [694, 436], [650, 356], [606, 436]]},
+    {"t": 4.6, "do": "key", "key": "Q", "at": [600, 200], "hold": 14},
+    {"t": 5.0, "do": "shot", "name": "c_02_lightning"},
+    {"t": 5.6, "do": "sling", "from": [532, 243], "to": [532, 296], "hold": 10},
+    {"t": 6.6, "do": "camera", "zoom": 1.6, "at": [570, 500], "time": 0.8},
+    {"t": 7.2, "do": "sling", "from": [604, 525], "to": [572, 525], "hold": 8},
+    {"t": 8.2, "do": "cheat", "cd": true, "mana": 450},
+    {"t": 8.4, "do": "key", "key": "W", "at": [580, 500], "hold": 12},
+    {"t": 9.5, "do": "shot", "name": "c_03_ring_raise"},
+    {"t": 9.8, "do": "camera", "zoom": 1.5, "at": [300, 300], "time": 0.9},
+    {"t": 10.2, "do": "sling", "from": [261, 260], "to": [310, 260], "hold": 8},
+    {"t": 11.2, "do": "key", "key": "E", "at": [280, 280], "hold": 10},
+    {"t": 11.6, "do": "cheat", "foes": [{"road": "north", "from": 0.4, "to": 0.5, "n": 24, "width": 52, "jitter": 4, "types": ["zombie", "beetle", "zombie", "signer"]}], "cd": true},
+    {"t": 12.2, "do": "camera", "zoom": 1.35, "follow": "fight", "time": 1.0},
+    {"t": 12.4, "do": "eight", "kind": 1, "center": [455, 410], "r": 44},
+    {"t": 13.0, "do": "shot", "name": "c_04_eight"},
+    {"t": 14.2, "do": "key", "key": "Q", "at": [560, 230], "hold": 12},
+    {"t": 14.6, "do": "shot", "name": "c_05_lightning2"},
+    {"t": 14.9, "do": "camera", "zoom": 1.6, "at": [640, 400], "time": 0.5},
+    {"t": 15.9, "do": "sling", "from": [650, 434], "to": [650, 476], "hold": 8},
+    {"t": 15.7, "do": "shot", "name": "c_06_rite"},
+    {"t": 16.5, "do": "shot", "name": "c_07_rite_strike"},
+    {"t": 18.1, "do": "camera", "zoom": 1.2, "at": [520, 360], "time": 0.8},
+    {"t": 18.6, "do": "mark", "name": "c_end"},
+    {"t": 18.8, "do": "end"}
+  ]
+}

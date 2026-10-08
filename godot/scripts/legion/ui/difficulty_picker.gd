@@ -32,7 +32,7 @@ func _ready() -> void:
 	var group := ButtonGroup.new()
 	for id in LegionChallenge.ORDER:
 		var btn := Button.new()
-		btn.text = LegionChallenge.title(id)
+		btn.text = "Стажёр · новичку" if id == LegionChallenge.INTERN else LegionChallenge.title(id)
 		btn.toggle_mode = true
 		btn.button_group = group
 		btn.focus_mode = Control.FOCUS_ALL

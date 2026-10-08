@@ -269,7 +269,7 @@ func _after_victory(k: int, row: Dictionary) -> bool:
 	row["bought"] = bought
 	row["bounty_after"] = Campaign.bounty()
 	row["upgrades"] = _ids(Campaign.upgrades())
-	row["shop"] = shop_levels()
+	row["preparations"] = RunProgression.preparations()
 	row["tenure"] = LegionRunStore.endless_tenure(false)
 	row["souls"] = LegionRunStore.endless_souls(false)
 	_emit_row(row)
@@ -283,7 +283,7 @@ func _offer_matches_screen(k: int, offered: Array[StringName]) -> bool:
 		return false
 	var shown := _label_texts(main.screen)
 	for id in offered:
-		var data: Dictionary = LegionMetaCfg.UPGRADE_POOL.get(String(id), {})
+		var data: Dictionary = AmendmentDb.CARDS.get(String(id), {})
 		var title := String(data.get("title", String(id)))
 		if not shown.has(title):
 			_fail("объект %d: предсказанной поправки «%s» нет на экране" % [k, title])
@@ -314,19 +314,6 @@ static func greedy_shop() -> Array[String]:
 		bought.append("preparation:souls")
 	return bought
 
-
-## Уровни купленного: {"range:laborer": 1, "mana": 2, …} — только ненулевые.
-static func shop_levels() -> Dictionary:
-	var out := {}
-	for id: String in LegionMetaCfg.OFFICE_SHOP_ORDER:
-		if bool(LegionMetaCfg.OFFICE_SHOP[id].get("per_kind", false)):
-			for kind: StringName in LegionCfg.KIND_ORDER:
-				var lvl := Campaign.shop_level(id, String(kind))
-				if lvl > 0:
-					out["%s:%s" % [id, kind]] = lvl
-		elif Campaign.shop_level(id) > 0:
-			out[id] = Campaign.shop_level(id)
-	return out
 
 
 ## После поражения игра уже вернула кампанийный scope — секция забега читается напрямую.

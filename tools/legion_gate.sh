@@ -29,6 +29,8 @@ mkdir -p "$OUT"
 # 27.09.2026 прогон без песочницы оставил legion_*_test.cfg в папке Игоря (сессия 9ef4ccac).
 # Своя папка данных — рядом с логами; GATE_APPDATA — задать другую.
 export APPDATA="${GATE_APPDATA:-$OUT/appdata}"
+# Мост MCP (godot/.dev_bridge у владельца) в гейте не нужен: 173 процесса подряд ловили «порт 9090 занят»
+export NECRO_NO_DEV_BRIDGE=1
 mkdir -p "$APPDATA"
 fails=()
 

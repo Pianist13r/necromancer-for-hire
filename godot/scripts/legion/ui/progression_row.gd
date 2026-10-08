@@ -15,7 +15,7 @@ signal pressed(id: StringName)
 ## Двойной щелчок по строке в режиме выбора (opts.select_mode) — «сразу подписать».
 signal activated(id: StringName)
 
-const ROW_H := 72.0
+const ROW_H := 56.0
 
 var amendment_id: StringName = &""
 var _btn: Button = null
@@ -81,7 +81,7 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	UiStyle.fill_rect(line)
 	button.add_child(line)
 	line.add_child(LegionIcons.rect(String(data.get("icon", "shop_general")),
-		float(opts.get("icon", 48.0))))
+		float(opts.get("icon", 40.0))))
 
 	var names := VBoxContainer.new()
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -89,14 +89,19 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	names.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	names.add_theme_constant_override("separation", 0)
 	line.add_child(names)
-	var title := UiStyle.label(String(data.get("title", id)), 20, UiStyle.FONT_TITLE, tag_color)
+	var title := UiStyle.label(String(data.get("title", id)), int(opts.get("title_size", 20)),
+		UiStyle.FONT_TITLE, tag_color)
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	names.add_child(title)
 	var eff_text := String(data.get("short", ""))
 	if eff_text == "":
 		eff_text = AmendmentDb.short_text(amendment_id)
 	if eff_text == "":
 		eff_text = String(data.get("text", ""))
-	var effect := UiStyle.label(eff_text, 17, UiStyle.FONT_TEXT, UiStyle.TEXT)
+	# сток клавиш карточки (KB-08): «Молния Ку», «Сбор (R)» — текущие клавиши
+	var effect := UiStyle.label(Controls.text(eff_text), int(opts.get("text_size", 17)),
+		UiStyle.FONT_TEXT, UiStyle.TEXT)
 	effect.clip_text = true
 	effect.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	names.add_child(effect)
@@ -104,7 +109,7 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	# B-426: пометка «Аврал появится на «Два отдела»» — золотом справа, до чипов.
 	var badge := String(opts.get("note", ""))
 	if badge != "":
-		var n := UiStyle.label(badge, 16, UiStyle.FONT_TEXT, UiStyle.GOLD)
+		var n := UiStyle.label(Controls.text(badge), 16, UiStyle.FONT_TEXT, UiStyle.GOLD)
 		n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(n)
@@ -117,13 +122,15 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 		line.add_child(r)
 
 	if bool(opts.get("chips", true)):
-		var chips := HBoxContainer.new()
+		var chips := HFlowContainer.new()
+		chips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		chips.add_theme_constant_override("separation", 6)
 		chips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for chip_text in MetaMods.delta_chips(data.get("mods", {})):
-			chips.add_child(_chip(chip_text, tag_color))
-		line.add_child(chips)
+		for entry: Dictionary in MetaMods.delta_entries(data.get("mods", {})):
+			var color := UiStyle.GOOD if bool(entry["benefit"]) else UiStyle.WARN
+			chips.add_child(_chip(String(entry["text"]), color))
+		inner.add_child(chips)
 
 	# ── Детали под строкой (скрыты, пока строка не в фокусе/не под курсором) ─────────────────────
 	var details := VBoxContainer.new()
@@ -133,6 +140,11 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(details)
 	_details = details
+	button.tooltip_text = Controls.text("%s\n%s\nМелкий шрифт: %s\n%s" % [
+		data.get("title", id), data.get("text", ""), data.get("tradeoff", ""),
+		data.get("hint", "")])
+	# Детали — через _line → ProgressionUi.text: это сток клавиш; второй Controls.text здесь
+	# вернул бы обменянные клавиши обратно (Ку↔Дубль-вэ).
 	details.add_child(_line(String(data.get("text", "")), 18, UiStyle.TEXT))
 	var price := String(data.get("tradeoff", ""))
 	if price != "":
@@ -146,7 +158,11 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	if action != "":
 		details.add_child(_line(action, 16, tag_color))
 
-	if interactive and bool(opts.get("select_mode", false)):
+	if interactive and bool(opts.get("inspect", false)):
+		button.pressed.connect(func() -> void: ProgressionUi.inspect_card(self, amendment_id))
+		button.mouse_entered.connect(func() -> void: _set_hover(true))
+		button.mouse_exited.connect(func() -> void: _set_hover(false))
+	elif interactive and bool(opts.get("select_mode", false)):
 		# Режим выбора (D-1007-P4): раскрытием управляет экран через set_selected() — наведение
 		# только подсвечивает, иначе строки прыгали бы под курсором. Двойной щелчок — activated.
 		button.pressed.connect(func() -> void: pressed.emit(amendment_id))
@@ -233,5 +249,5 @@ func _chip(value: String, accent: Color) -> PanelContainer:
 	st.content_margin_bottom = 2.0
 	chip.add_theme_stylebox_override("panel", st)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chip.add_child(UiStyle.label(value, 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM))
+	chip.add_child(UiStyle.label(value, 15, UiStyle.FONT_TEXT, accent))
 	return chip

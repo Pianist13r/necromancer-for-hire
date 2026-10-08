@@ -67,6 +67,10 @@ const C_SOUL_CORE := Color(0.82, 0.92, 1.0)
 const C_BONE := Color(0.96, 0.94, 0.86)
 const C_SPAWN := Color(0.4, 0.95, 0.5)
 const C_HIT := Color(1.0, 0.8, 0.3)
+## Короткий импакт — слоновая кость, без четырёхлучевой золотой метки «Точно!».
+const DEATH_CHIPS := 3
+const DEATH_CHIP_LIFE := 0.36
+const DEATH_CHIP_SPEED := 48.0
 const C_POTION := Color(0.5, 0.95, 0.3)
 const C_GATE := Color(1.0, 0.24, 0.14)
 const C_BREACH := Color(1.0, 0.45, 0.2)

@@ -22,6 +22,9 @@ var _reroll: Button
 var _primary: Button
 var _back: Button
 var _back_shortcut: Shortcut
+var _wallet: Label
+var _clicked_row: StringName = &""
+var _clicked_position := Vector2.ZERO
 ## Тесты читают _cards_box.visible — держим этим именем контейнер предложений.
 var _cards_box: VBoxContainer
 
@@ -50,18 +53,41 @@ func _ready() -> void:
 	body.add_child(_replace_box)
 	_reroll = ProgressionUi.button("", _on_reroll)
 	footer.add_child(_reroll)
+	_wallet = ProgressionUi.text("", 17, UiStyle.GOLD)
+	_wallet.name = "PremiumBalance"
+	_wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(_wallet)
 	var nav := LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
 		"Выберите поправку", func() -> void: choose(_chosen))
 	_primary = nav.get_node("NavPrimary") as Button
+	# Иначе Enter одновременно подписывал и нажимал «Другое предложение» в фокусе.
+	_primary.shortcut = null
 	_back = nav.get_node("NavBack") as Button
 	_back_shortcut = _back.shortcut
 	_refresh_strip()
 	_refresh_footer()
 	ModalFocus.contain.call_deferred(self)
+	var enter := create_tween()
+	_cards_box.modulate.a = 0.0
+	enter.tween_property(_cards_box, "modulate:a", 1.0, 0.18)
 
 
 func _exit_tree() -> void:
 	RunProgression.clear_stage()
+
+
+## Первый щелчок раскрывает строку и двигает соседей. Второй в ту же точку относится
+## к выбранной строке, даже если её нижняя граница уехала из-под курсора.
+func _input(event: InputEvent) -> void:
+	var mouse := event as InputEventMouseButton
+	if mouse == null or not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if mouse.double_click and _clicked_row == _chosen and _chosen != &"" \
+			and mouse.position.distance_to(_clicked_position) < 6.0 and _replacing == &"":
+		choose(_chosen)
+		get_viewport().set_input_as_handled()
+	else:
+		_clicked_row = &""
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -89,12 +115,22 @@ func offer(options: Array) -> void:
 			{"together": true, "select_mode": true, "note": RunProgression.unseen_note(id)})
 		row.pressed.connect(func(rid: StringName) -> void: select(rid))
 		row.activated.connect(func(rid: StringName) -> void: choose(rid))
+		row.button().gui_input.connect(func(event: InputEvent) -> void:
+			var mouse := event as InputEventMouseButton
+			if mouse != null and mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+				_clicked_row = id
+				_clicked_position = row.button().get_global_transform() * mouse.position
+			var key := event as InputEventKey
+			if key != null and key.pressed and not key.echo and key.keycode == KEY_ENTER:
+				row.button().accept_event()
+				choose(id))
 		# Клавиатура: выделение идёт за фокусом, Enter — главная кнопка.
 		row.button().focus_entered.connect(func() -> void: select(id))
 	# Первая строка выделена сразу: видно, что строки раскрываются, а кнопка называет, ЧТО
 	# подпишет, — молча ничего не подписывается.
 	if not _options.is_empty():
 		select(_options[0])
+		_primary.grab_focus.call_deferred()
 	_refresh_strip()
 	_refresh_footer()
 	ModalFocus.contain.call_deferred(self)
@@ -120,6 +156,7 @@ func choose(id: StringName) -> void:
 	if not _options.has(id):
 		return
 	if Campaign.upgrades().size() < AmendmentDb.MAX_ACTIVE:
+		LegionAudio.ui(&"amend_sign")
 		picked.emit(id)
 		return
 	_replacing = id
@@ -147,6 +184,7 @@ func choose(id: StringName) -> void:
 func replace(slot: int) -> void:
 	if _replacing == &"" or not RunProgression.stage(slot):
 		return
+	LegionAudio.ui(&"amend_sign")
 	picked.emit(_replacing)
 
 
@@ -190,7 +228,7 @@ func _on_reroll() -> void:
 
 func _refresh_strip(interactive := false) -> void:
 	ProgressionUi.clear(_strip)
-	_strip.configure(Campaign.upgrades(), interactive)
+	_strip.configure(Campaign.upgrades(), interactive, not interactive)
 
 
 func _refresh_footer() -> void:
@@ -202,3 +240,12 @@ func _refresh_footer() -> void:
 		_primary.text = "Подписать «%s»" % title if _chosen != &"" else "Выберите поправку"
 	_reroll.text = "Другое предложение · %d премии" % AmendmentDb.REROLL_COST
 	_reroll.disabled = not RunProgression.can_reroll() or _replacing != &""
+	_wallet.text = "Премия: %d" % Campaign.bounty()
+	if _replacing != &"":
+		_wallet.text += " · сначала завершите замену"
+	elif Campaign.bounty() < AmendmentDb.REROLL_COST:
+		_wallet.text += " · для переброски не хватает %d" % (
+			AmendmentDb.REROLL_COST - Campaign.bounty())
+	elif not RunProgression.can_reroll():
+		_wallet.text += " · других вариантов сейчас нет"
+	_reroll.tooltip_text = _wallet.text

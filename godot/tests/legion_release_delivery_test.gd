@@ -221,6 +221,33 @@ func _run() -> void:
 	_check(settings.opened_url == "https://github.com/Pianist13r/necromancer-for-hire/releases",
 		"нажатие открывает фиксированный Releases, браузер заменён тестовым double")
 	await _shot_sizes(settings, "settings-about")
+	_check(settings.find_child("SettingsUpdateNote", true, false) != null,
+		"вне Steam подсказка «скачайте новый выпуск» на месте")
 	settings.free()
+
+	# Steam-сборка (фича `steam` пресета; в headless — подмена канала): обновляет клиент Steam,
+	# кнопки GitHub Releases и подсказки «скачайте и замените» нет; версия и лицензии остаются.
+	_check(not ReleaseInfo.is_steam(), "тестовый прогон без фичи steam — не Steam")
+	ReleaseInfo.channel_override = "steam"
+	_check(ReleaseInfo.is_steam(), "подмена канала включает Steam")
+	_check(ReleaseInfo.probe_line().begins_with("PROBE version=%s steam=false is_steam=true "
+		% ReleaseInfo.VERSION), "строка пробы сборки: версия и канал")
+	var steam_settings := OfflineSettings.new()
+	root.add_child(steam_settings)
+	await process_frame
+	_check(steam_settings.find_child("SettingsReleases", true, false) == null,
+		"Steam: кнопки «Версии и обновления» нет")
+	_check(steam_settings.find_child("SettingsUpdateNote", true, false) == null,
+		"Steam: подсказки «скачайте новый выпуск» нет")
+	var steam_version := steam_settings.find_child("SettingsVersion", true, false) as Label
+	_check(steam_version != null and steam_version.text == "Версия " + ReleaseInfo.VERSION,
+		"Steam: версия видна")
+	_check(steam_settings.find_child("SettingsLicenses", true, false) != null,
+		"Steam: «Лицензии» на месте")
+	await _shot_sizes(steam_settings, "settings-about-steam")
+	steam_settings.free()
+	ReleaseInfo.channel_override = "standalone"
+	_check(not ReleaseInfo.is_steam(), "канал standalone — не Steam")
+	ReleaseInfo.channel_override = ""
 	print("LEGION RELEASE DELIVERY: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails else 0)

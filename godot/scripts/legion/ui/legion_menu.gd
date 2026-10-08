@@ -396,7 +396,7 @@ func _polish_picker(picker: DifficultyPicker) -> void:
 			label.add_theme_font_override("font", ThemeDB.fallback_font)
 			label.add_theme_font_size_override("font_size", 16)
 		else:
-			# Строка-описание: дублирует tooltip кнопок, в колонке только место берёт.
+			# Строка-описание дублирует tooltip; совет новичку — в самой кнопке «Стажёр».
 			label.visible = false
 
 

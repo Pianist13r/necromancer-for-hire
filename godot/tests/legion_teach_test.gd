@@ -9,7 +9,8 @@ extends SceneTree
 ## 2) озвучка по правилу трёх классов реплик (координатор 26.09, после опровержения verifier
 ##    очереди «одна важная реплика»): СЦЕНА (кадр катсцены) обрывает всё и чистит очередь; СЮЖЕТ
 ##    (брифинг, босс, итог, обучение, кадровик) режет выкрик, а за сценой/сюжетом ждёт в очереди;
-##    ВЫКРИК (каст, волна, простой, души) — только в тишине. Очередь не разбирается на паузе,
+##    ВЫКРИК — только в тишине, кроме каста поверх STORY с дакингом (B-064, 08.10).
+##    Очередь не разбирается на паузе,
 ##    чистится уходом в меню, новым боем и катсценой; отказ по откату её не стирает. Проверки А–Д
 ##    — пункты опровержения verifier 26.09 (катсцены, финал, потеря важной заявки, реплика боя в
 ##    меню, реплика поверх паузы) и новый вид/покупка подготовки после победной реплики.
@@ -65,7 +66,7 @@ func _run() -> void:
 func _lesson_text(map_id: String, id: StringName) -> String:
 	for l in LegionTutorial.parse(LegionWorld.load_map(map_id)):
 		if l["id"] == id:
-			return String(l["text"])
+			return Controls.text(String(l["text"]))   # как на плашке: токены клавиш раскрыты
 	return ""
 
 
@@ -127,23 +128,23 @@ func _len_msec(id: StringName) -> int:
 
 
 func _started(id: StringName) -> int:
-	return int(audio._voice_last_msec.get(id, -1))
+	return int(audio.speech._voice_last_msec.get(id, -1))
 
 
 ## Сейчас звучит именно `id` (запущена последней и ещё не доиграла по своей длине).
 func _current_is(id: StringName) -> bool:
 	var st := _started(id)
-	return st >= 0 and audio._voice_busy_until_msec > Time.get_ticks_msec() \
-		and absi(audio._voice_busy_until_msec - st - _len_msec(id)) <= 2
+	return st >= 0 and audio.speech._voice_busy_until_msec > Time.get_ticks_msec() \
+		and absi(audio.speech._voice_busy_until_msec - st - _len_msec(id)) <= 2
 
 
 func _quiet() -> bool:
-	return audio._voice_busy_until_msec <= Time.get_ticks_msec()
+	return audio.speech._voice_busy_until_msec <= Time.get_ticks_msec()
 
 
 func _wait_quiet() -> void:
 	for i in 5:
-		var left := audio._voice_busy_until_msec - Time.get_ticks_msec()
+		var left := audio.speech._voice_busy_until_msec - Time.get_ticks_msec()
 		if left > 0:
 			OS.delay_msec(left + 80)
 		await _frames(3)
@@ -190,7 +191,7 @@ func _scene_checks() -> void:
 	main._play_cutscene(main._intro_frames(), audio, func() -> void: pass)
 	await _frames(2)
 	_check(_current_is(&"lg_intro_1"), "кадр 1 вступления — lg_intro_1")
-	_check(not audio._voice_player.playing and not _quiet(),
+	_check(not audio.speech._voice_player.playing and not _quiet(),
 		"под --mute плеер молчит (.playing=false), а голос «занят» по длине файла")
 	for k in [2, 3, 4]:
 		_cutscene()._skip_frame()
@@ -207,7 +208,7 @@ func _scene_checks() -> void:
 func _fast_intro_checks() -> void:
 	print("— быстрый проклик вступления → брифинг → бой")
 	await _wait_quiet()
-	audio._voice_last_msec.clear()
+	audio.speech._voice_last_msec.clear()
 	main.show_briefing("wasteland")   # новая кампания: вступление перед первым брифингом
 	await _frames(2)
 	_check(_cutscene() != null, "вступление перед первым брифингом")
@@ -236,18 +237,18 @@ func _tutorial_ttl_checks() -> void:
 	var a := LegionAudio.new()
 	root.add_child(a)
 	a.setup_standalone(true, false)
-	a.voice(&"lg_brief_wasteland", LegionCfg.AUDIO_V15_PRIORITY_NARRATOR, LegionAudio.VoiceClass.STORY)
-	a.voice(&"lg_tut_1", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
-	a.voice(&"lg_building_ready", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
-	_check(a._voice_queue.size() == 2, "шаг 1 и «объект сдан» в очереди за брифингом")
-	for e in a._voice_queue:   # обе записи «ждали» дольше срока годности
+	a.speech.voice(&"lg_brief_wasteland", LegionCfg.AUDIO_V15_PRIORITY_NARRATOR, LegionAudio.VoiceClass.STORY)
+	a.speech.voice(&"lg_tut_1", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
+	a.speech.voice(&"lg_building_ready", LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
+	_check(a.speech._voice_queue.size() == 2, "шаг 1 и «объект сдан» в очереди за брифингом")
+	for e in a.speech._voice_queue:   # обе записи «ждали» дольше срока годности
 		e["at"] = int(e["at"]) - LegionCfg.AUDIO_V15_VOICE_QUEUE_TTL_MSEC - 1000
-	OS.delay_msec(maxi(0, a._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
+	OS.delay_msec(maxi(0, a.speech._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
 	await _frames(2)
-	_check(a._voice_id == &"lg_tut_1", "шаг обучения не протух")
-	OS.delay_msec(maxi(0, a._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
+	_check(a.speech._voice_id == &"lg_tut_1", "шаг обучения не протух")
+	OS.delay_msec(maxi(0, a.speech._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
 	await _frames(2)
-	_check(not a._voice_last_msec.has(&"lg_building_ready"), "«объект сдан» дольше срока — отброшен")
+	_check(not a.speech._voice_last_msec.has(&"lg_building_ready"), "«объект сдан» дольше срока — отброшен")
 	a.queue_free()
 	await _frames(1)
 
@@ -256,7 +257,7 @@ func _tutorial_ttl_checks() -> void:
 func _pause_menu_checks() -> void:
 	print("— Д/Г: пауза, меню, шаги обучения")
 	await _wait_quiet()   # сценарий не зависит от того, чем кончилась катсцена
-	audio._voice_last_msec.clear()
+	audio.speech._voice_last_msec.clear()
 	main.start_battle("wasteland")   # первая карта: брифинг + обучение (tut_1 — за брифингом)
 	await _frames(3)
 	var w := main.world
@@ -277,12 +278,12 @@ func _pause_menu_checks() -> void:
 	w.set_paused(false)
 	await _frames(3)
 	# B-059: брифинг на паузе стоял, а не доигрывал — после паузы он продолжается, очередь ждёт его
-	_check(audio.is_voice_busy() and _started(&"lg_tut_1") < 0,
+	_check(audio.speech.is_voice_busy() and _started(&"lg_tut_1") < 0,
 		"Д: после паузы 17 с брифинг доигрывает с того же места, очередь ждёт")
-	OS.delay_msec(maxi(0, audio._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
+	OS.delay_msec(maxi(0, audio.speech._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
 	await _frames(3)
 	_check(_current_is(&"lg_tut_1"), "Д: после паузы 17 с шаг 1 звучит своей очередью")
-	OS.delay_msec(maxi(0, audio._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
+	OS.delay_msec(maxi(0, audio.speech._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
 	await _frames(3)
 	_check(_current_is(&"lg_building_ready"),
 		"после паузы 17 с «объект сдан» не протух: пауза срок годности не съедает")
@@ -293,7 +294,7 @@ func _pause_menu_checks() -> void:
 	w.tutorial._enter(w.tutorial.index_of(&"build"))
 	await _frames(1)
 	_check(_current_is(&"lg_building_ready"), "шаги 2-3 не обрывают звучащую реплику")
-	OS.delay_msec(maxi(0, audio._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
+	OS.delay_msec(maxi(0, audio.speech._voice_busy_until_msec - Time.get_ticks_msec()) + 80)
 	await _frames(3)
 	_check(_current_is(&"lg_tut_3"), "шаг 3 звучит следом")
 	_check(_started(&"lg_tut_2") < 0, "устаревший шаг 2 не звучал")
@@ -302,7 +303,7 @@ func _pause_menu_checks() -> void:
 	w.tutorial._enter(w.tutorial.index_of(&"hero_q"))
 	w.tutorial._enter(w.tutorial.index_of(&"refresh"))
 	var stale := false
-	for e in audio._voice_queue:
+	for e in audio.speech._voice_queue:
 		if e["id"] == &"lg_tut_4":
 			stale = true
 	_check(not stale and _current_is(&"lg_tut_3"),
@@ -328,7 +329,7 @@ func _pause_menu_checks() -> void:
 func _story_checks() -> void:
 	print("— В: сюжет в очереди, выкрик — только в тишине")
 	main._boss_cutscene_shown = true
-	audio._voice_last_msec.clear()
+	audio.speech._voice_last_msec.clear()
 	main.start_battle("boss")
 	await _frames(3)
 	var w := main.world
@@ -339,7 +340,7 @@ func _story_checks() -> void:
 	_check(_started(&"lg_boss_appear") < 0 and _current_is(&"lg_brief_boss"),
 		"появление босса ждёт брифинга, не режет его")
 	# «объект сдан» только что звучал (откат по id): заявка отказана, но очередь не стирает
-	audio._voice_last_msec[&"lg_building_ready"] = Time.get_ticks_msec()
+	audio.speech._voice_last_msec[&"lg_building_ready"] = Time.get_ticks_msec()
 	w.souls = 10000
 	var st := w.staff
 	var b := st.build(st.plots[0], LegionCfg.KIND_LABORER)
@@ -355,19 +356,21 @@ func _story_checks() -> void:
 	_check(t_up >= 0, "В: улучшение не потеряно")
 	_check(t_up >= 0 and t_boss > t_up, "очередь по рангу: улучшение (HR) раньше босса")
 
-	# сюжет обрывает выкрик; выкрик поверх сюжета пропадает
+	# сюжет обрывает обычный выкрик; свой каст поверх сюжета звучит с дакингом (B-064)
 	audio._on_hero_cast(LegionHero.SLOT_Q, Vector2(700, 300))
 	var cast_on := _current_is(&"lg_cast_q_1") or _current_is(&"lg_cast_q_2")
 	_check(cast_on, "в тишине каст Ку звучит")
-	audio._voice_last_msec.erase(&"lg_boss_appear")
+	audio.speech._voice_last_msec.erase(&"lg_boss_appear")
 	audio._on_wave_started(bi, 1)
 	_check(_current_is(&"lg_boss_appear"), "появление босса обрывает выкрик каста сразу")
-	audio._voice_last_msec.erase(&"lg_cast_e_1")
-	audio._voice_last_msec.erase(&"lg_cast_e_2")
+	audio.speech._voice_last_msec.erase(&"lg_cast_e_1")
+	audio.speech._voice_last_msec.erase(&"lg_cast_e_2")
 	audio._on_hero_cast(LegionHero.SLOT_E, Vector2(700, 300))
+	_check(audio.speech.is_cast_voice_busy() and _current_is(&"lg_boss_appear"),
+		"каст стартует поверх сюжета сразу, не обрывая его")
 	await _wait_quiet()
-	_check(_started(&"lg_cast_e_1") < 0 and _started(&"lg_cast_e_2") < 0,
-		"каст поверх сюжета пропал, не прозвучал с опозданием")
+	_check(not audio.speech.is_cast_voice_busy() and audio.speech._voice_queue.is_empty(),
+		"каст закончился вместе с откликом, не оставив запоздалый выкрик в очереди")
 
 
 ## Б: финал кампании — кадр 1 «Акт подписан…» звучит lg_victory_1, даже если итог боя выбрал
@@ -382,9 +385,9 @@ func _finale_checks() -> void:
 		if probe.randi() % 2 == 1:
 			break
 		seed_v2 += 1
-	audio._voice_rng.seed = seed_v2   # итог боя выберет lg_victory_2
-	audio._voice_last_msec.erase(&"lg_victory_1")
-	audio._voice_last_msec.erase(&"lg_victory_2")
+	audio.speech._voice_rng.seed = seed_v2   # итог боя выберет lg_victory_2
+	audio.speech._voice_last_msec.erase(&"lg_victory_1")
+	audio.speech._voice_last_msec.erase(&"lg_victory_2")
 	w.stats["boss_killed"] = 1
 	w.force_end(true)
 	await _frames(2)
@@ -401,7 +404,7 @@ func _finale_checks() -> void:
 ## не теряются (D-1007-P1: «Конторы» как экрана нет, её голос покупки звучит с брифинга).
 func _office_after_victory_checks() -> void:
 	print("— новый вид и покупка подготовки после победной реплики")
-	audio._voice_last_msec.clear()
+	audio.speech._voice_last_msec.clear()
 	main.start_battle("fork")
 	await _frames(3)
 	await _wait_quiet()   # брифинг доиграл

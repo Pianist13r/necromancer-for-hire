@@ -598,7 +598,7 @@ func _draw() -> void:
 	if world == null or world.phase != LegionWorld.Phase.BATTLE or world.my_field() == null:
 		return
 	var field := world.my_field()
-	var ms := float(Time.get_ticks_msec()) * 0.001
+	var ms := float(FxClock.ms()) * 0.001
 	_placed.clear()
 	for c: Contract in _gold.keys():
 		if not field.contracts.has(c):

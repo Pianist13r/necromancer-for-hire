@@ -88,7 +88,7 @@ func _run() -> void:
 func _test_migration_resumes() -> void:
 	print("— J9: повтор миграции после отказа записи")
 	var refund := 0
-	var costs: Array = LegionMetaCfg.LEGACY_OFFICE_SHOP["range"]["costs"]
+	var costs: Array = RunProgression.LEGACY_OFFICE_SHOP["range"]["costs"]
 	for i in 2:
 		refund += int(costs[i])
 	_write_legacy("[meta]\nbounty=17\nshop_range_laborer=2\n")
@@ -114,12 +114,16 @@ func _test_migration_resumes() -> void:
 func _test_unmapped_amendments() -> void:
 	print("— J10: старые поправки без переноса")
 	var unmapped: Array[String] = []
-	for id: String in LegionMetaCfg.LEGACY_UPGRADES:
+	for id: String in ["overtime_clause", "aggressive_lawyers", "courier_bonus",
+		"night_shift_hr", "outstaff_partner", "signing_bonus", "coffee_machine",
+		"expanded_budget", "union_contract", "cauldron_insurance", "hazard_pay", "silence_order",
+		"brigade_quota", "rush_premium", "loud_hailer", "sharp_pencil", "bulk_paper",
+		"soul_audit", "armchairs", "charter_capital", "headhunters", "lost_property"]:
 		if not AmendmentDb.LEGACY_MAP.has(id):
 			unmapped.append(id)
 	check(unmapped.size() == 8, "старых поправок без переноса ровно 8 (найдено %d)" % unmapped.size())
 	var refund := 0
-	var costs: Array = LegionMetaCfg.LEGACY_OFFICE_SHOP["mana"]["costs"]
+	var costs: Array = RunProgression.LEGACY_OFFICE_SHOP["mana"]["costs"]
 	for i in 1:
 		refund += int(costs[i])
 	var ids_list := "\", \"".join(unmapped)

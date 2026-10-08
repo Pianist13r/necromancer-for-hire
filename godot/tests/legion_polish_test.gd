@@ -280,7 +280,7 @@ func _test_picker_texts() -> void:
 	root.add_child(h)
 	await process_frame
 	text = _texts(h)
-	_check(text.contains("после каждой победы"), "досье: поправку предлагают после победы (B-421)")
+	_check(text.contains("после победы"), "досье: поправку предлагают после победы (B-421)")
 	_check(not text.contains("в базе"), "досье без жаргона «в базе»")
 	h.queue_free()
 	await process_frame
@@ -589,7 +589,7 @@ func _test_stage4_menu_dossier() -> void:
 	_check(t_it != null and t_it.text == "Артефакты (2)", "вкладка артефактов со счётом: %s"
 		% (t_it.text if t_it != null else "—"))
 	_check(t_up != null and t_up.button_pressed and _live_child(h, "Cards") == null
-		and _texts(h).contains("Новую поправку"), "из меню по умолчанию — «Поправки»")
+		and _live_child(h, "RankTrack") != null, "из меню по умолчанию — «Поправки»")
 	_check(_texts(h).contains("Разряд 1 · опыт 0. До разряда 2:"), "строка разряда и опыта")
 	await _press_named(h, "TabItems")
 	var cards := _live_child(h, "Cards")
@@ -599,7 +599,7 @@ func _test_stage4_menu_dossier() -> void:
 	_check(_live_child(h, "Uses") == null, "из меню без счётчиков боя")
 	_check(_texts(h).contains("Громовая канцелярия · Собрана"), "синергия собрана")
 	await _press_named(h, "TabUpgrades")
-	_check(_live_child(h, "Cards") == null and _texts(h).contains("Новую поправку"),
+	_check(_live_child(h, "Cards") == null and _live_child(h, "RankTrack") != null,
 		"вкладки переключаются обратно")
 	h.queue_free()
 	var empty_items: Array[StringName] = []
@@ -653,7 +653,7 @@ func _test_stage4_pause_dossier() -> void:
 	_check(uses != null and uses.text == "Срабатываний: 0", "у артефакта в бою — счётчик")
 	_check(_live_child(d, "TabUpgrades") != null, "в паузе то же досье: есть «Поправки»")
 	await _press_named(d, "TabUpgrades")
-	_check(_texts(d).contains("Новую поправку"), "из паузы переключается на «Поправки»")
+	_check(_live_child(d, "RankTrack") != null, "из паузы переключается на «Поправки»")
 	_check(main.world.paused, "бой остался на паузе")
 	if d != null and d.has_method("close"):
 		d.call("close")

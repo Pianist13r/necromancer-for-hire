@@ -37,6 +37,8 @@ var allow_reset := false
 var _focus_before: Control = null
 var _closing := false
 var _capture: StringName = &""
+## Клавиша, занятая другим действием и уже нажатая раз: второе нажатие — обмен (KB-11).
+var _swap_offer := -1
 var _binding_buttons: Dictionary = {}
 var _binding_note: Label
 
@@ -58,6 +60,7 @@ func _ready() -> void:
 	add_child(panel)
 	resized.connect(_fit_card)
 	_fit_card()
+	UiStyle.reveal(panel)
 
 	# Каркас: заголовок и «Готово» — вне прокрутки (всегда на виду), между ними — скролл.
 	var outer := VBoxContainer.new()
@@ -130,6 +133,12 @@ func _ready() -> void:
 	vsync_check.add_theme_font_size_override("font_size", 18)
 	_style_check(vsync_check)
 	content.add_child(vsync_check)
+	_visual_check(content, "Тряска экрана", "ScreenShake", Settings.is_screen_shake_enabled(),
+		Settings.set_screen_shake)
+	_visual_check(content, "Вспышки", "Flashes", Settings.is_flashes_enabled(),
+		Settings.set_flashes)
+	_visual_check(content, "Атмосфера мира", "WorldGrade", Settings.is_world_grade_enabled(),
+		Settings.set_world_grade)
 
 	content.add_child(HSeparator.new())
 	_section(content, "Управление")
@@ -195,15 +204,17 @@ func _ready() -> void:
 		UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	version.name = "SettingsVersion"
 	content.add_child(version)
-	var releases_btn := _small_button("Версии и обновления")
-	releases_btn.name = "SettingsReleases"
-	releases_btn.pressed.connect(_on_releases)
-	content.add_child(releases_btn)
-	var update_note := UiStyle.label(
-		"Новый выпуск скачайте со страницы версий. Замените игру — прогресс сохранится.",
-		16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
-	update_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(update_note)
+	if not ReleaseInfo.is_steam():   # в Steam обновляет клиент; ссылок наружу не даём
+		var releases_btn := _small_button("Версии и обновления")
+		releases_btn.name = "SettingsReleases"
+		releases_btn.pressed.connect(_on_releases)
+		content.add_child(releases_btn)
+		var update_note := UiStyle.label(
+			"Новый выпуск скачайте со страницы версий. Замените игру — прогресс сохранится.",
+			16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		update_note.name = "SettingsUpdateNote"
+		update_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content.add_child(update_note)
 	var licenses_btn := _small_button("Лицензии")
 	licenses_btn.name = "SettingsLicenses"
 	licenses_btn.pressed.connect(_open_licenses)
@@ -249,9 +260,18 @@ func _capture_input(event: InputEvent) -> void:
 			var code := int(key_event.physical_keycode)
 			if code == 0:
 				code = int(key_event.keycode)
-			var error := Controls.rebind(_capture, code)
+			# KB-11: занятая клавиша второй раз подряд — обмен с тем, кто её держит
+			var holder := Controls.conflict(_capture, code)
+			var swapping := code == _swap_offer and holder != &""
+			var error := Controls.swap(_capture, code) if swapping \
+				else Controls.rebind(_capture, code)
 			if error.is_empty():
-				_finish_capture("Клавиша сохранена.")
+				_finish_capture("Клавиши поменялись местами с «%s»." % Controls.TITLES[holder]
+					if swapping else "Клавиша сохранена.")
+			elif holder != &"" and Controls.key(holder) == code and not swapping:
+				_swap_offer = code
+				_binding_note.text = ("Клавиша занята: %s. Нажмите её ещё раз — поменять местами. "
+					+ "Эскейп — отмена.") % Controls.TITLES[holder]
 			elif error == Controls.SAVE_FAILED:
 				# Клавиша назначена и уже работает — врать «сохранено» нельзя, но и просить
 				# другую клавишу незачем: захват заканчиваем с честной причиной (J8).
@@ -324,6 +344,7 @@ func _begin_capture(action: StringName) -> void:
 	if _capture != &"":
 		_refresh_bindings()
 	_capture = action
+	_swap_offer = -1
 	(_binding_buttons[action] as Button).text = "Нажмите…"
 	_binding_note.text = "%s: нажмите новую клавишу. Эскейп — отмена." % Controls.TITLES[action]
 
@@ -336,6 +357,7 @@ func _refresh_bindings() -> void:
 func _finish_capture(note: String) -> void:
 	var previous := _capture
 	_capture = &""
+	_swap_offer = -1
 	_refresh_bindings()
 	_binding_note.text = note
 	if _binding_buttons.has(previous):
@@ -442,7 +464,8 @@ func _build_reset_block(close_btn: Button) -> Control:
 	confirm.add_theme_constant_override("separation", 8)
 	confirm.visible = false
 	var warn := UiStyle.label(
-		"Удалить кампанию, премию, Контору, героя и обучение? "
+		"Удалить весь прогресс: кампанию, забеги и рекорды, коллекцию карт, "
+			+ "премию, разряд героя, поправки, артефакты, подготовку и обучение? "
 			+ "Настройки останутся. Отменить нельзя.",
 		16, UiStyle.FONT_TEXT, UiStyle.BAD)
 	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -484,6 +507,18 @@ func _small_button(text: String) -> Button:
 	btn.add_theme_font_size_override("font_size", 17)
 	UiStyle.style_button(btn)
 	return btn
+
+
+func _visual_check(box: Control, text: String, id: String, on: bool, setter: Callable) -> void:
+	var check := CheckBox.new()
+	check.name = id
+	check.text = text
+	check.button_pressed = on
+	check.add_theme_font_override("font", UiStyle.FONT_TEXT)
+	check.add_theme_font_size_override("font_size", 18)
+	check.toggled.connect(setter)
+	_style_check(check)
+	box.add_child(check)
 
 
 ## Явная рамка и светлая галочка читаются и без наведения, и с клавиатурным фокусом.

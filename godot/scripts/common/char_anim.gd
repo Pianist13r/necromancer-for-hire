@@ -40,6 +40,7 @@ var _shown_sector := 0
 var _prepared := false
 var _prepare_return := ""
 var _impact_ready := false
+var _death_variant := 0
 
 
 ## `clips`: имя состояния -> {"dir": String, "fps": float, "loop": bool, "contact_frame": int
@@ -108,8 +109,21 @@ static func load_clips(clips: Dictionary) -> Dictionary:
 		# шага, поэтому fps в CfgAnim остаётся исходным, а длина клипа — прежней.
 		var meta := _clip_meta(dir, root)
 		var durations: Array = meta.get("durations", [])
+		var weights: Array[float] = []
+		var original_time := 0.0
+		var weighted_time := 0.0
 		for i in textures.size():
 			var dur := float(durations[i]) if i < durations.size() else 1.0
+			# Второе падение: потеря равновесия дольше, сам обвал быстрее.
+			# Суммарное время и последний кадр общие; PNG и Texture2D не копируются.
+			var phase := float(i) / maxf(1.0, textures.size() - 1.0)
+			var weight := lerpf(1.7, 0.55, smoothstep(0.15, 0.8, phase)) \
+				if bool(def.get("retime_fall", false)) else 1.0
+			weights.append(dur * weight)
+			original_time += dur
+			weighted_time += dur * weight
+		for i in textures.size():
+			var dur := weights[i] * original_time / weighted_time
 			frames.add_frame(state_name, textures[i], dur)
 		defs[state_name] = {
 			"loop": loop,
@@ -377,8 +391,31 @@ static func direction_sector(direction: Vector2) -> int:
 
 
 func _animation_for(state: String) -> String:
-	var variants: Dictionary = _clip_defs.get(state, {}).get("directions", {})
-	return String(variants.get(CANONICAL[direction_sector(_direction)], state))
+	var source := "death_alt" if state == "death" and _death_variant == 1 \
+		and has_state("death_alt") else state
+	var variants: Dictionary = _clip_defs.get(source, {}).get("directions", {})
+	return String(variants.get(CANONICAL[direction_sector(_direction)], source))
+
+
+func set_death_variant(variant: int) -> void:
+	_death_variant = clampi(variant, 0, 1)
+
+
+func death_variant() -> int:
+	return _death_variant
+
+
+## Второе падение чуть на бок, вокруг прежней опоры; текстуры остаются общими.
+func death_pose(ground: float, facing: float) -> Transform2D:
+	if _current_state != "death" or _death_variant == 0:
+		return Transform2D.IDENTITY
+	var k := smoothstep(0.1, 0.95, cycle_phase())
+	var angle := -0.10 * k * facing
+	var scale_at := Vector2(1.0 + 0.06 * k, 1.0 - 0.06 * k)
+	var pose := Transform2D(angle, scale_at, 0.0, Vector2.ZERO)
+	var pivot := Vector2(0.0, ground)
+	pose.origin = pivot - pose * pivot
+	return pose
 
 
 ## CharView зеркалит вокруг ступней своей трансформацией; здесь только выбор зеркала.

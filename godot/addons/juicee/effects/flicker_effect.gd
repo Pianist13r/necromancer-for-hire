@@ -36,9 +36,9 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	var run_forever := duration <= 0.0
 
 	while (run_forever or elapsed < duration) and not _cancelled and is_instance_valid(target):
-		var is_off := randf() < off_chance
+		var is_off := JuiceeEffect.rng.randf() < off_chance
 		target.modulate = off_color if is_off else original
-		var wait := randf_range(min_interval, max_interval) / intensity_mult
+		var wait := JuiceeEffect.rng.randf_range(min_interval, max_interval) / intensity_mult
 		await tree.create_timer(wait, true, false, false).timeout
 		elapsed += wait
 

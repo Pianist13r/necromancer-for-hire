@@ -152,8 +152,15 @@ var _cross_fx: Array[Dictionary] = []
 var _ring_fx: Array[Dictionary] = []
 var _space := false
 var _aim_held := 0
-## До этого Time.get_ticks_msec() прокрутка вид договора не меняет (нажатие колеса проворачивает).
+## До этого FxClock.ms() прокрутка вид договора не меняет (нажатие колеса проворачивает).
 var _wheel_quiet_ms := 0
+## B-057: тик прокрутки, сменивший вид, — когда и с какого вида (серия тиков — вид до первого).
+## Нажатие колеса в пределах WHEEL_CLICK_QUIET после такого тика возвращает прежний вид.
+var _wheel_tick_ms := -1000000
+var _wheel_prev_kind: StringName = &""
+## B-044: Шифт зажат — штрих не подновляет живую линию, а ложится новой поверх (пакет). У человека
+## — из модификаторов событий ввода; у штриха из сети — флаг команды STROKE (stroke()).
+var _stack := false
 ## Что возьмут Пробел/колесо/ПКМ под курсором (pick_segment); пересчёт — только после движения
 ## мыши или смены линий (_hover_dirty), не каждый кадр.
 var _hover: Dictionary = {}
@@ -345,6 +352,12 @@ func tick(delta: float, t: float) -> void:
 					world.figures.melt(c)
 					break
 				world.release_segment(c, s, &"melt")
+		if is_stump(c):
+			# B-345: пенёк гаснет на этом же шаге — слот свободен, места не набирают бойцов
+			# (бойцов на нём нет: снимать некого, натиска нет)
+			c.seg_dead.fill(1)
+			for p in c.posts:
+				p["dead"] = true
 		if not c.alive():
 			contracts.remove_at(i)
 			world.on_contract_removed(c)
@@ -357,6 +370,51 @@ func tick(delta: float, t: float) -> void:
 
 
 # ── API для бота и тестов ──────────────────────────────────────────────────
+
+## B-345: «пенёк» — остаток линии после срыва (ПКМ/рогатка), на живых местах которой нет ни
+## одного бойца (ни стоящего, ни идущего). Он гаснет в tick() на шаге срыва (D-1008-C2): раньше
+## такие остатки до таяния (SEG_TTL) держали слот лимита и молча съедали новые штрихи, а «не
+## считать их в лимит» обходилось (verifier: пенёк подновляли или он набирал бойцов — 10 живых
+## договоров при лимите 6). Свежая линия без людей (срыва не было) — не пенёк. Фигуры и кольца
+## срываются целиком — пеньков не оставляют. Решение — по состоянию мира шага (места, причины
+## срыва), одно правило для человека, ботов и обоих клиентов «Схватки».
+static func is_stump(c: Contract) -> bool:
+	if c.shaped() or not c.alive():
+		return false
+	var torn := false
+	for cause: StringName in c.release_causes.values():
+		if cause != &"melt":
+			torn = true
+			break
+	if not torn:
+		return false
+	for p in c.posts:
+		if not p["dead"] and p["unit"] != null:
+			return false
+	return true
+
+
+## Лимит MAX_CONTRACTS — все живые договоры (как у add_contract и pvp_bot): пеньки гаснут в
+## tick() сами, отдельного счёта им не нужно.
+func slots_full() -> bool:
+	return contracts.size() >= LegionCfg.MAX_CONTRACTS
+
+
+## Цвет черновика линии (ContractRenderer._draw_draft; part — "color" тело, "core" сердцевина):
+## серебро — подновление, серый — новая линия упрётся в лимит (B-345, видно ещё до отпускания),
+## иначе — цвет вида.
+func draft_color(refresh_like: bool, part: String) -> Color:
+	if not refresh_like and slots_full():
+		return LegionCfg.LIMIT_DRAFT_COLOR
+	if refresh_like and part == "color":
+		return REFRESH_COLOR
+	return _kind_color(current_kind, part)
+
+
+## Подпись у пера при упоре в лимит; клавиша стирания — текущая (Controls.text).
+static func limit_label() -> String:
+	return Controls.text(LegionCfg.LIMIT_LABEL % LegionCfg.MAX_CONTRACTS)
+
 
 ## Новый договор по готовой ломаной. null — не хватило маны / лимит / слишком коротко.
 ## kind — вид договора (бот по умолчанию ставит подряд); цена — mana_per_px вида.
@@ -433,15 +491,20 @@ func perfect_fx(at: Vector2) -> void:
 
 
 ## Какой договор штрих подрисовывает. {} — это новая линия (штрих поперёк или вдали).
-## Правило: ≥ REFRESH_FRAC точек штриха ближе REFRESH_DIST к ЖИВОМУ участку одного договора.
+## Правило: ≥ REFRESH_FRAC точек штриха ближе REFRESH_DIST к ЖИВОМУ участку одного договора
+## любого вида; при зажатом Шифте (_stack) — всегда {}.
 func match_refresh(stroke: PackedVector2Array) -> Dictionary:
 	if stroke.size() < 2:
 		return {}
+	if _stack:
+		return {}   # B-044: Шифт + штрих — новая линия поверх живой (пакет), не подновление
 	var best: Dictionary = {}
 	var best_frac := 0.0
+	# B-044: подновляется живая линия ЛЮБОГО вида (вид линии сохраняется, цена — её mana_per_px):
+	# раньше штрих «охраной» вдоль «подряда» молча ложился пакетом поверх
 	for c in contracts:
-		if c.kind != current_kind:
-			continue
+		if is_stump(c):
+			continue   # B-345: пенёк не подновляется — гаснет на ближайшем шаге
 		var near := 0
 		var segs := PackedInt32Array()
 		for p in stroke:
@@ -509,6 +572,14 @@ func pick_segment(p: Vector2) -> Dictionary:
 				var band := _band_dist(p, poly)
 				if band <= LegionCfg.PICK_BODY_SLOP:
 					d = minf(d, band + LegionCfg.PICK_BODY_PENALTY)
+			# B-058: шеврон стрелки — то же, что рисует ContractRenderer._draw_arrow (ARROW_OFFSET..
+			# +ARROW_LEN перед центром участка). Дороже прямого попадания: линия соседа побеждает.
+			if direct > LegionCfg.PICK_ARROW_PENALTY:
+				var n := c.seg_dir(s)
+				var base := c.seg_center(s) + n * ARROW_OFFSET
+				var arrow := p.distance_to(Geometry2D.get_closest_point_to_segment(
+					p, base, base + n * ARROW_LEN))
+				d = minf(d, arrow + LegionCfg.PICK_ARROW_PENALTY)
 			if d > r:
 				continue
 			var key := [d, direct, c.id, s]
@@ -540,7 +611,10 @@ func pick_radius() -> float:
 func _screen_scale() -> float:
 	if not is_inside_tree():
 		return 0.0
-	return (get_viewport().get_final_transform() * get_global_transform_with_canvas()).get_scale().x
+	# масштаб вида поля (view_xf), а не камеры: в игре камера всегда в масштабе вида, а крупный план
+	# режиссёра записи (REC-07) не должен менять допуски захвата — ввод от камеры не зависит
+	return get_viewport().get_final_transform().get_scale().x \
+		* (world.view_scale() if world != null else 1.0)
 
 
 static func _poly_dist(p: Vector2, poly: PackedVector2Array) -> float:
@@ -679,8 +753,19 @@ func by_id(id: int) -> Contract:
 
 ## Штрих целиком: те же begin/extend/finish, что у мыши, — мана, скалы, подрисовка, фигуры и
 ## отказы ровно как у человека. arrow — точка, куда смотрит стрелка (как Пробел посреди штриха);
-## INF — стрелка по умолчанию. {contract, refreshed} или {contract: null, reason}.
-func stroke(pts: PackedVector2Array, kind: StringName, arrow := Vector2.INF) -> Dictionary:
+## INF — стрелка по умолчанию. stack — штрих с Шифтом (B-044): новая линия поверх живой, без
+## подновления. {contract, refreshed} или {contract: null, reason}.
+func stroke(pts: PackedVector2Array, kind: StringName, arrow := Vector2.INF,
+		stack := false) -> Dictionary:
+	# Шифт штриха из сети — флаг команды, а не клавиатура этого клиента: решение одинаково у обоих
+	var held := _stack
+	_stack = stack
+	var res := _stroke(pts, kind, arrow)
+	_stack = held
+	return res
+
+
+func _stroke(pts: PackedVector2Array, kind: StringName, arrow: Vector2) -> Dictionary:
 	if not active:
 		return {"contract": null, "reason": "inactive"}
 	if not set_kind(kind):
@@ -810,7 +895,7 @@ func _net_finish() -> void:
 		_short_bump(_draft)
 	cancel()
 	if not short and pts.size() >= 2:
-		world.local_cmd(PvpCmd.stroke(pts, kind, arrow))
+		world.local_cmd(PvpCmd.stroke(pts, kind, arrow, _stack))
 
 
 ## Стрелка живого договора под Пробелом: командой AIM с прореживанием; force — последняя точка
@@ -820,7 +905,7 @@ func _net_aim(at: Vector2, force: bool) -> void:
 		return
 	if not _aim_contract.ring and _aim_contract.figure != &"":
 		return   # фигуры стрелкой не поворачиваются (aim_at)
-	var ms := Time.get_ticks_msec()
+	var ms := FxClock.ms()
 	if force and _aim_unsent == Vector2.INF:
 		return
 	if not force and ms - _aim_sent_ms < NET_AIM_GAP_MS:
@@ -836,6 +921,8 @@ func _net_aim(at: Vector2, force: bool) -> void:
 ## Курсор — из КАЖДОГО события мыши, до интерфейса (как LegionWorld.aim_pos): движение над кнопкой
 ## HUD до _unhandled_input не доходит, и Пробел целился бы из места, где мышь была раньше.
 func _input(event: InputEvent) -> void:
+	if human_input:
+		_track_stack(event)
 	var m := event as InputEventMouse
 	if m != null:
 		_pointer = _to_world(m.position)
@@ -850,6 +937,18 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		if k.pressed and not k.echo and not k.alt_pressed:
 			erase_at(_pointer)
+
+
+## B-044: Шифт — модификатор «пакет» (не переназначается: это не клавиша действия, а зажим к
+## штриху). Сам Шифт — по нажатию/отпусканию, остальные события — по флагу модификатора.
+func _track_stack(event: InputEvent) -> void:
+	var k := event as InputEventKey
+	if k != null and (k.keycode == KEY_SHIFT or k.physical_keycode == KEY_SHIFT):
+		_stack = k.pressed
+		return
+	var mods := event as InputEventWithModifiers
+	if mods != null:
+		_stack = mods.shift_pressed
 
 
 ## Позиция события мыши (экран вьюпорта) → мир: единый вид поля мира (LegionWorld.view_xf, P5a).
@@ -902,7 +1001,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			# Зажатое колесо = Пробел (Игорь 26.09; отменяет «нажатие колеса не используем»
 			# D-0926-12). Тики прокрутки вокруг нажатия глушим — см. WHEEL_CLICK_QUIET.
-			_wheel_quiet_ms = Time.get_ticks_msec() + roundi(LegionCfg.WHEEL_CLICK_QUIET * 1000.0)
+			var ms := FxClock.ms()
+			var quiet := roundi(LegionCfg.WHEEL_CLICK_QUIET * 1000.0)
+			# B-057: тики, пришедшие ДО нажатия (колесо провернулось под пальцем), окно тишины не
+			# ловило — вид уже сменился. Возвращаем вид, бывший до серии этих тиков.
+			if mb.pressed and ms - _wheel_tick_ms <= quiet and _wheel_prev_kind != &"" \
+					and _wheel_prev_kind != current_kind and not _drawing:
+				set_kind(_wheel_prev_kind)
+			_wheel_tick_ms = -1000000
+			_wheel_quiet_ms = ms + quiet
 			_hold_aim(AIM_WHEEL, mb.pressed)
 			get_viewport().set_input_as_handled()
 		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP
@@ -911,7 +1018,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			# смена вида завершает штрих (set_kind → finish), а колесо задеть случайно легче,
 			# чем 1/2/3 (находка verifier 26.09). Молчит и пока колесо зажато и сразу после.
 			if not is_slinging() and not _drawing and not _pressing \
-					and _aim_held & AIM_WHEEL == 0 and Time.get_ticks_msec() >= _wheel_quiet_ms:
+					and _aim_held & AIM_WHEEL == 0 and FxClock.ms() >= _wheel_quiet_ms:
+				var ms := FxClock.ms()
+				if ms - _wheel_tick_ms > roundi(LegionCfg.WHEEL_CLICK_QUIET * 1000.0):
+					_wheel_prev_kind = current_kind   # первый тик серии — запомнить, откуда
+				_wheel_tick_ms = ms
 				cycle_kind(-1 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
 			get_viewport().set_input_as_handled()
 		return
@@ -925,7 +1036,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif k.pressed:
 			for i in 3:
 				if event.is_action([&"rune_normal", &"rune_frost", &"rune_ash"][i]):
-					set_kind(LegionCfg.KIND_ORDER[i])
+					choose_kind(LegionCfg.KIND_ORDER[i])
 					get_viewport().set_input_as_handled()
 					break
 
@@ -970,11 +1081,33 @@ func _release(at: Vector2) -> void:
 	if _pressing:
 		_pressing = false
 		_press_pts = PackedVector2Array()
+		# B-055: карточки вида и «Вызвать» мышь не ловят (иначе штрих над ними не начинался) —
+		# короткий щелчок по ним разбирает HUD; протяжка с них — обычный штрих.
+		if _hud_tap(true):
+			return
 		tap.emit(_press_pos)
 		return
 	if _drawing:
 		extend(at)
+		# Дрогнувший щелчок по карточке (сдвиг больше TAP_SLOP, но линия короче минимума) — тоже
+		# щелчок: до B-055 кнопка ловила его целиком, «коротко» под пальцем было бы новым отказом.
+		if _draft_len < min_len(_draft) and _hud_tap(false):
+			cancel()
+			_hud_tap(true)
+			return
 	finish()
+
+
+## Щелчок поля по кнопке HUD, которая сама мышь не ловит (B-055). act=false — только проверка.
+func _hud_tap(act: bool) -> bool:
+	return world != null and world.hud != null \
+		and world.hud.ui_tap(world.world_to_screen(_press_pos), act)
+
+
+## Выбор вида человеком (клавиши 1/2/3, карточка): откат вида колесом (B-057) больше не про него.
+func choose_kind(kind: StringName) -> bool:
+	_wheel_tick_ms = -1000000
+	return set_kind(kind)
 
 
 # ── v17: рогатка на ПКМ ─────────────────────────────────────────────────────────
@@ -1563,7 +1696,7 @@ func real_tick(delta: float) -> float:
 		delay = minf(LegionCfg.DELAY_MAX, delay + LegionCfg.DELAY_REGEN * delta)
 	# сеть: мышь замерла под Пробелом — придержанная прореживанием стрелка уходит сама
 	if _aim_unsent != Vector2.INF and _space and _net_preview() \
-			and Time.get_ticks_msec() - _aim_sent_ms >= NET_AIM_GAP_MS:
+			and FxClock.ms() - _aim_sent_ms >= NET_AIM_GAP_MS:
 		_net_aim(_aim_unsent, true)
 	for list: Array[Dictionary] in [_popups, _hits]:
 		for i in range(list.size() - 1, -1, -1):
@@ -1746,7 +1879,7 @@ func min_len(pts: PackedVector2Array) -> float:
 ## Вспышка «стена» у точки: не чаще раза в IntuitCfg.WALL_GAP реальных секунд (рука дёргается по
 ## камню — одна вспышка, а не мигание).
 func _wall_bump(at: Vector2, label := IntuitCfg.WALL_LABEL, life := IntuitCfg.WALL_FX) -> void:
-	var ms := Time.get_ticks_msec()
+	var ms := FxClock.ms()
 	# Короткая вспышка столкновения могла уже погаснуть до отпускания кнопки.
 	# Тогда совету об отказе нужен свой показ, хотя cooldown общей вспышки ещё идёт.
 	if ms - _wall_ms < roundi(IntuitCfg.WALL_GAP * 1000.0) \
@@ -1874,9 +2007,11 @@ func finish() -> void:
 		_refund(_draft_cost)
 		_short_bump(stroke)
 		return
-	if contracts.size() >= LegionCfg.MAX_CONTRACTS:
+	if slots_full():
 		_refund(_draft_cost)
 		if owner_side == world.local_side:
+			# B-345: причина — у пера (взгляд там), тост остаётся для тех, кто смотрит в центр
+			_wall_bump(stroke[stroke.size() - 1], limit_label(), LegionCfg.LIMIT_FX)
 			world.toast("Не больше %d договоров сразу" % LegionCfg.MAX_CONTRACTS, &"warn")
 		return
 	# угловые фигуры: перелёт конца за начало срезается (ContractShape.trim_overshoot) и мест не
@@ -2286,6 +2421,8 @@ func assignment_plan(lines: Array[Contract]) -> Array[Dictionary]:
 	var flats: Dictionary = {}     # вид → [места] (для достройки)
 	var serial := 0
 	for c in lines:
+		if is_stump(c):
+			continue   # B-345: пенёк гаснет на ближайшем шаге — бойцов не набирает
 		if not buckets.has(c.kind):
 			buckets[c.kind] = {}
 			flats[c.kind] = []
@@ -2537,8 +2674,7 @@ func _nearest_assignment(u: Legionnaire, cells: Dictionary, reserved: Dictionary
 func update_preview() -> void:
 	_preview = null
 	_preview_plan.clear()
-	if _draft_len < min_len(_draft) or not match_refresh(_draft).is_empty() \
-			or contracts.size() >= LegionCfg.MAX_CONTRACTS:
+	if _draft_len < min_len(_draft) or not match_refresh(_draft).is_empty() or slots_full():
 		return
 	if _draft_ring:
 		_preview = Contract.new().build_ring(_draft, world.terrain.walkable, current_kind)
@@ -2639,7 +2775,7 @@ func _squeeze(c: Contract, power: float, perfect: bool) -> void:
 		# «Точно!» — строкой выше «Сжать кольцо!», иначе крупные буквы наезжают друг на друга
 		_popups.append({"pos": c.center + Vector2(0.0, -RING_POPUP_GAP), "t": 0.0})
 	if not c.ring_out:
-		_ring_fx.append({"center": c.center, "r": r + ARROW_OFFSET, "ms": Time.get_ticks_msec()})
+		_ring_fx.append({"center": c.center, "r": r + ARROW_OFFSET, "ms": FxClock.ms()})
 	_sound("mine_boom", 0.9)
 	Juice.shake(world, LegionCfg.CHARGE_SHAKE * 1.5, LegionCfg.CHARGE_SHAKE_TIME * 1.5)
 
@@ -2793,6 +2929,15 @@ static func fig_need(c: Contract) -> int:
 	return ceili(c.posts.size() * fig_need_frac(c.figure) - 0.001)
 
 
+## Подпись фигуры: «Обряд 1/2» — сколько из нужных мест занято. Мест у фигуры больше, чем нужно
+## для награды (у Обряда два из трёх), поэтому «в строю» бывает больше порога — счёт встаёт на
+## пороге (прежде кадр показывал «Обряд 3/2», запись промо 08.10). need ≤ 0 — порога нет.
+static func fig_progress_text(label: String, have: int, need: int) -> String:
+	if need <= 0:
+		return "%s %d" % [label, have]
+	return "%s %d/%d" % [label, mini(have, need), need]
+
+
 ## Над строем фигуры (кольца): x центра, y — выше голов верхнего ряда (самое верхнее место или
 ## точка линии − FigureCfg.CROWD_HEAD). Сюда встают надписи фигуры — не поперёк бойцов.
 static func fig_top(c: Contract) -> Vector2:
@@ -2821,7 +2966,7 @@ func _fig_release(c: Contract, power: float, perfect: bool, axis := Vector2.ZERO
 		return
 	var text := FigureCfg.CROSS_LABEL
 	if c.figure == ContractShape.EIGHT:
-		_cross_fx.append({"a": c.lobes[0], "b": c.lobes[1], "ms": Time.get_ticks_msec()})
+		_cross_fx.append({"a": c.lobes[0], "b": c.lobes[1], "ms": FxClock.ms()})
 	elif c.figure == ContractShape.TRIANGLE:
 		# обряд подписывает себя сам (on_rite); без него — обычный натиск к центру
 		text = "" if int(world.stats.get("rites", 0)) > rites else "Натиск к центру!"
@@ -2891,7 +3036,7 @@ static func room_above(world: LegionWorld, top: Vector2, size: float, w: float,
 ## «Сверхурочные»: второй натиск восьмёрки сорвался (LegionFigures).
 func on_overtime(at: Vector2, _n: int, lobes := PackedVector2Array()) -> void:
 	if lobes.size() == 2:
-		_cross_fx.append({"a": lobes[0], "b": lobes[1], "ms": Time.get_ticks_msec()})
+		_cross_fx.append({"a": lobes[0], "b": lobes[1], "ms": FxClock.ms()})
 	_popups.append({"pos": at, "t": 0.0, "text": FigureCfg.OVERTIME_LABEL,
 		"color": FigureCfg.EIGHT_COLOR, "size": 40.0})
 	_sound("mine_boom", 1.2)
@@ -2904,7 +3049,7 @@ func on_rite(c: Contract, r: float) -> void:
 	# (кадр 7_rite_0_flash 02.10: «Обряд!» ложилась поверх ещё висящего совета)
 	if world.intuit != null and world.my_field() == self:
 		world.intuit.on_done(&"rite")
-	_rite_fx.append({"center": c.center, "tips": c.tips, "r": r, "ms": Time.get_ticks_msec()})
+	_rite_fx.append({"center": c.center, "tips": c.tips, "r": r, "ms": FxClock.ms()})
 	_popups.append({"pos": c.center + Vector2(0.0, -r * 0.35), "t": 0.0,
 		"text": FigureCfg.RITE_LABEL, "color": FigureCfg.TRI_COLOR.lerp(Color.WHITE, 0.35),
 		"size": float(FigureCfg.RITE_LABEL_SIZE)})

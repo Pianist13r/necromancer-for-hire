@@ -37,11 +37,11 @@ func _apply(context: Node, intensity_mult: float) -> void:
 	if not context or not context.is_inside_tree():
 		return
 
-	var stream: AudioStream = streams[randi() % streams.size()]
+	var stream: AudioStream = streams[JuiceeEffect.rng.randi() % streams.size()]
 	var player := AudioStreamPlayer3D.new()
 	player.stream = stream
 	player.volume_db = volume_db
-	player.pitch_scale = randf_range(pitch_min, pitch_max)
+	player.pitch_scale = JuiceeEffect.rng.randf_range(pitch_min, pitch_max)
 	player.bus = bus
 	player.max_distance = max_distance
 	player.attenuation_model = attenuation_model

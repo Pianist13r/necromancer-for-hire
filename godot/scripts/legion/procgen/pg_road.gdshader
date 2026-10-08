@@ -126,6 +126,14 @@ void fragment() {
 	float d = abs(UV.y - 0.5) * 2.0;
 	float s = UV.x * period_world;
 	float y = (UV.y - 0.5) * width_world;
+	// Длинные прямые: две перекрывающиеся выборки с непериодическим сдвигом.
+	// Меняем лишь краску внутри полотна — нарисованная кайма и коллизия прежние.
+	float cell = floor(s / 310.0 + phase);
+	float blend = smoothstep(0.0, 1.0, fract(s / 310.0 + phase));
+	vec3 shifted_a = texture(TEXTURE, vec2(UV.x + hash1(cell) * 5.3, UV.y)).rgb;
+	vec3 shifted_b = texture(TEXTURE, vec2(UV.x + hash1(cell + 1.0) * 5.3, UV.y)).rgb;
+	float interior = 1.0 - smoothstep(0.42, 0.72, d);
+	tex.rgb = mix(tex.rgb, mix(shifted_a, shifted_b, blend), interior * 0.72);
 	if (use_b > 0.5) {
 		vec4 tb = texture(tex_b, vec2(fract(s / period_b_world), UV.y));
 		float w = smoothstep(0.5 - swap_soft, 0.5 + swap_soft, vnoise(s / swap_len + phase));

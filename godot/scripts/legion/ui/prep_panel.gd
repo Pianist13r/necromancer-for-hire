@@ -55,9 +55,6 @@ func refresh() -> void:
 	head.add_child(status_label)
 	# Пояснения — одной строкой: брифинг и так плотный по высоте.
 	var notes: PackedStringArray = []
-	var refund := int(Campaign.raw_file().get_value(Campaign._meta_section(), "legacy_refund", 0))
-	if refund > 0:
-		notes.append("Старая Контора вернула %d премии." % refund)
 	var auto_kept := _auto.filter(func(id: String) -> bool: return picked.has(id))
 	if not auto_kept.is_empty():
 		notes.append("Взято как в прошлый раз — щелчок снимает.")
@@ -109,5 +106,7 @@ func _toggle(id: String) -> void:
 	var ok := RunProgression.buy_service(id) if taking else RunProgression.cancel_service(id)
 	if not ok:
 		return
+	if taking:
+		LegionAudio.ui(&"ui_buy")
 	refresh()
 	changed.emit(taking)

@@ -29,11 +29,21 @@ func _slot(index: int, id: StringName, interactive: bool, compact: bool,
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.focus_mode = Control.FOCUS_NONE
 	var filled := id != &"" and not AmendmentDb.card(id).is_empty()
+	btn.focus_mode = Control.FOCUS_ALL if filled else Control.FOCUS_NONE
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND \
-		if interactive and filled else Control.CURSOR_ARROW
+		if filled else Control.CURSOR_ARROW
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		btn.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	var data := AmendmentDb.card(id) if filled else {}
+	if filled:
+		btn.tooltip_text = Controls.text("%s\n%s\nМелкий шрифт: %s\n%s" % [
+			data.get("title", id), data.get("text", ""), data.get("tradeoff", ""),
+			data.get("hint", "")])
+		var focus := StyleBoxFlat.new()
+		focus.draw_center = false
+		focus.border_color = UiStyle.GOLD
+		focus.set_border_width_all(3)
+		btn.add_theme_stylebox_override("focus", focus)
 	var tag := String(data.get("tag", "law"))
 	var col: Color = AmendmentDb.TAGS.get(tag, AmendmentDb.TAGS["law"])["color"] if filled else accent
 	btn.add_child(_frame(filled, col))
@@ -80,6 +90,8 @@ func _slot(index: int, id: StringName, interactive: bool, compact: bool,
 		m.add_child(empty)
 	if interactive and filled:
 		btn.pressed.connect(func() -> void: slot_pressed.emit(index))
+	elif filled:
+		btn.pressed.connect(func() -> void: ProgressionUi.inspect_card(self, id))
 	return btn
 
 

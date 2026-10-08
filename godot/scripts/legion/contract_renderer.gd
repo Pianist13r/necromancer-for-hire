@@ -1,19 +1,16 @@
 class_name ContractRenderer
 extends RefCounted
-## Вид договоров: нижний слой поля и верхний overlay. Вызовы draw_* выполняются
-## только внутри draw-сигнала исходного CanvasItem, камера и порядок слоёв прежние.
-## Контракты, мана, набор бойцов и команды PvP остаются в ContractField.
+## Только рисование договоров. Симуляция и ввод остаются в ContractField.
 
 var field: ContractField
 
 func _init(target: ContractField) -> void:
 	field = target
 
+func _alpha(c: Contract, s: int) -> float:
+	return Juice.flash_alpha(field._seg_alpha(c, s))
 
-# ── Артефакты на линиях (D-0927-163: у каждого своё постоянное изменение вида) ──
-
-## «Чернила оптом»: запись вида чернил или {} (цвет линии смешивается с чернилами — вид виден
-## и у всех видов бойцов, и оттенок вида не теряется целиком).
+## «Чернила оптом»: оттенок вида не теряется целиком.
 func _ink_look() -> Dictionary:
 	if field.world == null or field.world.items == null:
 		return {}
@@ -22,18 +19,15 @@ func _ink_look() -> Dictionary:
 		field.world.items_of(field.owner_side).note_look(&"contract", &"ink")
 	return lk
 
-
 static func _inked(body: Color, ink: Dictionary) -> Color:
 	if ink.is_empty():
 		return body
 	return body.lerp(ink["color"], float(ink.get("mix", 0.5)))
 
-
 func _gild_look() -> Dictionary:
 	if field.world == null or field.world.items == null:
 		return {}
 	return field.world.items_of(field.owner_side).look_of(&"contract", &"gild")
-
 
 ## «Золотое перо»: золотая нить вдоль живых участков со стороны натиска и бегущие блёстки —
 ## договор «подписан золотом», «Точно!» перезарядит Ку. Импульс получения — нить толще.
@@ -49,7 +43,7 @@ func _draw_gild(c: Contract, gild: Dictionary) -> void:
 		var pts := PackedVector2Array()
 		for p in poly:
 			pts.append(p + shift)
-		var a := field._seg_alpha(c, s)
+		var a := Juice.flash_alpha(field._seg_alpha(c, s))
 		# тёмный кант под нитью: золото на светлой дороге иначе пропадает (кадр 27.09)
 		field.overlay.draw_polyline(pts, Color(0.2, 0.12, 0.02, 0.6 * a), 5.0 + 2.5 * k, true)
 		field.overlay.draw_polyline(pts, Color(col, a), 2.8 + 2.5 * k, true)
@@ -68,7 +62,6 @@ func _draw_gild(c: Contract, gild: Dictionary) -> void:
 			field.overlay.draw_circle(p, 2.6 + 1.5 * k, Color(1.0, 0.97, 0.75, 0.95))
 		d += CfgItems.GILD_SPARK_STEP
 
-
 func _draw() -> void:
 	var eco := Settings.is_economy_graphics()
 	field._sync_vis(eco)
@@ -85,7 +78,7 @@ func _draw() -> void:
 		field.drawn_lines += 1
 		var swell := 0.0
 		var breath := 1.0
-		if not eco:
+		if not eco and Settings.is_flashes_enabled():
 			var k := field._birth_k(c)
 			swell = CfgLines.BIRTH_SWELL * (1.0 - k) * (1.0 - k)
 			# своя фаза у договора: соседние линии дышат вразнобой и не сливаются в одно мигание
@@ -97,13 +90,12 @@ func _draw() -> void:
 			if e > s:
 				var pts := field._run_poly(c, s, e)
 				if eco:
-					_draw_glow(field, pts, body, core, field._seg_alpha(c, s))
+					_draw_glow(field, pts, body, core, _alpha(c, s))
 				else:
-					_draw_layers(field, pts, body, core, field._seg_alpha(c, s), swell, breath)
+					_draw_layers(field, pts, body, core, _alpha(c, s), swell, breath)
 				s = e
 			else:
 				s += 1
-
 
 func _draw_overlay() -> void:
 	var eco := Settings.is_economy_graphics()
@@ -130,7 +122,7 @@ func _draw_overlay() -> void:
 				_draw_seg_contour(c, r, body, core)
 				r = e
 			else:
-				_draw_rune_contour(field._run_poly(c, r, e), field._seg_alpha(c, r), body, core)
+				_draw_rune_contour(field._run_poly(c, r, e), _alpha(c, r), body, core)
 				r = e
 		if not gild.is_empty():
 			_draw_gild(c, gild)
@@ -144,8 +136,10 @@ func _draw_overlay() -> void:
 		for s in c.seg_count():
 			if not c.seg_alive(s):
 				continue
-			var a := field._seg_alpha(c, s)
+			var a := _alpha(c, s)
 			_draw_ttl_ring(c.seg_center(s), c.seg_left(s) / c.ttl, a, body, core)
+			if not Settings.is_flashes_enabled() and c.seg_left(s) <= LegionCfg.SEG_BLINK:
+				_draw_expiry_mark(c, s)
 			if field.seal_ready(c, s):
 				field.overlay.draw_circle(c.seg_center(s) + Vector2(0, -LegionCfg.RUNE_TTL_R),
 					LegionCfg.CORE_WAX_R, LegionCfg.CORE_WAX_COLOR)
@@ -181,21 +175,26 @@ func _draw_overlay() -> void:
 	_draw_cross_fx()
 	_draw_popups()
 
+## Статичные засечки на самом участке заменяют мигание, в том числе у замкнутых фигур.
+func _draw_expiry_mark(c: Contract, s: int) -> void:
+	var pts := c.bent_poly(s)
+	field.overlay.draw_polyline(pts, Color(0.12, 0.03, 0.05, 0.9), 5.0, true)
+	for i in range(1, pts.size()):
+		field.overlay.draw_dashed_line(pts[i - 1], pts[i], field.ARROW_WARN, 2.5, 5.0, true)
 
 func _draw_seg_contour(c: Contract, s: int, body: Color, core: Color) -> void:
-	var a := field._seg_alpha(c, s)
+	var a := _alpha(c, s)
 	var bend := c.bend_frac(s)
 	if bend <= 0.0:
 		_draw_rune_contour(c.seg_polys[s], a, body, core)
 		return
 	# v18 «Давка»: контур гнётся вместе со строем и краснеет к прорыву; к концу —
 	# пульс, чтобы было видно, какой участок пора отпускать пружиной
-	var pulse := 0.5 + 0.5 * sin(field.now * 14.0) if bend > 0.6 else 1.0
+	var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(field.now * 14.0)) if bend > 0.6 else 1.0
 	var warn := Color(LegionCfg.PRESS_COLOR, 1.0)
 	_draw_rune_contour(c.bent_poly(s), a, body.lerp(warn, bend * pulse),
 		core.lerp(Color(1.0, 0.85, 0.7), bend * pulse))
 	_draw_press_gauge(c.seg_center(s), bend, pulse)
-
 
 ## Слои линии под бойцами: тень-подложка (только в своём слое — поверх бойцов она бы их
 ## пачкала), дышащий ореол, свечение, тело, сердцевина. swell — вспышка рождения.
@@ -236,7 +235,6 @@ func _draw_flow(c: Contract, core: Color) -> void:
 	var col := Color(core.lerp(Color.WHITE, CfgLines.FLOW_WHITE), CfgLines.FLOW_A)
 	field.overlay.draw_multiline(field._strokes, col, CfgLines.FLOW_W)
 
-
 func _flow_half(from: Vector2, to: Vector2, shift: float) -> void:
 	var half := from.distance_to(to)
 	if half < CfgLines.FLOW_LEN:
@@ -247,10 +245,11 @@ func _flow_half(from: Vector2, to: Vector2, shift: float) -> void:
 		field._strokes.append(from.lerp(to, minf(1.0, (d + CfgLines.FLOW_LEN) / half)))
 		d += CfgLines.FLOW_GAP
 
-
 ## Рождение: раскалённая голова пробегает по новой линии от начала штриха к концу (ease-out) —
 ## договор «скрепляется»; одновременно ореол вспыхивает и оседает (swell в _draw).
 func _draw_birth(c: Contract, body: Color, core: Color) -> void:
+	if not Settings.is_flashes_enabled():
+		return
 	var k := field._birth_k(c)
 	if k >= 1.0:
 		return
@@ -261,8 +260,9 @@ func _draw_birth(c: Contract, body: Color, core: Color) -> void:
 		Color(body, CfgLines.BIRTH_HALO_A * fade))
 	field.overlay.draw_circle(at, CfgLines.BIRTH_HEAD_R, Color(core.lerp(Color.WHITE, 0.6), fade))
 
-
 func _draw_renew(c: Contract, core: Color) -> void:
+	if not Settings.is_flashes_enabled():
+		return
 	var v: Dictionary = field._vis.get(c, {})
 	if v.is_empty() or field.now >= float(v["renew_until"]):
 		return
@@ -333,7 +333,7 @@ func _draw_sling() -> void:
 	var depth := dir * float(field._aim["depth"])
 	var zone := PackedVector2Array([center + side, center + side + depth,
 		center - side + depth, center - side])
-	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
+	var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(FxClock.ms() * 0.02))
 	field.overlay.draw_colored_polygon(zone, Color(col, 0.22 + 0.12 * pulse if gold else 0.12))
 	zone.append(zone[0])
 	# вне золота контур ярче прежнего (0.35 → 0.6): теперь это единственное, на что смотреть
@@ -371,7 +371,7 @@ func _draw_sling() -> void:
 ## align_right — подпись кончается в at (растёт влево), а не начинается.
 func _draw_sling_hint(at: Vector2, col: Color, gold: bool, align_right := false) -> void:
 	var font: Font = UiStyle.FONT_TITLE
-	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
+	var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(FxClock.ms() * 0.02))
 	var size := field._fsz(roundi(22.0 + 3.0 * pulse) if gold else 17)
 	var label := field.sling_hint()
 	var label_w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -524,8 +524,8 @@ func _draw_arrow(at: Vector2, n: Vector2, col: Color) -> void:
 func _draw_draft() -> void:
 	var refresh_like := not field.match_refresh(
 		field._truncate(field._draft, LegionCfg.LINE_MAX)).is_empty()
-	var body := field.REFRESH_COLOR if refresh_like else field._kind_color(field.current_kind, "color")
-	var core := field._kind_color(field.current_kind, "core")
+	var body := field.draft_color(refresh_like, "color")
+	var core := field.draft_color(refresh_like, "core")
 	if Settings.is_economy_graphics():
 		_draw_glow(field.overlay, field._draft, body, core, 0.9)
 	else:
@@ -587,7 +587,7 @@ func _draw_sling_pending() -> void:
 
 ## «Стена»: красное кольцо расходится от точки и гаснет, слово — над ним.
 func _draw_wall_fx() -> void:
-	var ms := Time.get_ticks_msec()
+	var ms := FxClock.ms()
 	for i in range(field._wall_fx.size() - 1, -1, -1):
 		var fx := field._wall_fx[i]
 		var label := String(fx.get("label", IntuitCfg.WALL_LABEL))
@@ -614,7 +614,7 @@ func _draw_wall_fx() -> void:
 ## Перо на конце черновика: пульсирующая светлая точка — «чернила» текут прямо сейчас.
 func _draw_pen(body: Color, core: Color) -> void:
 	var end := field._draft[field._draft.size() - 1]
-	var pulse := 0.5 + 0.5 * sin(field.now * CfgLines.PEN_PULSE_RATE)
+	var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(field.now * CfgLines.PEN_PULSE_RATE))
 	field.overlay.draw_circle(end, CfgLines.PEN_HALO_R * (0.85 + 0.15 * pulse),
 		Color(body, CfgLines.PEN_HALO_A))
 	field.overlay.draw_circle(end, CfgLines.PEN_R, core.lerp(Color.WHITE, 0.5))
@@ -680,7 +680,7 @@ func _draw_ring_draft() -> void:
 	var last := field._draft[field._draft.size() - 1]
 	field.overlay.draw_dashed_line(last, first, Color(body, 0.9), 2.5, 6.0, true)
 	var center := ContractShape.centroid(field._draft)
-	var pulse := 0.5 + 0.5 * sin(field.now * 8.0)
+	var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(field.now * 8.0))
 	field.overlay.draw_circle(center, 3.0 + 2.0 * pulse, Color(body, 0.8))
 	var steps := maxi(3, int(field._draft_len / field.RING_DRAFT_ARROW_STEP))
 	for i in steps:
@@ -785,7 +785,7 @@ func _draw_fig_sling() -> void:
 
 ## Обод кольца схлопывается к центру за RING_FX_MS — «клещи» видны даже в свалке.
 func _draw_ring_fx() -> void:
-	var ms := Time.get_ticks_msec()
+	var ms := FxClock.ms()
 	for i in range(field._ring_fx.size() - 1, -1, -1):
 		var fx := field._ring_fx[i]
 		var k := float(ms - int(fx["ms"])) / field.RING_FX_MS
@@ -807,7 +807,7 @@ func _draw_figures() -> void:
 		if c.figure == &"" or not c.alive():
 			continue
 		var col := field.fig_color(c.figure)
-		var pulse := 0.5 + 0.5 * sin(field.now * 5.0)
+		var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(field.now * 5.0))
 		# контур фигуры поверх строя: плотный строй закрывает линию под ногами целиком (кадр 26.09)
 		var outline := c.points
 		if c.tips.size() >= 3:
@@ -824,8 +824,7 @@ func _draw_figures() -> void:
 			need = field.fig_need(c)
 		var ready := need > 0 and have >= need
 		var charged := c.charge_ready()
-		var text := "%s %d/%d" % [field.fig_label(c.figure), have, need] if need > 0 \
-			else "%s %d" % [field.fig_label(c.figure), have]
+		var text := ContractField.fig_progress_text(field.fig_label(c.figure), have, need)
 		var size := field._core_fs()
 		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		var at := c.center + Vector2(-w * 0.5, size * 0.35)
@@ -860,7 +859,7 @@ func _draw_fig_draft() -> void:
 	var first := field._draft[0]
 	var last := field._draft[field._draft.size() - 1]
 	field.overlay.draw_dashed_line(last, first, Color(col, 0.9), 2.5, 6.0, true)
-	var pulse := 0.5 + 0.5 * sin(field.now * 8.0)
+	var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(field.now * 8.0))
 	var probe := Contract.new().build_figure(field._draft, field._draft_fig) \
 		if field._preview == null or field._preview.figure != field._draft_fig else field._preview
 	if probe.figure == ContractShape.EIGHT:
@@ -943,7 +942,7 @@ func _draw_over_limit() -> void:
 ## Обряд: треугольник вспыхивает белым и гаснет в фиолет, круг-вспышка и волна до края удара.
 ## Реальное время (стоп-кадр мира её не тормозит).
 func _draw_rite_fx() -> void:
-	var ms := Time.get_ticks_msec()
+	var ms := FxClock.ms()
 	for i in range(field._rite_fx.size() - 1, -1, -1):
 		var fx := field._rite_fx[i]
 		var k := float(ms - int(fx["ms"])) / FigureCfg.RITE_FX_MS
@@ -954,7 +953,7 @@ func _draw_rite_fx() -> void:
 		var r := float(fx["r"])
 		var col := FigureCfg.TRI_COLOR
 		# вспышка: первые 15 % — белый диск, дальше гаснет
-		var flash := clampf(1.0 - k / 0.25, 0.0, 1.0)
+		var flash := clampf(1.0 - k / 0.25, 0.0, 1.0) if Settings.is_flashes_enabled() else 0.0
 		if flash > 0.0:
 			field.overlay.draw_circle(center, r * (0.6 + 0.4 * flash), Color(1, 0.95, 1, 0.35 * flash))
 		# волна: разлетается до 1.25 r с ease-out
@@ -978,7 +977,7 @@ func _draw_rite_fx() -> void:
 ## «Крест-накрест»: две толстые стрелки от центра петли к центру другой, чуть разведённые, —
 ## видно, что петли пробегают сквозь перетяжку навстречу. 600 мс реального времени.
 func _draw_cross_fx() -> void:
-	var ms := Time.get_ticks_msec()
+	var ms := FxClock.ms()
 	for i in range(field._cross_fx.size() - 1, -1, -1):
 		var fx := field._cross_fx[i]
 		var k := float(ms - int(fx["ms"])) / 600.0

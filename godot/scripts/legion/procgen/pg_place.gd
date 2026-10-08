@@ -68,6 +68,8 @@ static func plots(lay: PgLayout) -> void:
 	if (lay.card.get("quirks", []) as Array).has("recruit_link") and not _link(lay, cands, chosen):
 		lay.fail = "найм-перемычка: нет пары участков у узла"
 		return
+	if not PgPlotPatterns.apply(lay, cands, chosen):
+		return
 	var want := lay.rng.randi_range(COUNT.x, COUNT.y)
 	if String(lay.card["archetype"]) == "relay":
 		want = lay.rng.randi_range(COUNT_RELAY.x, COUNT_RELAY.y)

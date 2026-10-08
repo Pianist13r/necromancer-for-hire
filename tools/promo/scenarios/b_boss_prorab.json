@@ -1,0 +1,70 @@
+{
+  "name": "b_boss_prorab",
+  "about": "Бой с Прорабом на «Аде» крупным планом: Прораб со свитой по северной дороге, толпа с юга по ширине дороги, кольцо на пути Прораба, молния Ку по цепи, подъём трупов Дубль-вэ, рогатка; камера держит Прораба и стычку.",
+  "map": "boss",
+  "seed": 23,
+  "dev": {"difficulty": "hell"},
+  "seconds": 19,
+  "hud": "clean",
+  "cursor": true,
+  "stills": [2.0, 4.7, 8.0, 9.4, 12.0, 14.0, 16.8, 18.0],
+  "setup": {
+    "hints": false,
+    "hold_waves": true,
+    "souls": 420,
+    "mana": 600,
+    "mana_regen": 2.5,
+    "build": [
+      {"plot": "p3", "kind": "clerk", "level": 2},
+      {"plot": "p4", "kind": "guard", "level": 2},
+      {"plot": "p5", "kind": "laborer", "level": 2},
+      {"plot": "p8", "kind": "guard", "level": 1}
+    ],
+    "army": [
+      {"kind": "guard", "n": 30, "at": [775, 225], "r": 40},
+      {"kind": "laborer", "n": 30, "at": [775, 500], "r": 40},
+      {"kind": "clerk", "n": 20, "at": [565, 360], "r": 28}
+    ],
+    "boss": {"road": "north", "at": 0.44, "wave": 5},
+    "foes": [
+      {"road": "north", "from": 0.3, "to": 0.47, "n": 30, "jitter": 4, "wave": 5, "types": ["zombie", "shield_inspector", "zombie", "signer", "zombie", "ghost"], "width": 60},
+      {"road": "south", "from": 0.25, "to": 0.45, "n": 44, "jitter": 4, "types": ["zombie", "zombie", "beetle", "zombie", "signer", "zombie", "shield_inspector"], "width": 70}
+    ]
+  },
+  "steps": [
+    {"t": 0.05, "do": "camera", "zoom": 1.0, "cut": true},
+    {"t": 0.1, "do": "mark", "name": "b_start"},
+    {"t": 0.2, "do": "ring", "kind": 2, "center": [650, 205], "r": 72, "from": 160},
+    {"t": 0.9, "do": "camera", "zoom": 1.6, "at": [680, 210], "time": 0.9},
+    {"t": 1.5, "do": "draw", "kind": 1, "hand": 3, "pts": [[606, 498], [632, 506], [664, 504], [694, 494]], "toward": [650, 580]},
+    {"t": 2.0, "do": "shot", "name": "b_01_ring_boss"},
+    {"t": 2.4, "do": "poly", "kind": 3, "hand": 2, "pts": [[450, 400], [552, 400], [501, 312], [450, 400]]},
+    {"t": 3.0, "do": "camera", "zoom": 1.35, "at": [640, 330], "time": 0.9},
+    {"t": 4.1, "do": "camera", "zoom": 1.7, "follow": "fight", "time": 0.6},
+    {"t": 4.2, "do": "key", "key": "Q", "at": [760, 150], "hold": 16},
+    {"t": 4.7, "do": "shot", "name": "b_02_lightning"},
+    {"t": 6.3, "do": "sling", "from": [720, 205], "to": [668, 205], "hold": 8},
+    {"t": 7.4, "do": "camera", "zoom": 1.75, "at": [650, 220], "time": 0.6},
+    {"t": 7.6, "do": "cheat", "cd": true, "mana": 500},
+    {"t": 7.7, "do": "key", "key": "W", "at": [650, 230], "hold": 14},
+    {"t": 8.0, "do": "shot", "name": "b_03_raise"},
+    {"t": 9.0, "do": "key", "key": "Q", "at": [700, 140], "hold": 14},
+    {"t": 9.4, "do": "shot", "name": "b_04_lightning2"},
+    {"t": 9.8, "do": "cheat", "army": [{"kind": "laborer", "n": 24, "at": [775, 500], "r": 36}, {"kind": "guard", "n": 16, "at": [775, 235], "r": 34}]},
+    {"t": 10.0, "do": "camera", "zoom": 1.45, "at": [690, 480], "time": 0.9},
+    {"t": 10.3, "do": "sling", "from": [650, 504], "to": [650, 450], "hold": 8},
+    {"t": 11.2, "do": "cheat", "foes": [{"road": "south", "from": 0.2, "to": 0.42, "n": 30, "jitter": 4, "types": ["zombie", "beetle", "zombie", "signer"], "width": 66}, {"road": "north", "from": 0.12, "to": 0.3, "n": 24, "jitter": 4, "wave": 5, "types": ["zombie", "signer", "zombie", "ghost"], "width": 66}], "cd": true},
+    {"t": 11.4, "do": "key", "key": "E", "at": [700, 300], "hold": 12},
+    {"t": 12.4, "do": "eight", "kind": 1, "center": [775, 500], "r": 50},
+    {"t": 13.8, "do": "camera", "zoom": 1.6, "follow": "fight", "time": 0.8},
+    {"t": 14.0, "do": "shot", "name": "b_05_eight"},
+    {"t": 14.2, "do": "key", "key": "Q", "at": [650, 260], "hold": 14},
+    {"t": 15.4, "do": "key", "key": "W", "at": [620, 300], "hold": 12},
+    {"t": 16.2, "do": "camera", "zoom": 1.5, "at": [540, 350], "time": 0.8},
+    {"t": 16.4, "do": "sling", "from": [501, 380], "to": [501, 420], "hold": 8},
+    {"t": 16.8, "do": "shot", "name": "b_06_rite"},
+    {"t": 17.6, "do": "camera", "zoom": 1.2, "at": [640, 360], "time": 1.0},
+    {"t": 18.4, "do": "mark", "name": "b_end"},
+    {"t": 18.6, "do": "end"}
+  ]
+}

@@ -106,6 +106,7 @@ func _run() -> void:
 	await _test_pending_reward_survives_menu()
 	await _test_empty_pool_skips_picker()
 	await _test_reset_progress()   # последним: стирает прогресс
+	await _test_victory_retry_reward()
 
 	print("LEGION FLOW: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails > 0 else 0)
@@ -136,6 +137,10 @@ func _test_defeat_retry_menu() -> void:
 	_check(main.screen is LegionResult, "поражение → итог")
 	(main.screen as LegionResult).retry.emit()
 	await _frames(2)
+	_check(main.screen is Briefing, "«Ещё раз» после поражения даёт подготовиться")
+	if main.screen is Briefing:
+		(main.screen as Briefing).start.emit(map_id)
+		await _frames(2)
 	_check(main.world.phase == LegionWorld.Phase.BATTLE and main.world.map_id == map_id,
 		"«Ещё раз» после поражения вернул в бой той же картой")
 	main.world.force_end(false)
@@ -175,6 +180,65 @@ func _test_settings_wired() -> void:
 		await _frames(1)
 	main.world.set_paused(false)
 	await _frames(1)
+
+
+## P1: две победы через настоящий клик «Ещё раз» должны дать две независимые поправки.
+func _test_victory_retry_reward() -> void:
+	Campaign.reset()
+	Campaign.set_intro_cutscene_seen()
+	main.start_battle("wasteland")
+	await _frames(3)
+	main.world.force_end(true)
+	await _frames(3)
+	var retry_button: Button = null
+	for btn in main.screen.find_children("*", "Button", true, false):
+		if btn.text == "Ещё раз":
+			retry_button = btn
+	_check(retry_button != null, "победа: повтор доступен")
+	if retry_button == null:
+		return
+	var point := root.get_final_transform() * retry_button.get_global_rect().get_center()
+	var motion := InputEventMouseMotion.new()
+	motion.device = 8
+	motion.position = point
+	motion.global_position = point
+	Input.parse_input_event(motion)
+	await _frames(1)
+	for down: bool in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.device = 8
+		click.position = point
+		click.global_position = point
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = down
+		click.button_mask = MOUSE_BUTTON_MASK_LEFT if down else 0
+		Input.parse_input_event(click)
+		await _frames(2)
+	_check(main.screen is UpgradePicker, "победа → Ещё раз → выбор первой награды")
+	if not main.screen is UpgradePicker:
+		main.show_menu()
+		await _frames(2)
+		return
+	var picker := main.screen as UpgradePicker
+	picker.choose(picker.offered()[0])
+	await _frames(3)
+	_check(main.screen is Briefing and Campaign.upgrades().size() == 1,
+		"первый выбор сохранён, повтор идёт через брифинг")
+	(main.screen as Briefing).start.emit("wasteland")
+	await _frames(3)
+	main.world.force_end(true)
+	await _frames(3)
+	(main.screen as LegionResult).next.emit()
+	await _frames(3)
+	_check(main.screen is UpgradePicker and not Campaign.reward_claimed(),
+		"вторая победа предлагает вторую награду")
+	if main.screen is UpgradePicker:
+		picker = main.screen as UpgradePicker
+		picker.choose(picker.offered()[0])
+		await _frames(3)
+	_check(Campaign.upgrades().size() == 2, "две победы — две подписанные поправки")
+	main.show_menu()
+	await _frames(2)
 
 
 func _find_settings_screen() -> SettingsScreen:

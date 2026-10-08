@@ -238,17 +238,18 @@ static func is_climax(wave: Dictionary) -> bool:
 
 
 ## Подсказка превью кульминации: чем отвечать — по составу волны (вызов виден заранее).
+## Клавиши — текущие (Controls.text здесь — единственный сток: строку выводит только HUD).
 static func answer_hint(groups: Array) -> String:
 	var tips := PackedStringArray()
 	var seen := {}
 	for g: Dictionary in groups:
 		seen[String(g.get("type", ""))] = true
 	if seen.has("shield_inspector"):
-		tips.append("щиты — охрана или Е")
+		tips.append("щиты — охрана или {key:cast_e}")
 	if seen.has("ghost"):
-		tips.append("призраки — аудит или Ку")
+		tips.append("призраки — аудит или {key:cast_q}")
 	if seen.has("signer"):
 		tips.append("нотариусы — натиск")
 	if seen.has("boss"):
 		tips.append("Прораб — выпуск перед тараном")
-	return " · ".join(tips)
+	return Controls.text(" · ".join(tips))

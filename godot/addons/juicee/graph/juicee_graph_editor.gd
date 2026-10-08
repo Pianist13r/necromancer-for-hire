@@ -1159,7 +1159,7 @@ func load_from_sequence(seq: JuiceeSequence, source_label: String = "from sequen
 		var slug := "effect"
 		if script:
 			slug = script.resource_path.get_file().get_basename()
-		data.id = "%s_%d" % [slug, Time.get_ticks_msec() + randi() % 9999]
+		data.id = "%s_%d" % [slug, Time.get_ticks_msec() + JuiceeEffect.rng.randi() % 9999]
 		data.type = "effect"
 		data.graph_position = Vector2(x, y)
 		data.effect = effect

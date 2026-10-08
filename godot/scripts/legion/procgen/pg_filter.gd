@@ -133,6 +133,18 @@ static func check(map: Dictionary) -> Array[String]:
 	return evaluate(map)["problems"]
 
 
+## Генератору достаточно первого отказа; полный check сохраняет все причины для редактора.
+static func accepts(map: Dictionary) -> bool:
+	return rejection(map).is_empty()
+
+
+static func rejection(map: Dictionary) -> Array[String]:
+	var result: Variant = _analyze(map, true)
+	if result is Dictionary and result.get("problems", null) is Array:
+		return result["problems"]
+	return ["Фильтр: быстрый разбор оборвался — карта не проверена"]
+
+
 ## Штраф мягких правил 0…1 (меньше — лучше): доля проходимого 65–92 % и «своя история» у участков.
 ## «Дорога — самый светлый объект» здесь не проверяется: это картинка (PgArt), а не данные.
 static func score(map: Dictionary) -> float:
@@ -201,6 +213,8 @@ static func _stages(map: Dictionary) -> Array:
 			return PgQuirkRules.rule_sleepers_crypts(c, p)],
 		["изюминки", func(c: Dictionary, p: Array[String]) -> bool:
 			return PgQuirkRules.rule_layout_quirks(c, p)],
+		["схема участков", func(c: Dictionary, p: Array[String]) -> bool:
+			return PgPlotPatterns.check(c["map"], p)],
 		["оценка", func(c: Dictionary, _p: Array[String]) -> bool:
 			var walkable: float = (c["raster"] as PgRaster).free_share()
 			var story := _story_share(c)
@@ -211,7 +225,7 @@ static func _stages(map: Dictionary) -> Array:
 	]
 
 
-static func _analyze(map: Dictionary) -> Dictionary:
+static func _analyze(map: Dictionary, quick := false) -> Dictionary:
 	var t0 := Time.get_ticks_usec()
 	var problems := PgMapShape.check(map)
 	if not problems.is_empty():
@@ -220,11 +234,15 @@ static func _analyze(map: Dictionary) -> Dictionary:
 				"ms": float(Time.get_ticks_usec() - t0) / 1000.0}}
 	var ctx := {"map": map}
 	for st: Array in _stages(map):
+		if quick and st[0] == "оценка":
+			return {"problems": problems}
 		var ok: Variant = (st[1] as Callable).call(ctx, problems)
 		if not (ok is bool and ok):
 			problems.append("Фильтр: этап «%s» оборвался ошибкой — карта не проверена" % st[0])
 			return {"problems": problems, "score": 1.0,
 				"measure": {"invalid": true, "problems": problems.size()}}
+		if quick and not problems.is_empty():
+			return {"problems": problems}
 	var m: Dictionary = ctx["measure"]
 	m["problems"] = problems.size()
 	m["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
@@ -264,6 +282,8 @@ static func _dedup_roads(roads: Dictionary) -> Dictionary:
 static func _samples(ctx: Dictionary) -> Dictionary:
 	var raster: PgRaster = ctx["raster"]
 	var out: Dictionary = {}
+	# Общие стволы развилок семплируются каждой дорогой; геометрия луча та же.
+	var rays := {}
 	for road_id: String in ctx["roads"]:
 		var path: PackedVector2Array = ctx["roads"][road_id]
 		var pos := PackedVector2Array()
@@ -287,8 +307,12 @@ static func _samples(ctx: Dictionary) -> Dictionary:
 					pos.append(p)
 					arc.append(base + k)
 					dir.append(t)
-					left.append(raster.ray(p, n))
-					right.append(raster.ray(p, -n))
+					var key := Vector4(p.x, p.y, n.x, n.y)
+					if not rays.has(key):
+						rays[key] = Vector2i(raster.ray(p, n), raster.ray(p, -n))
+					var distances: Vector2i = rays[key]
+					left.append(distances.x)
+					right.append(distances.y)
 				k += SAMPLE_STEP
 			base += length
 		var span := PackedInt32Array()

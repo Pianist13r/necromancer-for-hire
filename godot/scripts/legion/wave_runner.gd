@@ -95,6 +95,13 @@ func call_next() -> int:
 	return bonus
 
 
+## Режиссёр записи (scripts/dev/legion_director.gd): сразу начать волну i (с нуля) карты — её
+## настоящие группы и интервалы, как при наступлении по часам. Игра сама этого не вызывает.
+func start_wave(i: int) -> void:
+	if total() > 0:
+		_start(clampi(i, 0, total() - 1))
+
+
 func tick(dt: float) -> void:
 	if held or phase == Phase.DONE:
 		return

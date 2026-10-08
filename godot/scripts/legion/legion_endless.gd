@@ -37,10 +37,8 @@ const DEATH_REASONS := {
 	ABANDON_TYPE: "самовольный уход с объекта — прогул смены без уважительной причины",
 }
 const DEFAULT_DEATH_REASON := "истёк договор — продлить не успели"
-## Версия генератора для сида «Вызова дня» — TODO координатору после слияния layout: подставить
-## сюда ProcGen.VERSION вместо STUB_VERSION, иначе «Вызов дня» перестанет быть одинаковым у всех
-## при обновлении генератора (см. daily_seed()).
-const STUB_VERSION := 0
+## Имя оставлено для старой оснастки кадров; сид уже привязан к реальному генератору.
+const STUB_VERSION := ProcGen.VERSION
 
 
 ## Причина в некрологе по типу врага, нанёсшего последний удар (LegionWorld.damage_cauldron
@@ -74,7 +72,7 @@ static func today_date() -> String:
 ## детерминирован для одной и той же строки в рамках одной версии движка — этого хватает для
 ## «одна дата → один сид», проверено тестом legion_procgen_mode_test.gd.
 static func daily_seed(date: String) -> int:
-	return ("daily|%s|%d" % [date, STUB_VERSION]).hash()
+	return ("daily|%s|%d" % [date, ProcGen.VERSION]).hash()
 
 
 ## Случайный сид обычного (не дневного) забега.

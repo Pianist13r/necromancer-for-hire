@@ -53,6 +53,14 @@ func setup(w: LegionWorld, view: CharView) -> void:
 	_fx_layer.z_index = 50
 	world.entities.add_child(_fx_layer)
 	_vis_rng.randomize()
+	world.rally_used.connect(_on_rally_animation)
+
+
+## Сигнал Сбора относится к локальной стороне; это только жест, без задержки приказа.
+func _on_rally_animation(at: Vector2, count: int) -> void:
+	if side == world.local_side and count > 0 and is_instance_valid(necro_view):
+		necro_view.set_direction(at - necro_view.global_position)
+		necro_view.play_once(&"cast")
 
 
 ## Слой узлов героя живёт в Entities мира, а не под героем: без этого каждый перезапуск карты
@@ -157,6 +165,7 @@ func cast(slot: int, at: Vector2) -> bool:
 		world.pay_ability(slot, side)
 		_cd[slot] = cd_total(slot)
 		if necro_view != null and necro_view.has_clip(&"cast"):
+			necro_view.set_direction(at - necro_view.global_position)
 			necro_view.play_once(&"cast")
 		if world.pvp:
 			world.items_of(side)._on_hero_cast(slot, at)
@@ -630,6 +639,7 @@ class _Vassal:
 		add_child(_view)
 		_view.setup(String(def.get("char", type_id)), body_h)
 		_view.set_tint(TINT)
+		_view.play_once(&"rise")
 
 	func retint(c: Color) -> void:
 		_view.set_tint(c)

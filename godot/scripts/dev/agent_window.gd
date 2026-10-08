@@ -12,7 +12,11 @@ extends Node
 func _enter_tree() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	var agent_run := OS.get_cmdline_user_args().has("--mute") \
+	# --offscreen (запись промо движком, REC-02): окно прячется так же, но звук не глушится —
+	# Movie Maker пишет его в файл через драйвер Dummy; без записи --offscreen глушит сам
+	# (LegionWorld.parse_args), так что на колонки владельца агентный звук не выходит.
+	var user_args := OS.get_cmdline_user_args()
+	var agent_run := user_args.has("--mute") or user_args.has("--offscreen") \
 		or FileAccess.file_exists("res://.agent_mute")
 	var win := get_window()
 	if agent_run:

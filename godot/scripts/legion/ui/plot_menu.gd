@@ -19,7 +19,7 @@ const NOTE_FONT := 13
 ## Отступ пояснения ≈ ширина значка души у кнопки: текст встаёт под названием, а не под значком.
 const NOTE_INDENT := 34.0
 ## Пояснение под кнопкой срочного найма: за что платим и чем это лучше ожидания.
-const RUSH_NOTE := "павшие встают сразу, без возрождения\n%d душ за бойца"
+const RUSH_NOTE := "павшие возвращаются сейчас\n%d душ за бойца"
 
 var world: LegionWorld = null
 ## Открытый участок ({} — меню закрыто).
@@ -30,6 +30,7 @@ var _box: VBoxContainer = null
 var _anchor := Vector2.ZERO
 var _swallow_tap := false
 var _field: ContractField = null
+var _wait_note: Label = null
 
 
 func setup(w: LegionWorld) -> void:
@@ -86,7 +87,7 @@ func is_open() -> bool:
 ## (вид поля мира, P5a: в «Схватке» ×0,8).
 func open(p: Dictionary, at: Vector2) -> void:
 	plot = p
-	_anchor = world.world_to_screen(at)
+	_anchor = world.world_to_hud(at)
 	_rebuild()
 	_panel.visible = true
 
@@ -141,6 +142,7 @@ func _refresh() -> void:
 
 
 func _rebuild() -> void:
+	_wait_note = null
 	for c in _box.get_children():
 		_box.remove_child(c)
 		c.queue_free()
@@ -149,6 +151,8 @@ func _rebuild() -> void:
 	# лямбды кнопок держат СВОЮ ссылку: close() до действия обнуляет поле plot
 	var target := plot
 	var b: LegionBuilding = target["building"]
+	if st.plot_near_road(target):
+		_note(road_note(st.plot_safe_share(target)))
 	if b == null:
 		_title("Площадка — построить")
 		for kind: StringName in LegionCfg.KIND_ORDER:
@@ -177,6 +181,9 @@ func _rebuild() -> void:
 				func() -> bool: return not st.can_upgrade(b),
 				func() -> void: _act(target, PvpCmd.UPGRADE, &"", func() -> void: st.upgrade(b)),
 				func() -> bool: return me.souls < up)
+			var cap := st.staff_cap(b.kind, LegionStaff.paced(int(data["cap"][b.level])))
+			_note("Штат постройки: +%d\nВозрождение: %.0f → %.0f с" % [
+				cap - b.cap, b.respawn_t, st.staff_respawn(b.kind, float(data["respawn"][b.level]))])
 		# срочный найм (D-0927-135): текст и доступность перечитываются каждый кадр — павшие
 		# и души меняются, пока меню открыто
 		var rush_text := func() -> String:
@@ -190,6 +197,10 @@ func _rebuild() -> void:
 			func() -> bool: return st.rush_price(b) > 0 and me.souls < st.rush_price(b),
 			rush_text)
 		_note(RUSH_NOTE % LegionStaff.rush_each(b))
+		_wait_note = LegionUi.label(_waiting_text(b), NOTE_FONT, LegionUi.FONT_TEXT, LegionUi.TEXT_DIM)
+		_wait_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_wait_note.custom_minimum_size.x = W - NOTE_INDENT
+		_box.add_child(_wait_note)
 		_button("Продать — +%d душ" % LegionStaff.sell_value(b), func() -> bool: return false,
 			func() -> void: _act(target, PvpCmd.SELL, &"", func() -> void: st.sell(b)))
 	_panel.reset_size()
@@ -209,6 +220,15 @@ func _title(text: String) -> void:
 	rule.color = LegionUi.INK_FAINT
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_box.add_child(rule)
+
+
+## B-043: предупреждение «у дороги» называет долю рождений под удар (с шагом 10 %, «около»):
+## игрок видит, насколько площадка плоха, а не только что она «у дороги».
+static func road_note(safe_share: float) -> String:
+	var hit := roundi((1.0 - safe_share) * 10.0) * 10
+	if hit >= 100:
+		return "У дороги: почти все бойцы рождаются под удар. Прикройте выход строем."
+	return "У дороги: около %d %% бойцов рождаются под удар. Прикройте выход строем." % hit
 
 
 ## Пояснение под пунктом: мелко, тусклыми чернилами, с переносом по ширине карточки — читается
@@ -279,3 +299,14 @@ func _update_states() -> void:
 ## (кнопок ≤ 5, это дёшево).
 func _process(_dt: float) -> void:
 	_update_states()
+	if is_open() and is_instance_valid(_wait_note) and plot["building"] != null:
+		_wait_note.text = _waiting_text(plot["building"])
+
+
+func _waiting_text(b: LegionBuilding) -> String:
+	var wait := b.next_respawn()
+	if is_inf(wait):
+		return "Найм возвращает павших, но не увеличивает штат."
+	if world.army_alive(b.side) >= LegionCfg.ARMY_HARD_CAP:
+		return "Лимит армии: пополнение ждёт свободного места."
+	return "Бесплатно через %d с — ближайший боец. Найм не увеличивает штат." % ceili(wait)

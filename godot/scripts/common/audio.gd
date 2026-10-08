@@ -5,7 +5,14 @@ extends Node
 ## и заклинаний, голосовые реплики некроманта/скелетов. Контракт вызовов
 ## фиксирован (его дёргает world.gd) — имена и сигнатуры методов не менять.
 
-const SFX_POOL_SIZE := 8
+## 08.10 (SND-13): 8 плееров по кругу обрывали девятым звуком самый старый, даже длинный и
+## важный (рёв, таран, гонг). Теперь 16 и выбор свободного; если все заняты — забираем самый
+## неважный и самый старый (см. _pick_sfx_player).
+const SFX_POOL_SIZE := 16
+## 08.10 (SND-03): разброс высоты и громкости каждого проигрывания — повторы не «пулемёт»
+## (game-juice: «±10 % высоты на каждом повторе»). Генератор свой (_sfx_rng), не world.rng.
+const SFX_PITCH_JITTER := 0.08
+const SFX_GAIN_JITTER_DB := 1.5
 # короче этого интервала повторный тот же sfx не проигрываем — иначе от частых
 # ударов по толпе получается каша из наложенных друг на друга щелчков
 const SFX_MIN_INTERVAL_MSEC := 60
@@ -70,6 +77,14 @@ var _voice_priority := 0
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_next_index := 0
 var _sfx_last_played_msec: Dictionary = {}
+var _sfx_started_msec: PackedInt64Array = []
+var _sfx_priority: PackedInt32Array = []
+## Свой генератор вариаций: генератор симуляции (world.rng) звук трогать не должен — сдвиг ломает
+## детерминизм серий бота и тестов (COMMON п.9а).
+var _sfx_rng := RandomNumberGenerator.new()
+## Фоновый прогрев синтеза (SND-12): задача пула потоков и её результат [[id, дубль, поток]].
+var _warm_task := -1
+var _warm_result: Array = []
 
 # два плеера музыки нужны только для кроссфейда: пока звучит старый трек,
 # новый плавно нарастает поверх
@@ -101,6 +116,12 @@ func setup(muted: bool) -> void:
 		_sfx_players.append(player)
 	_sfx_next_index = 0
 	_sfx_last_played_msec.clear()
+	_sfx_started_msec.resize(SFX_POOL_SIZE)
+	_sfx_started_msec.fill(0)
+	_sfx_priority.resize(SFX_POOL_SIZE)
+	_sfx_priority.fill(0)
+	_sfx_rng.randomize()
+	_start_warm()
 
 	for player in _music_players:
 		player.queue_free()
@@ -141,9 +162,52 @@ func silence_all() -> void:
 		_voice_player.stream = null
 
 
-func _exit_tree() -> void:
+## Освобождение, а не уход из дерева (verifier 08.10): мир при старте боя переносит общий узел
+## звука к себе (legion_world.gd, injected_audio: remove_child/add_child), и чистка кэша в
+## _exit_tree выбрасывала весь прогрев — первый рёв босса снова синтезировался в кадре (113 мс).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_PREDELETE:
+		return
 	silence_all()
+	if _warm_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_warm_task)
+		_warm_task = -1
 	SfxGen.clear_cache()
+
+
+## SND-12: синтез в GDScript в кадре боя мог дать провал кадра на первом рёве босса (ult_cast —
+## 1 с звука). Весь набор с дублями синтезируется в фоне сразу при создании слоя (меню), готовое
+## кладётся в кэш из основного потока в _process. Запрошенное раньше прогрева — как прежде,
+## синтезом на месте. Под --mute не греем: звук не играет, а гейту лишние секунды ни к чему.
+func _start_warm() -> void:
+	if _muted or _warm_task >= 0:
+		return
+	_warm_result = []
+	var jobs: Array = []
+	for id in SfxGen.ids():
+		for v in SfxGen.variant_count(id):
+			if not SfxGen.has_cached(id, v):
+				jobs.append([id, v])
+	var out := _warm_result
+	_warm_task = WorkerThreadPool.add_task(func() -> void:
+		for j: Array in jobs:
+			out.append([j[0], j[1], SfxGen.synth(String(j[0]), int(j[1]))]),
+		false, "SfxGen warm")
+
+
+func _process(_delta: float) -> void:
+	if _warm_task < 0 or not WorkerThreadPool.is_task_completed(_warm_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_warm_task)
+	_warm_task = -1
+	for r: Array in _warm_result:
+		SfxGen.store(String(r[0]), int(r[1]), r[2])
+	_warm_result = []
+
+
+## Прогрев закончен (тест и замер оснастки).
+func is_warm() -> bool:
+	return _warm_task < 0
 
 
 func play_music(track: String) -> void:
@@ -194,25 +258,67 @@ func play_music(track: String) -> void:
 	_music_active_index = next_index
 
 
-func sfx(id: String) -> void:
+## Эффект `id` (синтез SfxGen). `pitch` — множитель высоты поверх разброса (лестница комбо),
+## `gain_db` — поправка громкости события к базе шины, `priority` — кого пул не отдаст другому
+## звуку, пока тот звучит (0 — обычный, выше — длинные и важные). Возвращает занятый плеер или
+## null (заглушено, слишком часто, нет звука). Старые вызовы `sfx(id)` работают как раньше.
+func sfx(id: String, pitch := 1.0, gain_db := 0.0, priority := 0) -> AudioStreamPlayer:
 	if _muted:
-		return
-	var now_msec := Time.get_ticks_msec()
+		return null
+	var now_msec := FxClock.ms()
 	var last_msec: int = int(_sfx_last_played_msec.get(id, -SFX_MIN_INTERVAL_MSEC * 10))
 	if now_msec - last_msec < SFX_MIN_INTERVAL_MSEC:
-		return
-	var stream: AudioStream = SfxGen.get_stream(id)
+		return null
+	var variant := _sfx_rng.randi_range(0, SfxGen.variant_count(id) - 1)
+	var stream: AudioStream = SfxGen.get_stream(id, variant)
 	if stream == null and SFX_FILES.has(id):
 		var path: String = SFX_FILES[id]
 		if ResourceLoader.exists(path):
 			stream = load(path)
 	if stream == null:
-		return
+		return null
+	var idx := _pick_sfx_player(priority)
+	if idx < 0:
+		return null
 	_sfx_last_played_msec[id] = now_msec
-	var player := _sfx_players[_sfx_next_index]
-	_sfx_next_index = (_sfx_next_index + 1) % _sfx_players.size()
+	var player := _sfx_players[idx]
+	_sfx_started_msec[idx] = now_msec
+	_sfx_priority[idx] = priority
+	var jitter := _sfx_rng.randf_range(1.0 - SFX_PITCH_JITTER, 1.0 + SFX_PITCH_JITTER)
+	var gain_jitter := _sfx_rng.randf_range(-SFX_GAIN_JITTER_DB, SFX_GAIN_JITTER_DB)
 	player.stream = stream
+	player.pitch_scale = pitch * jitter
+	player.volume_db = SFX_VOLUME_DB + gain_db + gain_jitter
 	player.play()
+	return player
+
+
+## Свободный плеер (поиск с позиции круга — не занимаем один и тот же); все заняты — самый
+## неважный (priority ниже), при равенстве — самый давний. Так длинный гонг или рёв не обрывает
+## девятый щелчок толпы, а щелчки вытесняют друг друга.
+## Вытесняются только звуки не важнее нового (verifier 08.10: щелчок приоритета 0 обрывал рёв
+## босса приоритета 3, когда все 16 плееров были заняты важным). Таких нет — -1, новый звук
+## пропадает: щелчок толпы, не прозвучавший поверх рёва, не потеря.
+func _pick_sfx_player(priority: int) -> int:
+	var n := _sfx_players.size()
+	for k in n:
+		var i := (_sfx_next_index + k) % n
+		if not _sfx_players[i].playing:
+			_sfx_next_index = (i + 1) % n
+			return i
+	var best := -1
+	for i in n:
+		if _sfx_priority[i] > priority:
+			continue
+		if best < 0:
+			best = i
+			continue
+		var lower := _sfx_priority[i] < _sfx_priority[best]
+		var older := _sfx_priority[i] == _sfx_priority[best] \
+			and _sfx_started_msec[i] < _sfx_started_msec[best]
+		if lower or older:
+			best = i
+	return best
 
 
 ## priority по умолчанию 2 (некромант) — так вели себя вызовы этого метода из world.gd ДО
@@ -232,7 +338,7 @@ func voice(id: String, priority: int = 2) -> bool:
 	var variants: Array = VOICE_FILES[id]
 	if variants.is_empty():
 		return true
-	var path: String = variants[randi() % variants.size()]
+	var path: String = variants[_sfx_rng.randi() % variants.size()]   # не глобальный RNG (вид)
 	_voice_priority = priority
 	if not ResourceLoader.exists(path):
 		return true
@@ -244,6 +350,7 @@ func voice(id: String, priority: int = 2) -> bool:
 func set_muted(muted: bool) -> void:
 	_muted = muted
 	_apply_volumes()
+	_start_warm()
 
 
 func _apply_volumes() -> void:

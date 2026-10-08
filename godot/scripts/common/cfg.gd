@@ -124,30 +124,6 @@ const SEP_RADIUS_MULT := 1.15
 const SEP_STRENGTH := 260.0         # px/с на полном перекрытии
 const SEP_MAX_PUSH := 90.0          # потолок на одного врага за кадр
 
-# ── Способности некроманта (config.js ABILITIES) ─────────────────────────────
-## Кулдауны стартуют готовыми. Маны заклинания НЕ стоят — это осознанное решение старого
-## стека (UPGRADE3.md): мана целиком принадлежит рунам, иначе два ресурса дерутся за игрока.
-const ABILITY_Q := {
-	"key": "Q", "label": "Ку", "name": "Служебный разряд",
-	"cooldown": 10.0, "radius": 90.0,
-	"main_damage": 45.0, "chain_damage": [30.0, 20.0, 12.0],
-	"stun": 0.4, "cast_dur": 0.5, "glow_delay": 0.2,
-	"color": Color(0.784, 0.882, 1.0),
-	"knock_main": 150.0, "knock_chain": 90.0,
-}
-const ABILITY_W := {
-	"key": "W", "label": "Дубль-вэ", "name": "Оформление в штат",
-	"cooldown": 18.0, "radius": 140.0,
-	"hp_mult": 0.6, "dmg_mult": 0.8, "duration": 12.0, "max_allies": 2,
-	"cast_dur": 0.5, "glow_delay": 0.2,
-	"color": Color(0.471, 1.0, 0.588),
-}
-const ABILITY_E := {
-	"key": "E", "label": "Е", "name": "Аврал",
-	"cooldown": 25.0, "speed_mult": 1.45, "duration": 6.0,
-	"cast_dur": 0.5, "glow_delay": 0.2,
-	"color": Color(1.0, 0.745, 0.353),
-}
 const ALLY_ATTACK_CD := 0.8
 
 # ── Масштабная сетка отрисовки (js/data/visualScale.js) ──────────────────────

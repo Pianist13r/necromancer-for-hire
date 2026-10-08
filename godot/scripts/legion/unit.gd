@@ -34,6 +34,10 @@ var field: ContractField = null
 ## Чей удар был последним (сторона; −1 — проверяющий или никто): души за гибель — ей (PvP).
 var last_hit_side := -1
 var state := State.FREE
+## Автоматический дальний приказ можно перебить ручным «Сбором», обычный строй — нельзя.
+var auto_march := false
+## Ручной Сбор/оттяжка важнее автоматического набора до нового приказа или срока.
+var held_t := 0.0
 var kind: StringName = LegionCfg.KIND_LABORER
 ## Параметры вида (ссылка на словарь LegionCfg.UNIT_KINDS[kind]; только чтение).
 var spec: Dictionary = LegionCfg.UNIT_KINDS[LegionCfg.KIND_LABORER]
@@ -157,6 +161,7 @@ func tick(dt: float) -> void:
 
 
 func _tick_state(dt: float) -> void:
+	held_t = maxf(0.0, held_t - dt)
 	item_slow_t = maxf(0.0, item_slow_t - dt)
 	ult_slow_t = maxf(0.0, ult_slow_t - dt)
 	if mark_hit_t > 0.0:
@@ -211,6 +216,8 @@ func assign(c: Contract, p: Dictionary, route := PackedVector2Array()) -> void:
 	if path.is_empty():
 		return
 	contract = c
+	auto_march = false
+	held_t = 0.0
 	post = p
 	p["unit"] = self
 	_path = path
@@ -223,6 +230,7 @@ func set_free() -> void:
 	if not post.is_empty() and post["unit"] == self:
 		post["unit"] = null
 	state = State.FREE
+	auto_march = false
 	post = {}
 	contract = null
 
@@ -253,20 +261,28 @@ func knock_to(to: Vector2) -> void:
 		position = nxt
 		left -= 4.0
 
-## v18 «Сбор»: идти по маршруту к точке игрока. Только свободный (строй и натиск не трогаем).
+## «Сбор»: свободные и автомарш; ручное назначение в строй и натиск не трогаем.
 func rally_to(path: PackedVector2Array) -> void:
-	if state != State.FREE or path.is_empty():
+	if not can_rally() or path.is_empty():
 		return
+	set_free()
 	_path = path
 	_path_i = 0
 	_rally_t = LegionCfg.RALLY_MAX_T
+	held_t = LegionCfg.RALLY_HOLD_TIME
 	state = State.RALLY
+
+
+func can_rally() -> bool:
+	return state in [State.FREE, State.RALLY] or (state == State.MARCH and auto_march)
 
 
 ## Таяние/расторжение участка: бег по стрелке. volley — залп выпуска (v17: сила рогатки,
 ## точный срыв, комбо); пустой — прежний натиск ровно с прежними числами.
 ## Запомнить договор строя (no_return_id): боец не возвращается на его места сам.
 func start_charge(dir: Vector2, volley: Dictionary = {}, cap := INF) -> void:
+	auto_march = false
+	held_t = 0.0
 	if contract != null:
 		no_return_id = contract.id
 	post = {}
@@ -365,7 +381,7 @@ func _tick_free(dt: float) -> bool:
 	if foe != null and _in_reach(foe):
 		_free_strike(foe)
 		return false
-	return _guard_home(dt)
+	return false if held_t > 0.0 else _guard_home(dt)
 
 
 func _free_strike(foe: Node2D) -> void:
@@ -483,6 +499,7 @@ func _tick_rally(dt: float) -> bool:
 func _arrive() -> void:
 	position = post["pos"]
 	state = State.POSTED
+	auto_march = false
 	var n: Vector2 = post["normal"]
 	_face(n)
 

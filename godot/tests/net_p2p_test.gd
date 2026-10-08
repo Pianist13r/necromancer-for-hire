@@ -422,7 +422,7 @@ func _delay_checks() -> void:
 # ── 7. Протокол ─────────────────────────────────────────────────────────────
 
 func _proto_checks() -> void:
-	var relay: Dictionary = (load("res://scripts/legion/net/net_relay.gd") as Script) \
+	var relay: Dictionary = (load("res://scripts/legion/net/net_relay_core.gd") as Script) \
 		.get_script_constant_map()
 	_check(int(relay["EMPTY_TURNS"]) == NetSession.DELAY_MIN,
 		"ретранслятор: пустых ходов требует столько же, сколько нижняя граница задержки")

@@ -10,7 +10,8 @@ static func result(main: LegionMain, map_id: String, victory: bool, stats: Dicti
 	main._set_screen(screen)
 	screen.call_deferred("show_result", victory, stats, stars, has_next, complete, rewards)
 	screen.next.connect(main._on_result_next)
-	screen.retry.connect(func() -> void: main.start_battle(map_id))
+	# Повтор — такой же выбор карты: сначала незабранная награда, затем подготовка.
+	screen.retry.connect(func() -> void: main._on_map_chosen(map_id))
 	screen.maps.connect(main.show_map_select)
 	screen.menu.connect(main.show_menu)
 

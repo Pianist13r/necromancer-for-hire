@@ -18,7 +18,7 @@ const READY := true
 
 const FIELD_PROPS: Array[String] = [
 	"mana", "mana_max", "mana_regen", "mana_cost_mult",
-	# вид следующего договора: match_refresh подрисовывает только договоры этого вида
+	# вид следующего договора (вид новой линии; подновлять match_refresh может любой вид, B-044)
 	"current_kind",
 	"now", "delay", "_next_id", "_package_t", "_pair_times",
 ]
@@ -37,6 +37,9 @@ const FIELD_SKIP: Array[String] = [
 	"_preview", "_preview_plan", "_preview_t", "_pointer", "_draft_cost", "_pressing",
 	"_press_pos", "_press_pts", "_press_eaten", "_grab", "_grab_pos", "_pull", "_slinging",
 	"_aim", "_tick_t", "_begin_raw",
+	# B-057 откат вида после тика колеса и B-044 Шифт человека (штрих из сети несёт свой флаг
+	# stack, stroke() ставит и возвращает _stack сам)
+	"_wheel_tick_ms", "_wheel_prev_kind", "_stack",
 	# сетевой ввод этого клиента (D-1001-22): черновик-превью без маны, частота отправки прицела
 	"_draft_net", "_aim_sent_ms", "_aim_unsent",
 	# вид и звук, счётчики отрисовки

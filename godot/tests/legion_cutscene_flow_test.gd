@@ -48,11 +48,11 @@ func _cutscene() -> LegionCutscene:
 ## по Time.get_ticks_msec() и длине файла; кадры под --fixed-fps идут быстрее настоящих секунд).
 func _wait_quiet(audio: LegionAudio) -> void:
 	for i in 4:
-		var left := audio._voice_busy_until_msec - Time.get_ticks_msec()
+		var left := audio.speech._voice_busy_until_msec - Time.get_ticks_msec()
 		if left > 0:
 			OS.delay_msec(left + 80)
 		await _frames(3)
-		if audio._voice_busy_until_msec <= Time.get_ticks_msec():
+		if audio.speech._voice_busy_until_msec <= Time.get_ticks_msec():
 			return
 
 
@@ -123,7 +123,7 @@ func _run() -> void:
 		await _wait_quiet(audio)
 		var said_new := false
 		for id in [&"lg_contract_new_1", &"lg_contract_new_2", &"lg_contract_new_3"]:
-			said_new = said_new or audio._voice_last_msec.has(id)
+			said_new = said_new or audio.speech._voice_last_msec.has(id)
 		_check(said_new, "брифинг с новым видом — lg_contract_new_*")
 		# Покупка пакета на брифинге — та же реплика, что раньше в «Конторе» (lg_office_buy).
 		await _wait_quiet(audio)
@@ -136,7 +136,7 @@ func _run() -> void:
 				if row.amendment_id == &"souls":
 					row.button().pressed.emit()
 			await _frames(1)
-		_check(audio._voice_last_msec.has(&"lg_office_buy"), "покупка подготовки — lg_office_buy")
+		_check(audio.speech._voice_last_msec.has(&"lg_office_buy"), "покупка подготовки — lg_office_buy")
 
 	main.queue_free()
 	await _frames(1)

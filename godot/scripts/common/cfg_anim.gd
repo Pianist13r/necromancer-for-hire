@@ -104,9 +104,9 @@ const SKELETON_ANIM_CLIPS := {
 	},
 	"walk": {
 		# Направленный IK-цикл .44s при Legion speed70; master256 -> runtime128.
-		"dir": "res://assets/anim/skeleton/walk_e", "fps": 36.363636, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/skeleton/walk_e"}, "se": {"dir": "res://assets/anim/skeleton/walk_se"},
-			"s": {"dir": "res://assets/anim/skeleton/walk_s"}, "ne": {"dir": "res://assets/anim/skeleton/walk_ne"}, "n": {"dir": "res://assets/anim/skeleton/walk_n"}},
+		"dir": "res://assets/anim/skeleton/walk_e", "fps": 53.122529644, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/skeleton/walk_e", "fps": 53.122529644}, "se": {"dir": "res://assets/anim/skeleton/walk_se", "fps": 55.652173913},
+			"s": {"dir": "res://assets/anim/skeleton/walk_s", "fps": 55.652173913}, "ne": {"dir": "res://assets/anim/skeleton/walk_ne", "fps": 55.652173913}, "n": {"dir": "res://assets/anim/skeleton/walk_n", "fps": 55.652173913}},
 	},
 	"attack": {"dir": "res://assets/anim/skeleton/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/skeleton/attack_e"}, "se": {"dir": "res://assets/anim/skeleton/attack_se"}, "s": {"dir": "res://assets/anim/skeleton/attack_s"}, "ne": {"dir": "res://assets/anim/skeleton/attack_ne"}, "n": {"dir": "res://assets/anim/skeleton/attack_n"}}},
@@ -165,13 +165,13 @@ const ZOMBIE_CLIPS := {
 		},
 	},
 	"walk": {
-		"dir": "res://assets/anim/zombie/walk_e", "fps": 22.222222, "loop": true, "contact_frame": -1,
+		"dir": "res://assets/anim/zombie/walk_e", "fps": 32.969696970, "loop": true, "contact_frame": -1,
 		"directions": {
-			"e": {"dir": "res://assets/anim/zombie/walk_e"},
-			"se": {"dir": "res://assets/anim/zombie/walk_se"},
-			"s": {"dir": "res://assets/anim/zombie/walk_s"},
-			"ne": {"dir": "res://assets/anim/zombie/walk_ne"},
-			"n": {"dir": "res://assets/anim/zombie/walk_n"},
+			"e": {"dir": "res://assets/anim/zombie/walk_e", "fps": 32.969696970},
+			"se": {"dir": "res://assets/anim/zombie/walk_se", "fps": 34.909090909},
+			"s": {"dir": "res://assets/anim/zombie/walk_s", "fps": 34.909090909},
+			"ne": {"dir": "res://assets/anim/zombie/walk_ne", "fps": 34.909090909},
+			"n": {"dir": "res://assets/anim/zombie/walk_n", "fps": 34.909090909},
 		},
 	},
 	"attack": {
@@ -214,9 +214,9 @@ const BEETLE_CLIPS := {
 		"directions": {"e": {"dir": "res://assets/anim/beetle/idle_e"}, "se": {"dir": "res://assets/anim/beetle/idle_se"},
 			"s": {"dir": "res://assets/anim/beetle/idle_s"}, "ne": {"dir": "res://assets/anim/beetle/idle_ne"}, "n": {"dir": "res://assets/anim/beetle/idle_n"}}},
 	"walk": {
-		"dir": "res://assets/anim/beetle/walk_e", "fps": 47.058824, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/beetle/walk_e"}, "se": {"dir": "res://assets/anim/beetle/walk_se"},
-			"s": {"dir": "res://assets/anim/beetle/walk_s"}, "ne": {"dir": "res://assets/anim/beetle/walk_ne"}, "n": {"dir": "res://assets/anim/beetle/walk_n"}},
+		"dir": "res://assets/anim/beetle/walk_e", "fps": 74.666666667, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/beetle/walk_e", "fps": 74.666666667}, "se": {"dir": "res://assets/anim/beetle/walk_se", "fps": 74.666666667},
+			"s": {"dir": "res://assets/anim/beetle/walk_s", "fps": 74.666666667}, "ne": {"dir": "res://assets/anim/beetle/walk_ne", "fps": 74.666666667}, "n": {"dir": "res://assets/anim/beetle/walk_n", "fps": 74.666666667}},
 	},
 	"attack": {"dir": "res://assets/anim/beetle/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/beetle/attack_e"}, "se": {"dir": "res://assets/anim/beetle/attack_se"}, "s": {"dir": "res://assets/anim/beetle/attack_s"}, "ne": {"dir": "res://assets/anim/beetle/attack_ne"}, "n": {"dir": "res://assets/anim/beetle/attack_n"}}},
@@ -228,9 +228,9 @@ const SIGNER_CLIPS := {
 		"directions": {"e": {"dir": "res://assets/anim/signer/idle_e"}, "se": {"dir": "res://assets/anim/signer/idle_se"},
 			"s": {"dir": "res://assets/anim/signer/idle_s"}, "ne": {"dir": "res://assets/anim/signer/idle_ne"}, "n": {"dir": "res://assets/anim/signer/idle_n"}}},
 	"walk": {
-		"dir": "res://assets/anim/signer/walk_e", "fps": 22.222222, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/signer/walk_e"}, "se": {"dir": "res://assets/anim/signer/walk_se"},
-			"s": {"dir": "res://assets/anim/signer/walk_s"}, "ne": {"dir": "res://assets/anim/signer/walk_ne"}, "n": {"dir": "res://assets/anim/signer/walk_n"}},
+		"dir": "res://assets/anim/signer/walk_e", "fps": 32.969696970, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/signer/walk_e", "fps": 32.969696970}, "se": {"dir": "res://assets/anim/signer/walk_se", "fps": 32.969696970},
+			"s": {"dir": "res://assets/anim/signer/walk_s", "fps": 32.969696970}, "ne": {"dir": "res://assets/anim/signer/walk_ne", "fps": 32.969696970}, "n": {"dir": "res://assets/anim/signer/walk_n", "fps": 32.969696970}},
 	},
 	"attack": {"dir": "res://assets/anim/signer/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/signer/attack_e"}, "se": {"dir": "res://assets/anim/signer/attack_se"}, "s": {"dir": "res://assets/anim/signer/attack_s"}, "ne": {"dir": "res://assets/anim/signer/attack_ne"}, "n": {"dir": "res://assets/anim/signer/attack_n"}}},
@@ -245,9 +245,9 @@ const LAWYER_CLIPS := {
 		"directions": {"e": {"dir": "res://assets/anim/lawyer/idle_e"}, "se": {"dir": "res://assets/anim/lawyer/idle_se"},
 			"s": {"dir": "res://assets/anim/lawyer/idle_s"}, "ne": {"dir": "res://assets/anim/lawyer/idle_ne"}, "n": {"dir": "res://assets/anim/lawyer/idle_n"}}},
 	"walk": {
-		"dir": "res://assets/anim/lawyer/walk_e", "fps": 23.529412, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/lawyer/walk_e"}, "se": {"dir": "res://assets/anim/lawyer/walk_se"},
-			"s": {"dir": "res://assets/anim/lawyer/walk_s"}, "ne": {"dir": "res://assets/anim/lawyer/walk_ne"}, "n": {"dir": "res://assets/anim/lawyer/walk_n"}},
+		"dir": "res://assets/anim/lawyer/walk_e", "fps": 35.060869565, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/lawyer/walk_e", "fps": 35.060869565}, "se": {"dir": "res://assets/anim/lawyer/walk_se", "fps": 35.060869565},
+			"s": {"dir": "res://assets/anim/lawyer/walk_s", "fps": 35.060869565}, "ne": {"dir": "res://assets/anim/lawyer/walk_ne", "fps": 35.060869565}, "n": {"dir": "res://assets/anim/lawyer/walk_n", "fps": 35.060869565}},
 	},
 	"attack": {"dir": "res://assets/anim/lawyer/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/lawyer/attack_e"}, "se": {"dir": "res://assets/anim/lawyer/attack_se"}, "s": {"dir": "res://assets/anim/lawyer/attack_s"}, "ne": {"dir": "res://assets/anim/lawyer/attack_ne"}, "n": {"dir": "res://assets/anim/lawyer/attack_n"}}},
@@ -283,9 +283,9 @@ const MIMIC_CLIPS := {
 	"wake": {"dir": "res://assets/anim/mimic/idle_e", "fps": 2.5, "loop": false, "contact_frame": -1,
 		"directions": {"e": {"dir": "res://assets/anim/mimic/idle_e"}, "se": {"dir": "res://assets/anim/mimic/idle_se"},
 			"s": {"dir": "res://assets/anim/mimic/idle_s"}, "ne": {"dir": "res://assets/anim/mimic/idle_ne"}, "n": {"dir": "res://assets/anim/mimic/idle_n"}}},
-	"walk": {"dir": "res://assets/anim/mimic/walk_e", "fps": 27.586207, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/mimic/walk_e"}, "se": {"dir": "res://assets/anim/mimic/walk_se"},
-			"s": {"dir": "res://assets/anim/mimic/walk_s"}, "ne": {"dir": "res://assets/anim/mimic/walk_ne"}, "n": {"dir": "res://assets/anim/mimic/walk_n"}}},
+	"walk": {"dir": "res://assets/anim/mimic/walk_e", "fps": 38.496240602, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/mimic/walk_e", "fps": 38.496240602}, "se": {"dir": "res://assets/anim/mimic/walk_se", "fps": 38.496240602},
+			"s": {"dir": "res://assets/anim/mimic/walk_s", "fps": 38.496240602}, "ne": {"dir": "res://assets/anim/mimic/walk_ne", "fps": 38.496240602}, "n": {"dir": "res://assets/anim/mimic/walk_n", "fps": 38.496240602}}},
 	"attack": {"dir": "res://assets/anim/mimic/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/mimic/attack_e"}, "se": {"dir": "res://assets/anim/mimic/attack_se"}, "s": {"dir": "res://assets/anim/mimic/attack_s"}, "ne": {"dir": "res://assets/anim/mimic/attack_ne"}, "n": {"dir": "res://assets/anim/mimic/attack_n"}}},
 	"death": {"dir": "res://assets/anim/mimic/death_e", "fps": 15.0, "loop": false, "contact_frame": -1, "hold": true,
@@ -298,9 +298,9 @@ const BOSS_CLIPS := {
 	"idle": {"dir": "res://assets/anim/boss/idle_e", "fps": 1.0, "loop": true, "contact_frame": -1,
 		"directions": {"e": {"dir": "res://assets/anim/boss/idle_e"}, "se": {"dir": "res://assets/anim/boss/idle_se"},
 			"s": {"dir": "res://assets/anim/boss/idle_s"}, "ne": {"dir": "res://assets/anim/boss/idle_ne"}, "n": {"dir": "res://assets/anim/boss/idle_n"}}},
-	"walk": {"dir": "res://assets/anim/boss/walk_e", "fps": 19.047619, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/boss/walk_e"}, "se": {"dir": "res://assets/anim/boss/walk_se"},
-			"s": {"dir": "res://assets/anim/boss/walk_s"}, "ne": {"dir": "res://assets/anim/boss/walk_ne"}, "n": {"dir": "res://assets/anim/boss/walk_n"}}},
+	"walk": {"dir": "res://assets/anim/boss/walk_e", "fps": 19.962192817, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/boss/walk_e", "fps": 19.962192817}, "se": {"dir": "res://assets/anim/boss/walk_se", "fps": 19.962192817},
+			"s": {"dir": "res://assets/anim/boss/walk_s", "fps": 19.962192817}, "ne": {"dir": "res://assets/anim/boss/walk_ne", "fps": 19.962192817}, "n": {"dir": "res://assets/anim/boss/walk_n", "fps": 19.962192817}}},
 	"stun": {"dir": "res://assets/anim/boss/idle_e", "fps": 1.0, "loop": true, "contact_frame": -1,
 		"directions": {"e": {"dir": "res://assets/anim/boss/idle_e"}, "se": {"dir": "res://assets/anim/boss/idle_se"},
 			"s": {"dir": "res://assets/anim/boss/idle_s"}, "ne": {"dir": "res://assets/anim/boss/idle_ne"}, "n": {"dir": "res://assets/anim/boss/idle_n"}}},
@@ -315,9 +315,9 @@ const GUARD_CLIPS := {
 	"idle": {"dir": "res://assets/anim/guard/idle_e", "fps": 1.0, "loop": true, "contact_frame": -1,
 		"directions": {"e": {"dir": "res://assets/anim/guard/idle_e"}, "se": {"dir": "res://assets/anim/guard/idle_se"},
 			"s": {"dir": "res://assets/anim/guard/idle_s"}, "ne": {"dir": "res://assets/anim/guard/idle_ne"}, "n": {"dir": "res://assets/anim/guard/idle_n"}}},
-	"walk": {"dir": "res://assets/anim/guard/walk_e", "fps": 30.769231, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/guard/walk_e"}, "se": {"dir": "res://assets/anim/guard/walk_se"},
-			"s": {"dir": "res://assets/anim/guard/walk_s"}, "ne": {"dir": "res://assets/anim/guard/walk_ne"}, "n": {"dir": "res://assets/anim/guard/walk_n"}}},
+	"walk": {"dir": "res://assets/anim/guard/walk_e", "fps": 42.240000000, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/guard/walk_e", "fps": 42.240000000}, "se": {"dir": "res://assets/anim/guard/walk_se", "fps": 42.240000000},
+			"s": {"dir": "res://assets/anim/guard/walk_s", "fps": 42.240000000}, "ne": {"dir": "res://assets/anim/guard/walk_ne", "fps": 42.240000000}, "n": {"dir": "res://assets/anim/guard/walk_n", "fps": 42.240000000}}},
 	"attack": {"dir": "res://assets/anim/guard/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/guard/attack_e"}, "se": {"dir": "res://assets/anim/guard/attack_se"}, "s": {"dir": "res://assets/anim/guard/attack_s"}, "ne": {"dir": "res://assets/anim/guard/attack_ne"}, "n": {"dir": "res://assets/anim/guard/attack_n"}}},
 
@@ -328,9 +328,9 @@ const CLERK_CLIPS := {
 	"idle": {"dir": "res://assets/anim/clerk/idle_e", "fps": 1.0, "loop": true, "contact_frame": -1,
 		"directions": {"e": {"dir": "res://assets/anim/clerk/idle_e"}, "se": {"dir": "res://assets/anim/clerk/idle_se"},
 			"s": {"dir": "res://assets/anim/clerk/idle_s"}, "ne": {"dir": "res://assets/anim/clerk/idle_ne"}, "n": {"dir": "res://assets/anim/clerk/idle_n"}}},
-	"walk": {"dir": "res://assets/anim/clerk/walk_e", "fps": 36.363636, "loop": true, "contact_frame": -1,
-		"directions": {"e": {"dir": "res://assets/anim/clerk/walk_e"}, "se": {"dir": "res://assets/anim/clerk/walk_se"},
-			"s": {"dir": "res://assets/anim/clerk/walk_s"}, "ne": {"dir": "res://assets/anim/clerk/walk_ne"}, "n": {"dir": "res://assets/anim/clerk/walk_n"}}},
+	"walk": {"dir": "res://assets/anim/clerk/walk_e", "fps": 54.025974026, "loop": true, "contact_frame": -1,
+		"directions": {"e": {"dir": "res://assets/anim/clerk/walk_e", "fps": 54.025974026}, "se": {"dir": "res://assets/anim/clerk/walk_se", "fps": 56.598639456},
+			"s": {"dir": "res://assets/anim/clerk/walk_s", "fps": 56.598639456}, "ne": {"dir": "res://assets/anim/clerk/walk_ne", "fps": 56.598639456}, "n": {"dir": "res://assets/anim/clerk/walk_n", "fps": 56.598639456}}},
 	"attack": {"dir": "res://assets/anim/clerk/attack_e", "fps": 20.0, "loop": false, "contact_frame": 5,
 		"directions": {"e": {"dir": "res://assets/anim/clerk/attack_e"}, "se": {"dir": "res://assets/anim/clerk/attack_se"}, "s": {"dir": "res://assets/anim/clerk/attack_s"}, "ne": {"dir": "res://assets/anim/clerk/attack_ne"}, "n": {"dir": "res://assets/anim/clerk/attack_n"}}},
 	# Старый hit рисует одну слитную ногу и блокирует замах. Реакция остаётся
@@ -520,6 +520,13 @@ static func motion_for(char_id: String) -> Dictionary:
 ## Описание персонажа; неизвестный — пустое (CharView покажет пустоту и предупредит).
 static func char_def(char_id: String) -> Dictionary:
 	if CHARS.has(char_id):
-		return CHARS[char_id]
+		var result: Dictionary = CHARS[char_id].duplicate(true)
+		var clips: Dictionary = result.get("clips", {})
+		if clips.has("death"):
+			var alternate: Dictionary = clips["death"].duplicate(true)
+			alternate["retime_fall"] = true
+			clips["death_alt"] = alternate
+			result["death_variants"] = 2
+		return result
 	push_warning("CfgAnim: персонаж '%s' не описан в CHARS" % char_id)
 	return {}

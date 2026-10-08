@@ -78,7 +78,8 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	var eco := Settings.is_economy_graphics()
+	# Без вспышек сохраняем кольца, молнии, значки и границы опасных зон.
+	var eco := Settings.is_economy_graphics() or not Settings.is_flashes_enabled()
 	for side in world.sides:
 		if side.items != null:
 			for h in side.items.hazards:
@@ -195,7 +196,11 @@ func _draw_echo(d: Dictionary, k: float) -> void:
 	var side := dir.orthogonal() * float(d["half"])
 	var far := dir * float(d["depth"]) * (0.3 + 0.7 * k)
 	var poly := PackedVector2Array([at - side, at + side, at + side + far, at - side + far])
-	draw_colored_polygon(poly, Color(0.75, 0.6, 1.0, 0.28 * (1.0 - k)))
+	if Settings.is_flashes_enabled():
+		draw_colored_polygon(poly, Color(0.75, 0.6, 1.0, 0.28 * (1.0 - k)))
+	else:
+		poly.append(poly[0])
+		draw_polyline(poly, Color(0.75, 0.6, 1.0, 1.0 - k), 2.0, true)
 	draw_line(at - side + far, at + side + far, Color(0.9, 0.8, 1.0, 1.0 - k), 3.0, true)
 
 

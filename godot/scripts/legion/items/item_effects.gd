@@ -157,7 +157,7 @@ func fx_golden_pen(_n: int, _p: Dictionary, args: Array) -> void:
 			and world.hero_of(items.owner_side).cd_left(LegionHero.SLOT_Q) > 0.0:
 		world.hero_of(items.owner_side).reset_cd(LegionHero.SLOT_Q)
 		used(&"golden_pen", args[0])
-		items.fx_event.emit(&"text", {"pos": args[0], "text": "Ку готова!",
+		items.fx_event.emit(&"text", {"pos": args[0], "text": Controls.text("{key:cast_q} готова!"),
 			"color": Color(1.0, 0.84, 0.32)})
 
 

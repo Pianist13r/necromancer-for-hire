@@ -422,11 +422,12 @@ func _test_path_cache() -> void:
 ## Ретранслятор в процессе: сокетов нет, игроки — заглушки (сообщения копятся в outq), судья — третья.
 ## Комната начата, стороны 0 и 1 = игроки 1 и 2.
 func _relay_stub() -> Array:
-	var relay: Object = (load("res://scripts/legion/net/net_relay.gd") as GDScript).new()
+	var relay: Object = NetRelayCore.new()
 	var peers: Dictionary = relay.get("_peers")
 	for id in [1, 2, 3]:
+		# базовый NetLink — CLOSED: отправка не проходит, сообщения копятся в outq
 		peers[id] = {"outq": [], "tail": [], "lobby_next": "", "outq_bytes": 0,
-			"ws": WebSocketPeer.new(), "room": "", "side": 0, "hello": true,
+			"link": NetLink.new(), "room": "", "side": 0, "hello": true,
 			"name": "p%d" % id, "build": "t"}
 	relay.call("_create_room", 1, MAP)
 	var code := String((peers[1] as Dictionary)["room"])
@@ -486,7 +487,6 @@ func _test_relay_forged_healed() -> void:
 	relay.call("_healed", 2, {"t": "healed", "id": 2, "ok": true, "at": 820})
 	_check(not bool(busy[1]) and int((room["heal_upto"] as Array)[1]) == 820,
 		"настоящий healed (снимок 760, at 820) принят: upto %d" % int((room["heal_upto"] as Array)[1]))
-	relay.free()
 
 
 func _test_relay_heal_fail() -> void:
@@ -502,7 +502,6 @@ func _test_relay_heal_fail() -> void:
 	var known := relay.has_method("_judge_heal_fail")
 	_check(known, "ретранслятор знает отказ судьи heal_fail")
 	if not known:
-		relay.free()
 		return
 	relay.call("_judge_heal_fail", code, room, {"s": 1, "id": 99, "why": "x"})
 	_check(bool(busy[1]), "отказ с чужим номером подтяжки — мимо")
@@ -522,7 +521,6 @@ func _test_relay_heal_fail() -> void:
 	_check(NetSession.snap_parts(big).size() >= 1 and limited is PackedStringArray
 			and (limited as PackedStringArray).is_empty(),
 		"snap_parts с пределом 5 знаков — пусто (судья не шлёт)")
-	relay.free()
 
 
 ## Клиент отстал, судья ушёл вперёд: после перескока снимком подтверждение ходов соперника

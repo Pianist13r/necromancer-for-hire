@@ -11,7 +11,7 @@ extends Resource
 
 static func create_for_builtin(p_type: String, p_position: Vector2) -> JuiceeGraphNodeData:
 	var data := JuiceeGraphNodeData.new()
-	data.id = "%s_%d" % [p_type, Time.get_ticks_msec() + randi() % 1000]
+	data.id = "%s_%d" % [p_type, Time.get_ticks_msec() + JuiceeEffect.rng.randi() % 1000]
 	data.type = p_type
 	data.graph_position = p_position
 	data.properties = _builtin_defaults(p_type)
@@ -28,7 +28,7 @@ static func _builtin_defaults(p_type: String) -> Dictionary:
 static func create_for_effect(effect_script: Script, p_position: Vector2) -> JuiceeGraphNodeData:
 	var data := JuiceeGraphNodeData.new()
 	var script_name: String = effect_script.resource_path.get_file().get_basename()
-	data.id = "%s_%d" % [script_name, Time.get_ticks_msec() + randi() % 1000]
+	data.id = "%s_%d" % [script_name, Time.get_ticks_msec() + JuiceeEffect.rng.randi() % 1000]
 	data.type = "effect"
 	data.graph_position = p_position
 	data.effect = effect_script.new()

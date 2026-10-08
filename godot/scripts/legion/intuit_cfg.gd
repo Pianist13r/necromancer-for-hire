@@ -81,13 +81,13 @@ const E_BEND := 0.4
 const W_MIN_CORPSES := 2
 const W_FRONT_R := 180.0
 
-const HINT_Q_LAWYER := "Ку — сорви зачитку Юриста!"
-const HINT_Q_SIGNER := "Ку — сбей печать нотариуса!"
-const HINT_Q_CROWD := "Ку — оглуши толпу у линии!"
-const HINT_E := "Е — строй прогибается: «Аврал» удержит!"
-const HINT_W := "Дубль-вэ — трупы у фронта: подними бригаду!"
-const HINT_GOLD := "золотой — щёлкни ПКМ: «Точно!»"
-const HINT_SPRING := "сорви — ударит сильнее"
+const HINT_Q_LAWYER := "{key:cast_q} — сорвите зачитку Юриста!"
+const HINT_Q_SIGNER := "{key:cast_q} — сбейте печать нотариуса!"
+const HINT_Q_CROWD := "{key:cast_q} — оглушите толпу у линии!"
+const HINT_E := "{key:cast_e} — строй прогибается: «Аврал» удержит!"
+const HINT_W := "{key:cast_w} — трупы у фронта: поднимите бригаду!"
+const HINT_GOLD := "золотой — щёлкните ПКМ: «Точно!»"
+const HINT_SPRING := "сорвите — ударит сильнее"
 ## B-078: затишье — волну можно звать, а ни один враг не ближе LULL_R к бойцам и Котлу уже LULL_T
 ## секунд боя: совет «F» у панели волн (на «Развилке» до первого контакта ~50 с без дела).
 const LULL_T := 8.0

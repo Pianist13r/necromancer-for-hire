@@ -33,6 +33,9 @@ var _was_playing := false
 var _pending: Dictionary = {}
 var _endpoint := ENDPOINT  # Only test harnesses replace this with a loopback receiver.
 var _last_send := -10000
+var _played_once := false
+var _offered := false
+var _result_quiet := 0.0
 
 
 static func consent() -> bool:
@@ -72,11 +75,13 @@ func _ready() -> void:
 	add_child(_http)
 	_http.request_completed.connect(_completed)
 	_last_tick = Time.get_ticks_msec()
-	if Settings.get_value(SECTION, KEY, null) == null:
-		call_deferred("show_consent")
 
 
 func show_consent() -> void:
+	var answer: Variant = Settings.get_value(SECTION, KEY, "pending")
+	if _offered or answer is bool:
+		return
+	_offered = true
 	var dialog := ConfirmationDialog.new()
 	dialog.dialog_text = NOTICE
 	dialog.ok_button_text = "Да, отправлять статистику"
@@ -89,9 +94,21 @@ func show_consent() -> void:
 	dialog.canceled.connect(func() -> void:
 		Settings.set_value(SECTION, KEY, false)
 		dialog.queue_free())
+	var later := dialog.add_button("Позже", true, "later")
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action == &"later":
+			dialog.queue_free())
 	add_child(dialog)
 	dialog.popup_centered()
-	dialog.get_cancel_button().grab_focus()
+	later.grab_focus()
+
+
+## Только после сыгранного боя и трёх секунд на результате/в меню, не поверх обучения.
+func consider_consent(playing: bool, resting: bool, wall: float) -> void:
+	_played_once = _played_once or playing
+	_result_quiet = _result_quiet + wall if resting and _played_once else 0.0
+	if _allowed and _result_quiet >= 3.0:
+		show_consent()
 
 
 func _process(_delta: float) -> void:
@@ -99,6 +116,11 @@ func _process(_delta: float) -> void:
 	# Monotonic wall time, independent of slow motion; suspend gaps are not play.
 	var wall := minf(float(tick - _last_tick) / 1000.0, 1.0)
 	_last_tick = tick
+	if main is LegionMain:
+		var current_world: LegionWorld = main.world
+		var resting: bool = main.screen is LegionResult or main.screen is LegionMenu
+		consider_consent(active_play(current_world, get_window().has_focus()),
+			resting and main.screen.is_visible_in_tree(), wall)
 	if not consent():
 		if _busy:
 			_http.cancel_request()

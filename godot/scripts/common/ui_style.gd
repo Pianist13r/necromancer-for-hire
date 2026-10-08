@@ -92,6 +92,49 @@ static func style_button(btn: Button) -> void:
 	btn.add_theme_stylebox_override("focus", focus)
 	btn.add_theme_color_override("font_color", TEXT)
 	btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+	animate_button(btn)
+
+
+## Повторный style_button безопасен: одно соединение, один прерываемый tween.
+## Меняется только цвет рисунка, поэтому область клика и раскладка неподвижны.
+static func animate_button(btn: Button) -> void:
+	if btn.has_meta(&"visual_button"):
+		return
+	btn.set_meta(&"visual_button", true)
+	btn.mouse_entered.connect(_button_tone.bind(btn, Color(1.08, 1.045, 1.0)))
+	btn.mouse_exited.connect(_button_tone.bind(btn, Color.WHITE))
+	btn.focus_entered.connect(_button_tone.bind(btn, Color(1.08, 1.045, 1.0)))
+	btn.focus_exited.connect(_button_tone.bind(btn, Color.WHITE))
+	btn.button_down.connect(_button_tone.bind(btn, Color(0.85, 0.80, 0.76)))
+	btn.button_up.connect(_button_tone.bind(btn, Color.WHITE))
+
+
+static func _button_tone(btn: Button, tone: Color) -> void:
+	if not btn.is_inside_tree():
+		return
+	var previous: Tween
+	if btn.has_meta(&"visual_tween"):
+		previous = btn.get_meta(&"visual_tween")
+	if previous != null and previous.is_valid():
+		previous.kill()
+	var tw := btn.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(btn, "self_modulate", tone, 0.12)
+	btn.set_meta(&"visual_tween", tw)
+
+
+## Общая точка входа для экранов: мягкое проявление не меняет фокус или ввод.
+static func reveal(control: Control) -> void:
+	if not control.is_inside_tree():
+		return
+	control.modulate.a = 0.0
+	var tw := control.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(control, "modulate:a", 1.0, 0.22)
+
+
+static func _reveal_id(instance: int) -> void:
+	var control := instance_from_id(instance) as Control
+	if is_instance_valid(control):
+		reveal(control)
 
 
 ## Подпись: шрифт, размер, цвет. Корень виджета поверх арены — MOUSE_FILTER_IGNORE (грабля
@@ -151,6 +194,7 @@ static func card_box(parent: Control, min_w: float, separation: int = 12) -> VBo
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", separation)
 	card.add_child(box)
+	_reveal_id.call_deferred(card.get_instance_id())
 	return box
 
 
@@ -201,4 +245,9 @@ static func panel_style(bg: Color = PANEL_BG, radius: int = 6) -> StyleBoxFlat:
 	var st := StyleBoxFlat.new()
 	st.bg_color = bg
 	st.set_corner_radius_all(radius)
+	st.border_color = Color(0.48, 0.36, 0.24, 0.8)
+	st.set_border_width_all(1)
+	st.shadow_color = Color(0.025, 0.015, 0.035, 0.40)
+	st.shadow_size = 5
+	st.shadow_offset = Vector2(0, 3)
 	return st
