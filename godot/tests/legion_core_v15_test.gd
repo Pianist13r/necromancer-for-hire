@@ -73,6 +73,8 @@ func test_recruit() -> void:
 	fresh()
 	var c := line_at(Vector2(500, 100), LegionCfg.KIND_LABORER, 400)
 	var u := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(280, 120))
+	# D-1009-C1: автомарш — только резерв у дома; ставим Котёл рядом с бойцом
+	w.cauldron_pos = Vector2(280, 170)
 	w.grid.rebuild()
 	check(w.contracts.assignment_plan(w.contracts.contracts).is_empty(),
 		"ближний набор и превью по-прежнему ограничены радиусом")

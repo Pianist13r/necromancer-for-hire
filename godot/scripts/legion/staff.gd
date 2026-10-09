@@ -118,17 +118,28 @@ func kind_unlocked(kind: StringName) -> bool:
 
 
 ## B-344: ближний набор сохраняет приоритет, дальний резерв занимает остаток.
-## План без побочных эффектов: бот может оценить тот же автомарш перед платным штрихом.
+## План без побочных эффектов: бот может оценить тот же автомарш перед платным штрихом, а
+## черновик — показать, кто придёт (B-441).
 ## Порядок бойцов/мест устойчив; ручное удержание не отменяется старой линией.
-static func deployment_plan(field: ContractField, lines: Array[Contract]) -> Array[Dictionary]:
-	var plan := field.assignment_plan(lines)
-	plan = plan.filter(func(a: Dictionary) -> bool: return a["unit"].held_t <= 0.0)
+## released — черновик, который ещё не создан: его создание снимет удержание у бойцов рядом
+## (release_held), поэтому в прогнозе они не удержаны.
+## D-1009-C1: дальний резерв — только бойцы у дома (in_reserve), ближние к пустому месту первыми.
+static func deployment_plan(field: ContractField, lines: Array[Contract],
+		released: Contract = null) -> Array[Dictionary]:
+	var plan := field.assignment_plan(lines, released)
+	plan = plan.filter(func(a: Dictionary) -> bool:
+		return not _held(a["unit"], field, released))
 	var chosen: Dictionary = {}
 	var taken: Array[Dictionary] = []
 	for a in plan:
 		chosen[a["unit"]] = true
 		taken.append(a["post"])
 	var vacant: Array[Dictionary] = []
+	# Места — упакованными массивами: перебор «резерв × места» идёт дважды на каждого бойца, и
+	# обращения к словарям в нём стоили миллисекунды превью (verifier 09.10).
+	var vac_pos := PackedVector2Array()
+	var vac_kind: Array[StringName] = []
+	var vac_cid := PackedInt32Array()
 	for c in lines:
 		if ContractField.is_stump(c):
 			continue   # B-345: пенёк гаснет на ближайшем шаге — бойцов не набирает
@@ -136,41 +147,76 @@ static func deployment_plan(field: ContractField, lines: Array[Contract]) -> Arr
 			if not p["dead"] and p["unit"] == null and not taken.has(p) \
 					and c.seg_alive(int(p["seg"])):
 				vacant.append({"contract": c, "post": p})
+				vac_pos.append(p["pos"])
+				vac_kind.append(c.kind)
+				vac_cid.append(c.id)
+	if vacant.is_empty():
+		return plan
+	# Очередь резерва: ближний к любому пустому месту своего вида — первым (по прямой, без путей;
+	# равные — по порядку рождения). Прежде шли по порядку рождения, и единственное место
+	# занимал первый рождённый с другого края дома (Игорь 09.10: «не те скелеты идут»).
+	var order: Array[Dictionary] = []
 	for u in field.world.units:
-		if vacant.is_empty():
-			break
-		if chosen.has(u) or not _can_deploy(u, field):
+		if chosen.has(u) or not _can_deploy(u, field, released):
 			continue
+		var near := INF
+		for i in vac_pos.size():
+			if vac_kind[i] == u.kind and vac_cid[i] != u.no_return_id:
+				near = minf(near, u.position.distance_squared_to(vac_pos[i]))
+		if near < INF:
+			order.append({"unit": u, "d": near, "i": order.size()})
+	order.sort_custom(func(x: Dictionary, y: Dictionary) -> bool:
+		if float(x["d"]) != float(y["d"]):
+			return float(x["d"]) < float(y["d"])
+		return int(x["i"]) < int(y["i"]))
+	var used := PackedByteArray()
+	used.resize(vac_pos.size())
+	var left := vac_pos.size()
+	for entry in order:
+		if left == 0:
+			break
+		var u: Legionnaire = entry["unit"]
+		# Ближайшее по прямой достижимое место (равные — меньший индекс): выбираем минимум, путь
+		# ищем только у него; недостижимое вычёркиваем и берём следующий минимум. Обычно — один
+		# поиск пути на бойца; прежний перебор звал поиск пути на каждом улучшении (verifier 09.10).
 		var best := -1
-		var distance := INF
 		var path := PackedVector2Array()
-		for i in vacant.size():
-			var c: Contract = vacant[i]["contract"]
-			var p: Dictionary = vacant[i]["post"]
-			if c.kind != u.kind or c.id == u.no_return_id:
-				continue
-			var d := u.position.distance_squared_to(p["pos"])
-			if d >= distance:
-				continue
-			var route := field.recruit_path(u.position, p["pos"])
-			if route.is_empty():
-				continue
-			best = i
-			distance = d
-			path = route
+		var skip: Dictionary = {}
+		while true:
+			var pick := -1
+			var pick_d := INF
+			for i in vac_pos.size():
+				if used[i] != 0 or vac_kind[i] != u.kind or vac_cid[i] == u.no_return_id \
+						or skip.has(i):
+					continue
+				var d := u.position.distance_squared_to(vac_pos[i])
+				if d < pick_d:
+					pick = i
+					pick_d = d
+			if pick < 0:
+				break
+			var route := field.recruit_path(u.position, vac_pos[pick])
+			if not route.is_empty():
+				best = pick
+				path = route
+				break
+			skip[pick] = true
 		if best >= 0:
-			var a: Dictionary = vacant[best].duplicate()
-			a.merge({"unit": u, "path": path, "automarch": true})
-			plan.append(a)
-			vacant.remove_at(best)
+			var asg: Dictionary = vacant[best].duplicate()
+			asg.merge({"unit": u, "path": path, "automarch": true})
+			plan.append(asg)
+			used[best] = 1
+			left -= 1
 	return plan
 
 
-static func _can_deploy(u: Legionnaire, field: ContractField) -> bool:
-	if not u.alive or u.side != field.owner_side or u.state != Legionnaire.State.FREE \
-			or u.is_stunned() or u.held_t > 0.0:
+static func _can_deploy(u: Legionnaire, field: ContractField, released: Contract = null) -> bool:
+	if not u.alive or u.side != field.owner_side or not free_for(u, field, released) \
+			or u.is_stunned() or _held(u, field, released):
 		return false
 	var w := field.world
+	if not in_reserve(w, u):
+		return false   # D-1009-C1: в поле бойца берёт только линия рядом или «Сбор»
 	if w.pvp and w.grid.enemy_cauldron(u.position, float(u.spec["reach"]), u.side) != null:
 		return false   # Осаждающий Котёл занят: не бронирует пустое место в далёком тылу.
 	if w.grid.nearest_hostile_in_zone(u.position, LegionCfg.ASSIGN_BUSY_R, u.side,
@@ -181,13 +227,49 @@ static func _can_deploy(u: Legionnaire, field: ContractField) -> bool:
 		u.side, w.cauldron_of(u.side), LegionCfg.HOME_GUARD_R) == null
 
 
+## Резерв «у дома» (D-1009-C1): у Котла своей стороны или у своей действующей постройки — там,
+## где бойцы рождаются и куда их стягивает игрок. Только такой свободный идёт на дальнюю линию сам.
+static func in_reserve(w: LegionWorld, u: Legionnaire) -> bool:
+	if u.position.distance_squared_to(w.cauldron_of(u.side)) \
+			<= LegionCfg.RESERVE_HOME_R * LegionCfg.RESERVE_HOME_R:
+		return true
+	var r2 := LegionCfg.RESERVE_BUILDING_R * LegionCfg.RESERVE_BUILDING_R
+	for b: LegionBuilding in w.buildings:
+		# по входу: он в мировых координатах у всех построек (у склепа position — локальный ноль)
+		if b.side == u.side and not b.frozen and b.source != LegionBuilding.SOURCE_CAULDRON \
+				and u.position.distance_squared_to(b.entry) <= r2:
+			return true
+	return false
+
+
+## Свободен для раздачи: FREE, либо идёт «Сбором», а черновик released его освободит
+## (release_held переводит такого в FREE при создании линии) — иначе превью недосчитывало бы.
+static func free_for(u: Legionnaire, field: ContractField, released: Contract) -> bool:
+	if u.state == Legionnaire.State.FREE:
+		return true
+	return u.state == Legionnaire.State.RALLY and released != null and u.held_t > 0.0 \
+			and _releases(field, released, u)
+
+
+## Удержан ли боец ручным «Сбором»; released — ещё не созданный черновик, который снимет
+## удержание у своих рядом (как release_held при создании).
+static func _held(u: Legionnaire, field: ContractField, released: Contract) -> bool:
+	if u.held_t <= 0.0:
+		return false
+	return not (released != null and _releases(field, released, u))
+
+
+static func _releases(field: ContractField, c: Contract, u: Legionnaire) -> bool:
+	var radius := float(field.recruit_r.get(c.kind, LegionCfg.RECRUIT_R))
+	return u.alive and u.side == c.owner_side and u.kind == c.kind \
+			and c.live_distance(u.position) <= radius
+
+
 ## Новая линия рядом — явный приказ: отменяет удержание только своего вида/стороны.
 static func release_held(w: LegionWorld, c: Contract) -> void:
 	var field := w.sides[c.owner_side].contracts
-	var radius := float(field.recruit_r.get(c.kind, LegionCfg.RECRUIT_R))
 	for u in w.units:
-		if u.alive and u.side == c.owner_side and u.kind == c.kind and u.held_t > 0.0 \
-				and c.live_distance(u.position) <= radius:
+		if u.held_t > 0.0 and _releases(field, c, u):
 			u.held_t = 0.0
 			if u.state == Legionnaire.State.RALLY:
 				u.set_free()

@@ -2416,7 +2416,8 @@ func nearby_kind(at: Vector2, kind: StringName) -> bool:
 ## занимал единственное место дальнего (9 из 180 при 87 пустых, verifier 26.09.2026). Поэтому
 ## после него — достройка цепочками: оставшийся без места берёт место соседа, если тот может
 ## перейти на другое. Так на местах не меньше бойцов, чем вообще можно поставить (теорема Берже).
-func assignment_plan(lines: Array[Contract]) -> Array[Dictionary]:
+## released — ещё не созданный черновик: идущие «Сбором» рядом с ним считаются свободными.
+func assignment_plan(lines: Array[Contract], released: Contract = null) -> Array[Dictionary]:
 	var buckets: Dictionary = {}   # вид → {клетка → [места]}
 	var flats: Dictionary = {}     # вид → [места] (для достройки)
 	var serial := 0
@@ -2439,7 +2440,7 @@ func assignment_plan(lines: Array[Contract]) -> Array[Dictionary]:
 			serial += 1
 	var order: Array[Dictionary] = []
 	for u in world.units:
-		if not u.alive or u.state != Legionnaire.State.FREE or not buckets.has(u.kind):
+		if not u.alive or not LegionStaff.free_for(u, self, released) or not buckets.has(u.kind):
 			continue
 		# PvP: поле раздаёт места только бойцам своей стороны, иначе игрок командовал бы чужими
 		# (в одиночке и owner_side, и u.side — 0: отбор ничего не меняет)
@@ -2687,9 +2688,22 @@ func update_preview() -> void:
 			current_kind)
 	var lines: Array[Contract] = contracts.duplicate()
 	lines.append(_preview)
-	for assignment in assignment_plan(lines):
+	# B-441: тот же план, что раздаст бой, — с резервом из дома; иначе черновик обещал меньше,
+	# чем придёт, и игрок не видел, кого уведёт линия (Игорь 09.10: «не те скелеты идут»)
+	for assignment in LegionStaff.deployment_plan(self, lines, _preview):
 		if assignment["contract"] == _preview:
 			_preview_plan.append(assignment)
+
+
+## Подпись превью «наберёт N / мест M»; придут ли из них бойцы из дома (автомарш) — в скобках.
+func preview_caption(places: int) -> String:
+	var home := 0
+	for a in _preview_plan:
+		if a.get("automarch", false):
+			home += 1
+	if home > 0:
+		return "наберёт %d (%d из дома) / мест %d" % [_preview_plan.size(), home, places]
+	return "наберёт %d / мест %d" % [_preview_plan.size(), places]
 
 
 ## Расстояние между ломанными участками, включая пересечение, а не только между центрами.

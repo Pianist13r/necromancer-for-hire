@@ -660,7 +660,7 @@ func _draw_preview_labels(body: Color) -> void:
 ## Подпись превью «наберёт N / мест M» — последним слоем черновика (поверх стрелок, B-028).
 func _draw_preview_caption() -> void:
 	var places := field._preview.posts.size() if field._preview != null else 0
-	var label := "наберёт %d / мест %d" % [field._preview_plan.size(), places]
+	var label := field.preview_caption(places)
 	var at := field._draft[0] + LegionCfg.CORE_LABEL_OFFSET
 	var font: Font = ThemeDB.fallback_font
 	# B-028: бойцы, дерущиеся у линии, закрывали белую подпись без подложки — тёмная обводка,
@@ -708,7 +708,7 @@ func _draw_ring_draft() -> void:
 	for p in field._draft:
 		bottom = maxf(bottom, p.y)
 	var places := field._preview.posts.size() if field._preview != null else 0
-	var caption := "наберёт %d / мест %d" % [field._preview_plan.size(), places]
+	var caption := field.preview_caption(places)
 	var small: Font = ThemeDB.fallback_font
 	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
 		field._core_fs()).x
@@ -904,7 +904,7 @@ func _draw_fig_draft() -> void:
 	var need := field._preview.charge_need() if field._preview != null else 0
 	if need <= 0:
 		need = ceili(places * field.fig_need_frac(field._draft_fig) - 0.001)
-	var caption := "наберёт %d / мест %d" % [field._preview_plan.size(), places]
+	var caption := field.preview_caption(places)
 	if need > 0:
 		caption += " · заряд с %d" % need
 	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x

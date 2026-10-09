@@ -778,7 +778,7 @@ func _recruits(candidate: Contract) -> int:
 	var lines: Array[Contract] = world.contracts.contracts.duplicate()
 	lines.append(candidate)
 	var count := 0
-	for entry in LegionStaff.deployment_plan(world.contracts, lines):
+	for entry in LegionStaff.deployment_plan(world.contracts, lines, candidate):
 		if entry["contract"] == candidate:
 			count += 1
 	return count

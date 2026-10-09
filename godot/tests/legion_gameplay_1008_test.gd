@@ -228,7 +228,11 @@ func test_birth_and_boundaries() -> void:
 	u._end_charge()
 	w.grid.rebuild()
 	w._assign_free()
-	check(u.contract == far, "отстоявший и вышедший боец идёт к другому живому договору")
+	# D-1009-C1 (Игорь 09.10: «слишком далеко линии забирают скелетов»): вышедший натиском боец
+	# стоит в поле, далеко от дома, — дальняя линия его сама не забирает
+	check(u.state == Legionnaire.State.FREE and far.posts.all(
+		func(p: Dictionary) -> bool: return p["unit"] == null),
+		"отстоявший и вышедший в поле боец сам не уходит к дальнему договору")
 	u.set_free()
 	u.position = Vector2(150, 300)
 	w.terrain = LegionTerrain.new().setup({"size": [1280, 720],

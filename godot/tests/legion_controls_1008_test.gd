@@ -469,7 +469,7 @@ func _test_followups() -> void:
 	raw_false["stack"] = false
 	var dec := NetCodec.decode(raw_false)
 	_check(not dec.is_empty() and not dec.has("stack"), "stack=false — обычный штрих")
-	_check(NetSession.BUILD == "net-2026-10-08b", "сборка сети поднята: %s" % NetSession.BUILD)
+	_check(NetSession.BUILD == "net-2026-10-09a", "сборка сети поднята: %s" % NetSession.BUILD)
 	# дрогнувший щелчок по карточке: сдвиг больше TAP_SLOP, линия короче минимума — смена вида
 	_fresh()
 	var bar := _kind_bar()

@@ -98,7 +98,13 @@ func test_hold_lifecycle() -> void:
 		u.tick(1.0 / 60.0)
 	w.grid.rebuild()
 	w._assign_free()
-	check(u.state == Legionnaire.State.MARCH, "по истечении удержания автомарш возобновляется")
+	# D-1009-C1: игрок поставил бойца в поле — после удержания он стоит, где поставили; у дома
+	# автомарш возобновляется (удержание не вечное)
+	check(u.state == Legionnaire.State.FREE, "по истечении удержания боец в поле остаётся на месте")
+	u.position = w.cauldron_pos + Vector2(60, 40)
+	w.grid.rebuild()
+	w._assign_free()
+	check(u.state == Legionnaire.State.MARCH, "по истечении удержания у дома автомарш возобновляется")
 	u.set_free()
 	u.rally_to(PackedVector2Array([u.position]))
 	u.start_charge(Vector2.RIGHT)
@@ -139,7 +145,7 @@ func test_plots() -> void:
 
 
 func test_snapshot() -> void:
-	check(NetSession.BUILD == "net-2026-10-08b" and NetSnap.VERSION == 5,
+	check(NetSession.BUILD == "net-2026-10-09a" and NetSnap.VERSION == 5,
 		"старый сетевой клиент отделён версией сборки и снимка")
 	fresh()
 	w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300, 400))
