@@ -8,7 +8,7 @@
 Скачать: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.1-alpha/NecromancerForHire-Windows.exe) ·
 [macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.1-alpha/NecromancerForHire-macOS.zip) ·
 [Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.1-alpha/NecromancerForHire-Linux.tar.gz) ·
-[Сайт игры](https://nekromant-po-naimu.website.yandexcloud.net) (открывается в России без VPN) ·
+[Сайт игры](https://necromancer-for-hire.ru) (открывается в России без VPN) ·
 [Все сборки](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
 [Оставить отзыв](https://forms.yandex.ru/u/6ac606b3f47e73002a8eaf4e)
@@ -131,7 +131,7 @@
 ## Скачать
 
 
-[**Сайт игры — скачать и оставить отзыв**](https://nekromant-po-naimu.website.yandexcloud.net) (в России
+[**Сайт игры — скачать и оставить отзыв**](https://necromancer-for-hire.ru) (в России
 открывается без VPN) · [страница на itch.io](https://pianist13r.itch.io/necromancer-for-hire).
 Для игры не нужно устанавливать Git или скачивать исходники.
 
