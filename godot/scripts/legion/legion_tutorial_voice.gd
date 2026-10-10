@@ -8,6 +8,11 @@ const SPECIAL := {KEY_SPACE: "space", KEY_SHIFT: "shift", KEY_TAB: "tab",
 const GAP_MSEC := 120
 const REPLACEMENTS := {&"lg_tut_stun": &"lg_tut_stun_safe", &"lg_tut_item": &"lg_tut_item_safe",
 	&"lg_tut_clerk": &"lg_tut_clerk_safe"}
+## Фраза продолжается после «клавишу способности/поворота»: `<id>_prompt` (голова) и
+## `<id>_tail` (хвост) нарезаны из одной записи (tools/voice/tutorial_1010_split.py), имя клавиши
+## встаёт между ними. Без хвоста клавиша звучала после всей фразы (Игорь 10.10, D-1010-V1).
+const TAILS: Array[StringName] = [&"lg_tut_hero_e", &"lg_tut_hero_w", &"lg_tut_lawyer",
+	&"lg_tut_aim"]
 
 
 static func key_id(action: StringName) -> StringName:
@@ -31,6 +36,8 @@ static func sequence(id: StringName) -> Array[StringName]:
 	var key := key_id(actions[0])
 	if key != &"":
 		result.append(key)
+	if TAILS.has(id):
+		result.append(StringName(String(id) + "_tail"))
 	return result
 
 

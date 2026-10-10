@@ -82,6 +82,8 @@ var _cam_target_at := Vector2.ZERO
 var _cam_tau := 0.9
 var _cam_follow := ""
 var _ended := false
+var _evidence_on := false
+var _max_bend := 0.0
 
 
 ## Свой курсор: стрелка-перо тёмным с белым кантом; нажатая кнопка — точка «чернил» у острия.
@@ -133,6 +135,13 @@ func _process(_delta: float) -> void:
 		else:
 			_do_step(s)   # shot — корутина: снимет кадр этого же кадра, не задерживая дорожку
 	_update_camera()
+	if _evidence_on and frame % 15 == 0:
+		for c: Contract in world.contracts.contracts:
+			for seg in c.seg_count():
+				var bend := c.bend_frac(seg)
+				if bend > _max_bend + 0.08:
+					_max_bend = bend
+					print("PROMO_BEND t=%.3f bend=%.3f" % [frame / 60.0, bend])
 	if _cursor != null and _cursor_world != Vector2.INF:
 		_cursor.position = get_viewport().get_canvas_transform() * _cursor_world
 
@@ -241,6 +250,17 @@ func _run() -> void:
 		if world.dev.has("director_" + k):
 			setup_cheats[k] = world.dev["director_" + k]
 	_cheat(setup_cheats)
+	if bool(scenario.get("evidence", false)):
+		_evidence_on = true
+		world.charge_impact.connect(func(at: Vector2, perfect: bool) -> void:
+			print("PROMO_IMPACT t=%.3f perfect=%s at=%s" % [frame / 60.0, perfect, at]))
+		world.spring_released.connect(func(_c: Contract, _s: int, bend: float) -> void:
+			print("PROMO_SPRING t=%.3f bend=%.3f" % [frame / 60.0, bend]))
+		world.hero_cast.connect(func(slot: int, at: Vector2) -> void:
+			print("PROMO_CAST t=%.3f slot=%d at=%s" % [frame / 60.0, slot, at]))
+		world.segment_released.connect(func(c: Contract, seg: int, n: int) -> void:
+			print("PROMO_RELEASE t=%.3f units=%d cause=%s" % [
+				frame / 60.0, n, c.release_causes[seg]]))
 	# дубль того же боя без HUD и курсора (кадры Steam без текста): --dev director_hud=off
 	# --dev director_cursor=0 — сценарий тот же, бой кадр в кадр тот же (сид и шаги)
 	_set_hud(String(world.dev.get("director_hud", scenario.get("hud", "full"))))
@@ -373,6 +393,8 @@ func _do_step(s: Dictionary) -> void:
 			await _draw(_eight(_pt(s["center"]), float(s.get("r", 60.0))), null)
 		"sling":
 			await _drag(_pt(s["from"]), _pt(s["to"]), MOUSE_BUTTON_RIGHT, int(s.get("hold", 8)))
+		"release_when":
+			await _release_when(s)
 		"aim":
 			await _move(_pt(s["from"]))
 			await _key_state(KEY_SPACE, true)
@@ -408,6 +430,37 @@ func _do_step(s: Dictionary) -> void:
 			_ended = true
 		_:
 			push_warning("director: неизвестный шаг %s" % JSON.stringify(s))
+
+
+## Ждём настоящего состояния боя, затем щёлкаем мышью. Симуляция и условия золота не меняются.
+## Нужен для пересъёмки после изменения набора: не выдаём пустой/промахнувшийся клик за запуск.
+func _release_when(s: Dictionary) -> void:
+	var until := frame + roundi(float(s.get("timeout", 6.0)) * FPS)
+	var mode := String(s.get("mode", "gold"))
+	while frame < until:
+		world.contracts.pack_live_lures()
+		for c: Contract in world.contracts.contracts:
+			if c.kind != StringName(String(s.get("kind_name", "laborer"))):
+				continue
+			for seg in c.seg_count():
+				if not c.seg_alive(seg) or c.seg_manned(seg) == 0:
+					continue
+				var ready := c.bend_frac(seg) >= float(s.get("bend", 0.5)) if mode == "spring" \
+					else world.contracts.seg_gold(c, seg)
+				if not ready:
+					continue
+				var at := c.seg_center(seg)
+				await _glide(_screen_to_world_last(), at, 0)
+				if not c.seg_alive(seg):
+					continue
+				print("PROMO_TRIGGER t=%.3f mode=%s gold=%s bend=%.3f" % [frame / 60.0,
+					mode, world.contracts.seg_gold(c, seg), c.bend_frac(seg)])
+				await _button(at, MOUSE_BUTTON_RIGHT, true)
+				await _frames(3)
+				await _button(at, MOUSE_BUTTON_RIGHT, false)
+				return
+		await _frames(1)
+	print("PROMO_MISSING mode=%s t=%.3f" % [mode, frame / 60.0])
 
 
 ## Кольцо: замкнутый круг (12+ точек, длина от 220 px — «Оцепление»); squeeze — рогатка изнутри

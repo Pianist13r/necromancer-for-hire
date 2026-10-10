@@ -12,6 +12,11 @@ const KEY := "share_play_metrics"
 ## согласием смешиваются с игроками рекламного теста (METRICS_AUDIT_1007 п.1).
 const INTERNAL_KEY := "internal"
 const INTERVAL := 60.0
+## Секунда покоя на меню/итоге перед окном согласия: не в первый кадр, пока экран ещё строится.
+const CONSENT_DELAY := 1.0
+## Кадр в зачёт покоя — не длиннее: подвисание (первый кадр слабой машины, перетаскивание окна)
+## иначе засчитало бы всю секунду разом (verifier 10.10, R4).
+const CONSENT_STEP := 0.1
 const NOTICE := ("Помочь улучшить игру?\n\n"
 	+ "Можно отправлять автору версию игры, систему, число сеансов и минуты "
 	+ "активного боя. Без имени, постоянного идентификатора, сохранений и логов.\n\n"
@@ -33,9 +38,8 @@ var _was_playing := false
 var _pending: Dictionary = {}
 var _endpoint := ENDPOINT  # Only test harnesses replace this with a loopback receiver.
 var _last_send := -10000
-var _played_once := false
 var _offered := false
-var _result_quiet := 0.0
+var _rest_quiet := 0.0
 
 
 static func consent() -> bool:
@@ -77,6 +81,22 @@ func _ready() -> void:
 	_last_tick = Time.get_ticks_msec()
 
 
+## Экран — верхний: «Настройки», «Как играть», «Досье» и пауза ложатся поверх него соседями
+## (screen не меняется), подтверждения LegionUi.confirm — окнами под ним или под main. Поверх
+## них окно согласия не открываем (verifier 10.10, R2).
+static func screen_on_top(host: Node, screen: Node) -> bool:
+	for child in host.get_children():
+		if child is Window and (child as Window).visible:
+			return false
+		if child.get_index() > screen.get_index() and child is CanvasItem \
+				and (child as CanvasItem).visible:
+			return false
+	for child in screen.get_children():
+		if child is Window and (child as Window).visible:
+			return false
+	return true
+
+
 func show_consent() -> void:
 	var answer: Variant = Settings.get_value(SECTION, KEY, "pending")
 	if _offered or answer is bool:
@@ -91,9 +111,11 @@ func show_consent() -> void:
 	dialog.confirmed.connect(func() -> void:
 		Settings.set_value(SECTION, KEY, true)
 		dialog.queue_free())
-	dialog.canceled.connect(func() -> void:
-		Settings.set_value(SECTION, KEY, false)
-		dialog.queue_free())
+	# Отказ — только кнопкой «Нет»: Esc и крестик шлют тот же canceled, а рефлекторный Esc
+	# в первую секунду меню записал бы «Нет» навсегда (verifier 10.10, R1) — для них это «Позже».
+	dialog.get_cancel_button().pressed.connect(func() -> void:
+		Settings.set_value(SECTION, KEY, false))
+	dialog.canceled.connect(dialog.queue_free)
 	var later := dialog.add_button("Позже", true, "later")
 	dialog.custom_action.connect(func(action: StringName) -> void:
 		if action == &"later":
@@ -103,11 +125,12 @@ func show_consent() -> void:
 	later.grab_focus()
 
 
-## Только после сыгранного боя и трёх секунд на результате/в меню, не поверх обучения.
+## На первом меню после секунды покоя (B-466, D-1010-M1): игрок с рекламы часто закрывает игру
+## раньше конца первого боя, и окно «после боя» (D-1008-TUT3) оставило статистику 0.3.x без
+## единого запуска. Бой окно не перебивает: ушёл в бой раньше — спросим на итоге/в меню.
 func consider_consent(playing: bool, resting: bool, wall: float) -> void:
-	_played_once = _played_once or playing
-	_result_quiet = _result_quiet + wall if resting and _played_once else 0.0
-	if _allowed and _result_quiet >= 3.0:
+	_rest_quiet = _rest_quiet + minf(wall, CONSENT_STEP) if resting and not playing else 0.0
+	if _allowed and _rest_quiet >= CONSENT_DELAY:
 		show_consent()
 
 
@@ -120,7 +143,7 @@ func _process(_delta: float) -> void:
 		var current_world: LegionWorld = main.world
 		var resting: bool = main.screen is LegionResult or main.screen is LegionMenu
 		consider_consent(active_play(current_world, get_window().has_focus()),
-			resting and main.screen.is_visible_in_tree(), wall)
+			resting and main.screen.is_visible_in_tree() and screen_on_top(main, main.screen), wall)
 	if not consent():
 		if _busy:
 			_http.cancel_request()

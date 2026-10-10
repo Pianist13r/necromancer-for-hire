@@ -10,7 +10,7 @@
 "AppBuild"
 {
 	"AppID"       "0000000"   // ← AppID приложения
-	"Desc"        "Necromancer for Hire 0.3.1"   // подпись билда в кабинете; менять на каждую заливку
+	"Desc"        "Necromancer for Hire 0.3.2"   // подпись билда в кабинете; менять на каждую заливку
 	"ContentRoot" "../../dist/steam/"
 	"BuildOutput" "../../dist/steam-buildoutput/"   // кэш и журналы steamcmd (dist/ в .gitignore)
 	"SetLive"     ""   // пусто — билд не публикуется сам; ветку выбирают в кабинете (сначала beta/закрытая)

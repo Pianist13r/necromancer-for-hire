@@ -66,6 +66,43 @@ func _test_numbers() -> void:
 		LegionCfg.DELAY_MAX / LegionCfg.DELAY_DRAIN), "справка: время отсрочки из LegionCfg")
 
 
+## Игорь 10.10: имя клавиши звучало после всей фразы («…сдержит давку. Е.»). У уроков с
+## продолжением после «клавишу способности/поворота» клавиша встаёт между головой и хвостом.
+func _test_key_inside_phrase(audio: LegionAudio) -> void:
+	Controls.reset()
+	var cases := {&"lg_tut_hero_e": [&"cast_e", &"key_e"], &"lg_tut_hero_w": [&"cast_w", &"key_w"],
+		&"lg_tut_lawyer": [&"cast_q", &"key_q"], &"lg_tut_aim": [&"aim_contract", &"key_space"]}
+	for id: StringName in cases:
+		var tail := StringName(String(id) + "_tail")
+		var seq: Array = audio.speech.call("voice_sequence", id)
+		check(seq == [StringName(String(id) + "_prompt"), cases[id][1], tail],
+			"%s: клавиша внутри фразы, хвост после неё (%s)" % [id, seq])
+		check(ResourceLoader.exists(LegionAudio.VOICE_DIR + String(tail) + ".ogg"),
+			"клип хвоста существует: " + String(tail))
+	Controls.rebind(&"cast_e", KEY_T)
+	check(audio.speech.call("voice_sequence", &"lg_tut_hero_e")
+		== [&"lg_tut_hero_e_prompt", &"key_t", &"lg_tut_hero_e_tail"], "E→T: новое имя тоже внутри")
+	Controls.rebind(&"cast_e", KEY_KP_1)
+	check(audio.speech.call("voice_sequence", &"lg_tut_hero_e")
+		== [&"lg_tut_hero_e_prompt", &"lg_tut_hero_e_tail"], "клавиша без клипа — фраза без имени, целиком")
+	Controls.reset()
+	check(audio.speech.call("voice_sequence", &"lg_tut_4") == [&"lg_tut_4_prompt", &"key_q"],
+		"Молния кончается на клавише — хвоста нет")
+	audio.speech._voice_last_msec.clear()
+	audio.speech.voice(&"lg_tut_hero_e", 10, LegionAudio.VoiceClass.STORY)
+	var heard: Array[StringName] = [audio.speech._voice_parts[audio.speech._voice_part]]
+	for i in 2:
+		audio.speech._voice_part_until = 0
+		audio.speech._voice_gap_until = 1
+		audio.speech._tick_voice_parts()
+		if not audio.speech._voice_parts.is_empty():
+			heard.append(audio.speech._voice_parts[audio.speech._voice_part])
+	check(heard == [&"lg_tut_hero_e_prompt", &"key_e", &"lg_tut_hero_e_tail"],
+		"по ходу реплики звучат голова → клавиша → хвост (%s)" % [heard])
+	audio.speech.stop_voice()
+	audio.speech._voice_last_msec.clear()
+
+
 func _test_voice() -> void:
 	var audio := LegionAudio.new()
 	root.add_child(audio)
@@ -92,6 +129,7 @@ func _test_voice() -> void:
 			"переназначение во время фразы меняет ещё не произнесённое имя")
 		audio.speech.stop_voice()
 		check(audio.speech._voice_parts.is_empty(), "выход очищает составную реплику целиком")
+		_test_key_inside_phrase(audio)
 		Controls.reset()
 		audio.speech._voice_last_msec.clear()
 		audio.speech.voice(&"lg_tut_1", 10, LegionAudio.VoiceClass.STORY)
@@ -118,24 +156,94 @@ func _test_voice() -> void:
 func _test_consent() -> void:
 	var metrics := PlayMetrics.new()
 	root.add_child(metrics)
-	check(metrics.has_method("consider_consent"), "статистика ждёт конца первого боя")
+	check(metrics.has_method("consider_consent"), "статистика спрашивает согласие сама")
 	if metrics.has_method("consider_consent"):
+		# B-466 / D-1010-M1: игрок с рекламы уходит раньше конца первого боя — спрашиваем на первом
+		# меню; после D-1008-TUT3 («только после боя») статистика 0.3.x не получила ни запуска.
 		metrics._allowed = true
-		metrics.consider_consent(false, true, 10.0)
-		check(not metrics._offered, "на первом меню окно статистики не открывается")
-		metrics.consider_consent(true, false, 30.0)
-		check(not metrics._offered, "окно не перебивает первый бой")
-		metrics.consider_consent(false, true, 3.1)
-		check(metrics._offered, "после боя окно предлагается")
+		_rest(metrics, 0.5)
+		check(not metrics._offered, "окно не выскакивает в первый же кадр меню")
+		_rest(metrics, 0.6)
+		check(metrics._offered, "на первом меню окно статистики предлагается без боя")
 		var dialog := metrics.get_child(0) as ConfirmationDialog
 		check(dialog != null, "показан диалог согласия")
 		if dialog != null:
 			dialog.custom_action.emit(&"later")
 			check(not PlayMetrics.consent(), "Позже не включает отправку")
-			check(Settings.get_value(PlayMetrics.SECTION, PlayMetrics.KEY, "pending") == "pending",
-				"Позже не записывает отказ вместо отложенного решения")
+			check(_answer() == "pending", "Позже не записывает отказ вместо отложенного решения")
 	metrics.queue_free()
 	await process_frame
+	var busy := PlayMetrics.new()
+	root.add_child(busy)
+	if busy.has_method("consider_consent"):
+		busy._allowed = true
+		_rest(busy, 0.5)
+		busy.consider_consent(true, false, 30.0)
+		_rest(busy, 0.6)
+		check(not busy._offered, "ушёл с меню в бой — отсчёт тишины начинается заново")
+		busy.consider_consent(true, false, 30.0)
+		check(not busy._offered, "окно не перебивает бой")
+		_rest(busy, 1.1)
+		check(busy._offered, "не успел на меню — предлагается на итоге/меню после боя")
+		# R1 (verifier 10.10): Esc и крестик = «Позже», отказ — только кнопкой «Нет».
+		var esc_dialog := busy.get_child(0) as ConfirmationDialog
+		if esc_dialog != null:
+			esc_dialog.canceled.emit()
+			check(_answer() == "pending", "Esc/крестик не записывают отказ")
+	busy.queue_free()
+	await process_frame
+	var refuse := PlayMetrics.new()
+	root.add_child(refuse)
+	refuse.show_consent()
+	var no_dialog := refuse.get_child(0) as ConfirmationDialog
+	check(no_dialog != null, "окно для проверки кнопки «Нет»")
+	if no_dialog != null:
+		no_dialog.get_cancel_button().pressed.emit()
+		check(_answer() is bool and _answer() == false, "кнопка «Нет, спасибо» записывает отказ")
+	Settings.set_value(PlayMetrics.SECTION, PlayMetrics.KEY, "pending")
+	refuse.queue_free()
+	await process_frame
+	# R4: подвисший кадр не засчитывает секунду покоя разом.
+	var stall := PlayMetrics.new()
+	root.add_child(stall)
+	stall._allowed = true
+	stall.consider_consent(false, true, 1.5)
+	check(not stall._offered, "кадр 1,5 с после подвисания не открывает окно сразу")
+	stall.queue_free()
+	await process_frame
+	await _test_screen_on_top()
+
+
+## R2 (verifier 10.10): «Настройки», «Как играть», пауза — соседи поверх экрана; подтверждение —
+## окно. Пока они открыты, экран не «в покое».
+func _test_screen_on_top() -> void:
+	var host := Node.new()
+	root.add_child(host)
+	var screen := Control.new()
+	host.add_child(screen)
+	check(PlayMetrics.screen_on_top(host, screen), "один экран — он верхний")
+	var overlay := Control.new()
+	host.add_child(overlay)
+	check(not PlayMetrics.screen_on_top(host, screen), "оверлей поверх экрана — окна нет")
+	overlay.visible = false
+	check(PlayMetrics.screen_on_top(host, screen), "скрытый оверлей не мешает")
+	var confirm := ConfirmationDialog.new()
+	screen.add_child(confirm)
+	confirm.popup_centered()
+	check(not PlayMetrics.screen_on_top(host, screen), "открытое подтверждение на экране — окна нет")
+	host.queue_free()
+	await process_frame
+
+
+func _rest(metrics: PlayMetrics, seconds: float) -> void:
+	var left := seconds
+	while left > 0.0001:
+		metrics.consider_consent(false, true, minf(left, 1.0 / 60.0))
+		left -= 1.0 / 60.0
+
+
+func _answer() -> Variant:
+	return Settings.get_value(PlayMetrics.SECTION, PlayMetrics.KEY, "pending")
 
 
 func _test_skip() -> void:
