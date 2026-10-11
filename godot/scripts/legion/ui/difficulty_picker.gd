@@ -28,11 +28,13 @@ func _ready() -> void:
 	row.add_theme_constant_override("separation", 8)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(row)
-	row.add_child(UiStyle.label("Сложность:", 18, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM))
+	row.add_child(UiStyle.label(I18n.t("Сложность:"), 18, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM))
 	var group := ButtonGroup.new()
 	for id in LegionChallenge.ORDER:
 		var btn := Button.new()
-		btn.text = "Стажёр · новичку" if id == LegionChallenge.INTERN else LegionChallenge.title(id)
+		btn.text = I18n.t(
+			"Стажёр · новичку"
+		) if id == LegionChallenge.INTERN else LegionChallenge.title(id)
 		btn.toggle_mode = true
 		btn.button_group = group
 		btn.focus_mode = Control.FOCUS_ALL
@@ -69,4 +71,4 @@ func select(id: String) -> void:
 func _show(id: String) -> void:
 	for k: String in buttons:
 		(buttons[k] as Button).set_pressed_no_signal(k == id)
-	_desc.text = String(LegionChallenge.TABLE[id]["desc"])
+	_desc.text = I18n.t(String(LegionChallenge.TABLE[id]["desc"]))

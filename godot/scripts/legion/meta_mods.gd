@@ -63,12 +63,12 @@ static func combine(key: StringName, parts: Array) -> float:
 static func key_label(key: StringName) -> String:
 	var k := String(key)
 	if k.begins_with("cap_mult_"):
-		return "штат построек"
+		return I18n.t("штат построек")
 	if k.begins_with("respawn_mult_"):
-		return "время возврата в строй"
+		return I18n.t("время возврата в строй")
 	if k.begins_with("recruit_r_"):
-		return "дальность набора"
-	return String(KEY_LABELS.get(k, k))
+		return I18n.t("дальность набора")
+	return I18n.t(String(KEY_LABELS.get(k, k)))
 
 
 ## Чипы дельт для строки экрана («−20 % штат построек», «+40 % урон разряда»): ключ-множитель
@@ -101,7 +101,7 @@ static func delta_entries(mods: Dictionary) -> Array[Dictionary]:
 		var lower_is_better := key.begins_with("respawn_mult_") or key in [
 			"mana_cost_mult", "ability_mana_mult", "line_cost", "rally_cd"]
 		var benefit := value < 0.0 if lower_is_better else value > 0.0
-		var caption := ("Польза: " if benefit else "Цена: ") + "%s %s" % [
+		var caption := (I18n.t("Польза: ") if benefit else I18n.t("Цена: ")) + "%s %s" % [
 			_signed(StringName(key), value), key_label(StringName(key))]
 		if not seen.has(caption):
 			seen[caption] = true
@@ -115,8 +115,11 @@ static func _signed(key: StringName, v: float) -> String:
 		out = "%+d %%" % roundi(v * 100.0)
 	else:
 		out = ("%+d" % roundi(v)) if is_equal_approx(v, roundf(v)) \
-			else ("%+.2f" % v).rstrip("0").rstrip(".").replace(".", ",")
-		out += String(KEY_UNITS.get(String(key), ""))
+			else ("%+.2f" % v).rstrip("0").rstrip(".")
+		if I18n.language != "en":
+			out = out.replace(".", ",")
+		var unit := String(KEY_UNITS.get(String(key), ""))
+		out += " s" if unit == " с" and I18n.language == "en" else unit
 	# Типографский минус, как в текстах карточек («−20 %»), а не дефис.
 	return out.replace("-", "−")
 
@@ -141,7 +144,7 @@ static func together_notes(id: StringName) -> Array[String]:
 			var v := float((src["mods"] as Dictionary).get(k, 0.0))
 			if v == 0.0:
 				continue
-			names.append("„%s“" % String(src["title"]))
+			names.append("„%s“" % I18n.t(String(src["title"])))
 			parts.append(v)
 		if names.is_empty():
 			continue
@@ -151,7 +154,7 @@ static func together_notes(id: StringName) -> Array[String]:
 		if seen.has(dedup):
 			continue
 		seen[dedup] = true
-		out.append("Вместе с %s: %s ×%s" % [who, key_label(key), total])
+		out.append(I18n.t("Вместе с %s: %s ×%s") % [who, key_label(key), total])
 	return out
 
 
@@ -176,4 +179,4 @@ static func _num(x: float) -> String:
 	var s := "%.2f" % x
 	if s.contains("."):
 		s = s.rstrip("0").rstrip(".")
-	return s.replace(".", ",")
+	return s if I18n.language == "en" else s.replace(".", ",")

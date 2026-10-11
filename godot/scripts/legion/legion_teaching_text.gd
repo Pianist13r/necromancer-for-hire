@@ -3,7 +3,8 @@ extends RefCounted
 
 
 static func number(value: float) -> String:
-	return ("%.2f" % value).trim_suffix("0").trim_suffix("0").trim_suffix(".").replace(".", ",")
+	var text := ("%.2f" % value).trim_suffix("0").trim_suffix("0").trim_suffix(".")
+	return text if I18n.language == "en" else text.replace(".", ",")
 
 
 static func seats(figure: StringName) -> int:
@@ -15,6 +16,7 @@ static func required(figure: StringName) -> int:
 
 
 static func render(source: String) -> String:
+	source = I18n.t(source)
 	var values := {"rally_cd": LegionCfg.RALLY_CD, "perfect": LegionCfg.PERFECT_FIRST_MULT,
 		"slow": LegionCfg.DELAY_SLOW, "delay": LegionCfg.DELAY_MAX / LegionCfg.DELAY_DRAIN,
 		"combo_window": LegionCfg.COMBO_WINDOW, "combo_cap": LegionCfg.COMBO_CAP,
@@ -24,5 +26,5 @@ static func render(source: String) -> String:
 	for figure: StringName in FigureCfg.CHARGE_FILL:
 		source = source.replace("{seats:" + String(figure) + "}", str(seats(figure)))
 		source = source.replace("{charge:" + String(figure) + "}",
-			"%d из %d" % [required(figure), seats(figure)])
+			I18n.t("%d из %d") % [required(figure), seats(figure)])
 	return source

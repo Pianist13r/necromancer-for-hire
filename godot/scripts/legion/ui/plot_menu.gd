@@ -154,7 +154,7 @@ func _rebuild() -> void:
 	if st.plot_near_road(target):
 		_note(road_note(st.plot_safe_share(target)))
 	if b == null:
-		_title("Площадка — построить")
+		_title(I18n.t("Площадка — построить"))
 		for kind: StringName in LegionCfg.KIND_ORDER:
 			if not st.kind_unlocked(kind):
 				continue
@@ -164,44 +164,46 @@ func _rebuild() -> void:
 			# B-094: штат — с бонусами «Конторы» и поправок (staff_cap), как получит постройка:
 			# меню писало «штат 8», а построенная Бытовка получала 11
 			var cap := st.staff_cap(kind, LegionStaff.paced(int(data["cap"][0])))
-			_button("%s · штат %d — %d душ" % [data["name"], cap, price],
+			_button(I18n.t("%s · штат %d — %d душ") % [I18n.t(data["name"]), cap, price],
 				func() -> bool: return not st.can_build(target, k),
 				func() -> void: _act(target, PvpCmd.BUILD, k, func() -> void: st.build(target, k)),
 				func() -> bool: return me.souls < price)
 			_note(String(data.get("hint", "")))
 	else:
 		var data: Dictionary = LegionCfg.BUILDINGS[b.kind]
-		_title("%s, ур. %d · штат %d/%d" % [data["name"], b.level, b.alive_count(), b.cap])
+		_title(I18n.t(
+			"%s, ур. %d · штат %d/%d"
+		) % [I18n.t(data["name"]), b.level, b.alive_count(), b.cap])
 		_note(String(data.get("hint", "")))
 		var up := LegionStaff.upgrade_price(b)
 		if up < 0:
-			_button("Уровень максимальный", func() -> bool: return true, Callable())
+			_button(I18n.t("Уровень максимальный"), func() -> bool: return true, Callable())
 		else:
-			_button("Улучшить до ур. %d — %d душ" % [b.level + 1, up],
+			_button(I18n.t("Улучшить до ур. %d — %d душ") % [b.level + 1, up],
 				func() -> bool: return not st.can_upgrade(b),
 				func() -> void: _act(target, PvpCmd.UPGRADE, &"", func() -> void: st.upgrade(b)),
 				func() -> bool: return me.souls < up)
 			var cap := st.staff_cap(b.kind, LegionStaff.paced(int(data["cap"][b.level])))
-			_note("Штат постройки: +%d\nВозрождение: %.0f → %.0f с" % [
+			_note(I18n.t("Штат постройки: +%d\nВозрождение: %.0f → %.0f с") % [
 				cap - b.cap, b.respawn_t, st.staff_respawn(b.kind, float(data["respawn"][b.level]))])
 		# срочный найм (D-0927-135): текст и доступность перечитываются каждый кадр — павшие
 		# и души меняются, пока меню открыто
 		var rush_text := func() -> String:
 			var price := st.rush_price(b)
 			if price <= 0:
-				return "Срочный найм — все на местах"
-			return "Срочный найм · %d — %d душ" % [price / LegionStaff.rush_each(b), price]
+				return I18n.t("Срочный найм — все на местах")
+			return I18n.t("Срочный найм · %d — %d душ") % [price / LegionStaff.rush_each(b), price]
 		_button(String(rush_text.call()),
 			func() -> bool: return st.rush_price(b) <= 0 or me.souls < st.rush_price(b),
 			func() -> void: _act(target, PvpCmd.RUSH, &"", func() -> void: st.rush(b)),
 			func() -> bool: return st.rush_price(b) > 0 and me.souls < st.rush_price(b),
 			rush_text)
-		_note(RUSH_NOTE % LegionStaff.rush_each(b))
+		_note(I18n.t(RUSH_NOTE) % LegionStaff.rush_each(b))
 		_wait_note = LegionUi.label(_waiting_text(b), NOTE_FONT, LegionUi.FONT_TEXT, LegionUi.TEXT_DIM)
 		_wait_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_wait_note.custom_minimum_size.x = W - NOTE_INDENT
 		_box.add_child(_wait_note)
-		_button("Продать — +%d душ" % LegionStaff.sell_value(b), func() -> bool: return false,
+		_button(I18n.t("Продать — +%d душ") % LegionStaff.sell_value(b), func() -> bool: return false,
 			func() -> void: _act(target, PvpCmd.SELL, &"", func() -> void: st.sell(b)))
 	_panel.reset_size()
 	var size := _panel.get_combined_minimum_size()
@@ -256,8 +258,8 @@ func _title(text: String) -> void:
 static func road_note(safe_share: float) -> String:
 	var hit := roundi((1.0 - safe_share) * 10.0) * 10
 	if hit >= 100:
-		return "У дороги: почти все бойцы рождаются под удар. Прикройте выход строем."
-	return "У дороги: около %d %% бойцов рождаются под удар. Прикройте выход строем." % hit
+		return I18n.t("У дороги: почти все бойцы рождаются под удар. Прикройте выход строем.")
+	return I18n.t("У дороги: около %d %% бойцов рождаются под удар. Прикройте выход строем.") % hit
 
 
 ## Пояснение под пунктом: мелко, тусклыми чернилами, с переносом по ширине карточки — читается
@@ -292,7 +294,8 @@ func _button(text: String, disabled_fn: Callable, action: Callable,
 	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	LegionUi.style_button(btn, LegionUi.INK, FONT)
 	# цена в душах — значок души у строки: валюту видно, не читая
-	if short_fn.is_valid() or text.contains("душ"):
+	if short_fn.is_valid() or text.contains("душ") \
+			or (I18n.language == "en" and text.contains("souls")):
 		btn.icon = LegionIcons.tex("soul")
 		btn.expand_icon = true
 		btn.add_theme_constant_override("icon_max_width", 26)
@@ -335,7 +338,7 @@ func _process(_dt: float) -> void:
 func _waiting_text(b: LegionBuilding) -> String:
 	var wait := b.next_respawn()
 	if is_inf(wait):
-		return "Найм возвращает павших, но не увеличивает штат."
+		return I18n.t("Найм возвращает павших, но не увеличивает штат.")
 	if world.army_alive(b.side) >= LegionCfg.ARMY_HARD_CAP:
-		return "Лимит армии: пополнение ждёт свободного места."
-	return "Бесплатно через %d с — ближайший боец. Найм не увеличивает штат." % ceili(wait)
+		return I18n.t("Лимит армии: пополнение ждёт свободного места.")
+	return I18n.t("Бесплатно через %d с — ближайший боец. Найм не увеличивает штат.") % ceili(wait)

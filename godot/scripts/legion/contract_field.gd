@@ -413,7 +413,7 @@ func draft_color(refresh_like: bool, part: String) -> Color:
 
 ## Подпись у пера при упоре в лимит; клавиша стирания — текущая (Controls.text).
 static func limit_label() -> String:
-	return Controls.text(LegionCfg.LIMIT_LABEL % LegionCfg.MAX_CONTRACTS)
+	return Controls.text(LegionCfg.LIMIT_LABEL) % LegionCfg.MAX_CONTRACTS
 
 
 ## Новый договор по готовой ломаной. null — не хватило маны / лимит / слишком коротко.
@@ -1654,7 +1654,7 @@ func _sling_clear(c: Contract, seg: int, center: Vector2, dir: Vector2, half_w: 
 func sling_hint() -> String:
 	if not is_slinging() or _aim.is_empty():
 		return ""
-	return SLING_GO_LABEL if bool(_aim["perfect"]) else SLING_WAIT_LABEL
+	return I18n.t(SLING_GO_LABEL if bool(_aim["perfect"]) else SLING_WAIT_LABEL)
 
 
 ## Зона удара: полоса вдоль стрелки шириной с участок, глубиной depth от середины участка.
@@ -1929,10 +1929,10 @@ func _locked_fig(stroke: PackedVector2Array) -> StringName:
 func _locked_bump(at: Vector2, fig: StringName) -> void:
 	if owner_side != world.local_side:
 		return
-	var name := RING_LABEL if fig == ContractShape.RING else fig_label(fig)
+	var name := I18n.t(RING_LABEL) if fig == ContractShape.RING else fig_label(fig)
 	var title := Campaign.unlock_map_title("shape_unlocked_" + String(fig))
-	_wall_bump(at, IntuitCfg.LOCKED_LABEL % name if title.is_empty()
-		else IntuitCfg.LOCKED_MAP_LABEL % [name, title], IntuitCfg.LOCKED_FX)
+	_wall_bump(at, I18n.t(IntuitCfg.LOCKED_LABEL) % name if title.is_empty()
+		else I18n.t(IntuitCfg.LOCKED_MAP_LABEL) % [name, I18n.map_text(title)], IntuitCfg.LOCKED_FX)
 
 
 # gdlint: disable=max-returns
@@ -2033,7 +2033,7 @@ func finish() -> void:
 		if owner_side == world.local_side:
 			# B-345: причина — у пера (взгляд там), тост остаётся для тех, кто смотрит в центр
 			_wall_bump(stroke[stroke.size() - 1], limit_label(), LegionCfg.LIMIT_FX)
-			world.toast("Не больше %d договоров сразу" % LegionCfg.MAX_CONTRACTS, &"warn")
+			world.toast(I18n.t("Не больше %d договоров сразу") % LegionCfg.MAX_CONTRACTS, &"warn")
 		return
 	# угловые фигуры: перелёт конца за начало срезается (ContractShape.trim_overshoot) и мест не
 	# даёт — его мана возвращается, как хвост линии сверх LINE_MAX, а замыкание считается от
@@ -2078,7 +2078,7 @@ func finish() -> void:
 			current_kind).blocked_tips
 		_wall_bump(blocked[0] if not blocked.is_empty() else stroke[stroke.size() - 1])
 		if owner_side == world.local_side:
-			world.toast("Угол фигуры в стене — знак не встал", &"warn")
+			world.toast(I18n.t("Угол фигуры в стене — знак не встал"), &"warn")
 		return
 	if ring:
 		_on_ring_made(c)
@@ -2770,8 +2770,8 @@ func preview_caption(places: int) -> String:
 		if a.get("automarch", false):
 			home += 1
 	if home > 0:
-		return "наберёт %d (%d из дома) / мест %d" % [_preview_plan.size(), home, places]
-	return "наберёт %d / мест %d" % [_preview_plan.size(), places]
+		return I18n.t("наберёт %d (%d из дома) / мест %d") % [_preview_plan.size(), home, places]
+	return I18n.t("наберёт %d / мест %d") % [_preview_plan.size(), places]
 
 
 ## Расстояние между ломанными участками, включая пересечение, а не только между центрами.
@@ -2970,14 +2970,14 @@ static func fig_color(fig: StringName) -> Color:
 static func fig_label(fig: StringName) -> String:
 	match fig:
 		ContractShape.TRIANGLE:
-			return FigureCfg.TRI_LABEL
+			return I18n.t(FigureCfg.TRI_LABEL)
 		ContractShape.SQUARE:
-			return FigureCfg.SQUARE_LABEL
+			return I18n.t(FigureCfg.SQUARE_LABEL)
 		ContractShape.PENTAGON:
-			return FigureCfg.PENTA_LABEL
+			return I18n.t(FigureCfg.PENTA_LABEL)
 		ContractShape.D_SHAPE:
-			return FigureCfg.D_LABEL
-	return FigureCfg.EIGHT_LABEL
+			return I18n.t(FigureCfg.D_LABEL)
+	return I18n.t(FigureCfg.EIGHT_LABEL)
 
 
 ## Что фигура сделает — вторая строка подписи черновика: жест не должен неожиданно значить
@@ -2985,14 +2985,14 @@ static func fig_label(fig: StringName) -> String:
 static func fig_hint(fig: StringName) -> String:
 	match fig:
 		ContractShape.TRIANGLE:
-			return "трое на углах · не бьют · набери строй и сорви — обряд"
+			return I18n.t("трое на углах · не бьют · набери строй и сорви — обряд")
 		ContractShape.SQUARE:
-			return "четверо на углах · держат удар и давку · тает дольше"
+			return I18n.t("четверо на углах · держат удар и давку · тает дольше")
 		ContractShape.PENTAGON:
-			return "четверо из пяти углов · щит после подготовки · метят цель"
+			return I18n.t("четверо из пяти углов · щит после подготовки · метят цель")
 		ContractShape.D_SHAPE:
-			return "двое на углах · выпуск по оттяжке замедляет врагов"
-	return "бьют чаще · выпуск крест-накрест"
+			return I18n.t("двое на углах · выпуск по оттяжке замедляет врагов")
+	return I18n.t("бьют чаще · выпуск крест-накрест")
 
 
 ## Доля мест к награде фигуры: обряд треугольника, «Сверхурочные» восьмёрки; у квадрата — 0
@@ -3056,7 +3056,7 @@ func _fig_release(c: Contract, power: float, perfect: bool, axis := Vector2.ZERO
 		text = FigureCfg.SQUARE_GUARD_LABEL if int(world.stats.get("guards", 0)) > guards \
 			else "Каре — в натиск!"
 	else:
-		text = fig_label(c.figure) + " — в натиск!"
+		text = fig_label(c.figure) + I18n.t(" — в натиск!")
 	if text != "":
 		_popups.append({"pos": c.center, "t": 0.0, "text": text,
 			"color": LegionCfg.PERFECT_COLOR if perfect else fig_color(c.figure)})

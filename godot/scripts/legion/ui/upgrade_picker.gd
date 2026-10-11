@@ -30,10 +30,10 @@ var _cards_box: VBoxContainer
 
 
 func _ready() -> void:
-	var scope_name := "забега" if Campaign.is_endless_scope() else "кампании"
-	var shell := ProgressionUi.shell(self, "Поправка к договору",
-		"Одна поправка — правило до конца %s; действуют сразу три. " % scope_name
-		+ "Щелчок по строке — детали, подпись — кнопкой справа внизу.")
+	var scope_name := I18n.t("забега") if Campaign.is_endless_scope() else I18n.t("кампании")
+	var shell := ProgressionUi.shell(self, I18n.t("Поправка к договору"),
+		I18n.t("Одна поправка — правило до конца %s; действуют сразу три. ") % scope_name
+		+ I18n.t("Щелчок по строке — детали, подпись — кнопкой справа внизу."))
 	_note = shell["note"]
 	var body: VBoxContainer = shell["body"]
 	var footer: HBoxContainer = shell["footer"]
@@ -57,8 +57,8 @@ func _ready() -> void:
 	_wallet.name = "PremiumBalance"
 	_wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(_wallet)
-	var nav := LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
-		"Выберите поправку", func() -> void: choose(_chosen))
+	var nav := LegionUi.nav_bar(self, I18n.t("В главное меню"), func() -> void: back.emit(),
+		I18n.t("Выберите поправку"), func() -> void: choose(_chosen))
 	_primary = nav.get_node("NavPrimary") as Button
 	# Иначе Enter одновременно подписывал и нажимал «Другое предложение» в фокусе.
 	_primary.shortcut = null
@@ -178,13 +178,13 @@ func choose(id: StringName) -> void:
 	# столбиком по букве (кадр 38_E4, 07.10.2026).
 	_strip_caption.text = REPLACE_CAPTION
 	_strip_caption.add_theme_color_override("font_color", UiStyle.WARN)
-	_replace_box.add_child(ProgressionUi.text("Новая поправка:", 17, UiStyle.TEXT_DIM))
+	_replace_box.add_child(ProgressionUi.text(I18n.t("Новая поправка:"), 17, UiStyle.TEXT_DIM))
 	var info := ProgressionRow.new()
 	_replace_box.add_child(info)
 	info.configure(id, AmendmentDb.card(id), "", {"expanded": true, "interactive": false})
 	var back_row := HBoxContainer.new()
 	_replace_box.add_child(back_row)
-	back_row.add_child(ProgressionUi.button("Вернуться к предложению", _cancel_replacement))
+	back_row.add_child(ProgressionUi.button(I18n.t("Вернуться к предложению"), _cancel_replacement))
 	_refresh_footer()
 	ModalFocus.contain.call_deferred(self)
 
@@ -230,7 +230,7 @@ func _on_reroll() -> void:
 	if not next.is_empty():
 		offer(next)
 	else:
-		_note.text = "Переброска не оплачена. Предложение осталось прежним."
+		_note.text = I18n.t("Переброска не оплачена. Предложение осталось прежним.")
 	_refresh_footer()
 
 
@@ -244,16 +244,18 @@ func _refresh_footer() -> void:
 		return
 	if is_instance_valid(_primary):
 		_primary.disabled = _chosen == &"" or _replacing != &""
-		var title := String(AmendmentDb.card(_chosen).get("title", ""))
-		_primary.text = "Подписать «%s»" % title if _chosen != &"" else "Выберите поправку"
-	_reroll.text = "Другое предложение · %d премии" % AmendmentDb.REROLL_COST
+		var title := I18n.t(String(AmendmentDb.card(_chosen).get("title", "")))
+		_primary.text = I18n.t("Подписать «%s»") % title if _chosen != &"" else I18n.t(
+			"Выберите поправку"
+		)
+	_reroll.text = I18n.t("Другое предложение · %d премии") % AmendmentDb.REROLL_COST
 	_reroll.disabled = not RunProgression.can_reroll() or _replacing != &""
-	_wallet.text = "Премия: %d" % Campaign.bounty()
+	_wallet.text = I18n.t("Премия: %d") % Campaign.bounty()
 	if _replacing != &"":
-		_wallet.text += " · сначала завершите замену"
+		_wallet.text += I18n.t(" · сначала завершите замену")
 	elif Campaign.bounty() < AmendmentDb.REROLL_COST:
-		_wallet.text += " · для переброски не хватает %d" % (
+		_wallet.text += I18n.t(" · для переброски не хватает %d") % (
 			AmendmentDb.REROLL_COST - Campaign.bounty())
 	elif not RunProgression.can_reroll():
-		_wallet.text += " · других вариантов сейчас нет"
+		_wallet.text += I18n.t(" · других вариантов сейчас нет")
 	_reroll.tooltip_text = _wallet.text

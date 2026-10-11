@@ -152,15 +152,15 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(details)
 	_details = details
-	button.tooltip_text = Controls.text("%s\n%s\nМелкий шрифт: %s\n%s" % [
-		data.get("title", id), data.get("text", ""), data.get("tradeoff", ""),
-		data.get("hint", "")])
+	button.tooltip_text = Controls.text(I18n.t("%s\n%s\nМелкий шрифт: %s\n%s") % [
+		I18n.t(String(data.get("title", id))), I18n.t(String(data.get("text", ""))),
+		I18n.t(String(data.get("tradeoff", ""))), I18n.t(String(data.get("hint", "")))])
 	# Детали — через _line → ProgressionUi.text: это сток клавиш; второй Controls.text здесь
 	# вернул бы обменянные клавиши обратно (Ку↔Дубль-вэ).
 	details.add_child(_line(String(data.get("text", "")), 18, UiStyle.TEXT))
-	var price := String(data.get("tradeoff", ""))
+	var price := I18n.t(String(data.get("tradeoff", "")))
 	if price != "":
-		details.add_child(_line("Мелкий шрифт: " + price, 16, UiStyle.WARN))
+		details.add_child(_line(I18n.t("Мелкий шрифт: ") + price, 16, UiStyle.WARN))
 	var hint := String(data.get("hint", ""))
 	if hint != "":
 		details.add_child(_line(hint, 16, UiStyle.TEXT_DIM))

@@ -38,12 +38,14 @@ var _gain_t := 0.0
 var _last_souls := -1
 var _posted := 0
 var _free := 0
+var _widths: Array[float] = []
 
 
 func setup(w: LegionWorld) -> LegionTopPlate:
 	world = w
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	position = LegionCfg.HUD_PLATE_POS
+	_widths = block_widths(w.pvp)
 	var total := PAD * 2.0 + SEP * float(LegionCfg.HUD_BLOCK_W.size() - 1)
 	for bw in LegionCfg.HUD_BLOCK_W:
 		total += bw
@@ -101,7 +103,7 @@ func _draw() -> void:
 		return
 	draw_style_box(_panel_style, Rect2(Vector2.ZERO, size))
 	var x := PAD
-	var widths := LegionCfg.HUD_BLOCK_W
+	var widths := _widths
 	_block_cauldron(Rect2(x, 0.0, widths[0], size.y))
 	x += widths[0] + SEP
 	_block_mana(Rect2(x, 0.0, widths[1], size.y))
@@ -128,11 +130,16 @@ func _head(r: Rect2, icon: String, caption: String, value: String, col: Color, b
 	if tex != null:
 		draw_texture_rect(tex, ir, false)
 	var tx := r.position.x + ICON + 2.0
-	LegionUi.draw_text(self, Vector2(tx, r.position.y + 18.0), caption, CAPTION_FONT,
-		cap_col, LegionUi.FONT_TITLE)
-	LegionUi.draw_number(self, Vector2(r.end.x - 2.0, r.position.y + 20.0), value, NUM_FONT, col,
-		bump, true)
+	LegionHudTextLayout.draw_header(self, Vector2(tx, r.position.y), r.end.x - tx,
+		caption, value, cap_col, col, bump)
 	return Rect2(tx, r.position.y + 25.0, r.end.x - tx - 2.0, BAR_H)
+
+
+static func block_widths(pvp: bool) -> Array[float]:
+	var captions: Array[String] = [I18n.t("Ваш Котёл") if pvp else I18n.t("Котёл"),
+		I18n.t("Мана"), I18n.t("Армия"), I18n.t("Души"), I18n.t("Волна")]
+	return LegionHudTextLayout.columns(LegionCfg.HUD_BLOCK_W, captions,
+		["9999", "9999", "9999", "9999", "99/99"], ICON + 2.0)
 
 
 func _block_cauldron(r: Rect2) -> void:
@@ -145,7 +152,7 @@ func _block_cauldron(r: Rect2) -> void:
 	if frac < 0.3:
 		col = LegionUi.BAD
 	# «Схватка» (P5c): два Котла — свой подписан и окрашен цветом своей стороны, как маркеры
-	var row := _head(r, "hud_cauldron", "Ваш Котёл" if world.pvp else "Котёл",
+	var row := _head(r, "hud_cauldron", I18n.t("Ваш Котёл") if world.pvp else I18n.t("Котёл"),
 		"%d" % ceili(world.my_side().cauldron_hp), col, _hp.flash, shake,
 		PvpRules.marker_color(world.local_side) if world.pvp else LegionUi.TEXT_DIM)
 	var bar_col := Color(0.42, 0.9, 0.4).lerp(Color(1.0, 0.8, 0.3),
@@ -157,20 +164,24 @@ func _block_cauldron(r: Rect2) -> void:
 
 func _block_mana(r: Rect2) -> void:
 	var mmax := maxf(1.0, world.my_field().mana_max)
-	var row := _head(r, "hud_mana", "Мана", "%d" % int(world.my_field().mana), LegionUi.TEXT,
+	var row := _head(r, "hud_mana", I18n.t("Мана"), "%d" % int(world.my_field().mana), LegionUi.TEXT,
 		_mana.bump)
 	LegionUi.draw_bar(self, row, _mana.shown / mmax, LegionUi.MANA, _mana.ghost / mmax)
 
 
 func _block_army(r: Rect2) -> void:
-	var row := _head(r, "hud_army", "Армия", "%d" % world.army_alive(world.local_side),
+	var row := _head(r, "hud_army", I18n.t("Армия"), "%d" % world.army_alive(world.local_side),
 		LegionUi.TEXT, _army.bump)
+	var detail := I18n.t("в строю %d · свободно %d") % [_posted, _free]
+	var font_size := LegionHudTextLayout.fit_font(LegionUi.FONT_TEXT, detail, SMALL_FONT, row.size.x)
 	LegionUi.draw_text(self, Vector2(row.position.x, row.end.y + 3.0),
-		"в строю %d · свободно %d" % [_posted, _free], SMALL_FONT, LegionUi.TEXT_DIM)
+		detail, font_size, LegionUi.TEXT_DIM)
 
 
 func _block_souls(r: Rect2) -> void:
-	var row := _head(r, "soul", "Души", "%d" % world.my_side().souls, UiStyle.SOUL.lightened(0.55),
+	var row := _head(r, "soul", I18n.t(
+		"Души"
+	), "%d" % world.my_side().souls, UiStyle.SOUL.lightened(0.55),
 		_souls.bump)
 	if _gain_t > 0.0 and _gain > 0:
 		var a := clampf(_gain_t / 0.4, 0.0, 1.0)
@@ -181,7 +192,7 @@ func _block_souls(r: Rect2) -> void:
 func _block_wave(r: Rect2) -> void:
 	var wr := world.wave_runner
 	var value := "%d/%d" % [wr.wave_no(), wr.total()] if wr != null else "-"
-	var row := _head(r, "hud_wave", "Волна", value, LegionUi.TEXT, _wave.bump)
+	var row := _head(r, "hud_wave", I18n.t("Волна"), value, LegionUi.TEXT, _wave.bump)
 	var col := LegionUi.TEXT_DIM
 	if wr != null and not wr.held:
 		var left := wr.next_start_in()

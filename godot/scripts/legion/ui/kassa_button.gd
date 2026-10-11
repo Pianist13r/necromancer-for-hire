@@ -39,9 +39,9 @@ func _update_key_hint() -> void:
 	if key == _key:
 		return
 	_key = key
-	tooltip_text = Controls.text(("Касса ({key:kassa}): заложить %d душ в премию "
-		+ "на подготовку и переброску. "
-		+ "Заложенное в бою не вернуть; курс к концу боя хуже; при поражении касса сгорает")
+	tooltip_text = Controls.text((I18n.t("Касса ({key:kassa}): заложить %d душ в премию ")
+		+ I18n.t("на подготовку и переброску. ")
+		+ I18n.t("Заложенное в бою не вернуть; курс к концу боя хуже; при поражении касса сгорает"))
 		% LegionCfg.KASSA_PORTION)
 
 
@@ -54,7 +54,7 @@ func ready_now() -> bool:
 func summary() -> String:
 	if world == null:
 		return ""
-	return "Касса %d:1 · +%d/%d" % [world.kassa.rate(world), world.kassa.earned(),
+	return I18n.t("Касса %d:1 · +%d/%d") % [world.kassa.rate(world), world.kassa.earned(),
 		LegionCfg.KASSA_CAP]
 
 
@@ -88,7 +88,7 @@ func _draw() -> void:
 	LegionUi.draw_blank(self, rect, LegionUi.GOLD if ok else LegionUi.INK_FAINT)
 	if _blink > 0.0:
 		draw_rect(rect, Color(1.0, 0.2, 0.2, 0.45 * (_blink / BLINK)), true)
-	LegionUi.draw_text(self, Vector2(8.0, 18.0), "Касса", CAPTION_FONT,
+	LegionUi.draw_text(self, Vector2(8.0, 18.0), I18n.t("Касса"), CAPTION_FONT,
 		LegionUi.GOLD if ok else LegionUi.TEXT_DIM, LegionUi.FONT_TITLE)
 	if not full:
 		LegionUi.draw_text(self, Vector2(rect.end.x - 6.0, 35.0),

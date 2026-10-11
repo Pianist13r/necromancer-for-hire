@@ -36,9 +36,9 @@ func _slot(index: int, id: StringName, interactive: bool, compact: bool,
 		btn.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	var data := AmendmentDb.card(id) if filled else {}
 	if filled:
-		btn.tooltip_text = Controls.text("%s\n%s\nМелкий шрифт: %s\n%s" % [
-			data.get("title", id), data.get("text", ""), data.get("tradeoff", ""),
-			data.get("hint", "")])
+		btn.tooltip_text = Controls.text(I18n.t("%s\n%s\nМелкий шрифт: %s\n%s") % [
+			I18n.t(String(data.get("title", id))), I18n.t(String(data.get("text", ""))),
+			I18n.t(String(data.get("tradeoff", ""))), I18n.t(String(data.get("hint", "")))])
 		var focus := StyleBoxFlat.new()
 		focus.draw_center = false
 		focus.border_color = UiStyle.GOLD
@@ -68,8 +68,8 @@ func _slot(index: int, id: StringName, interactive: bool, compact: bool,
 		names.add_theme_constant_override("separation", 0)
 		row.add_child(names)
 		if not compact:
-			names.add_child(UiStyle.label(String(AmendmentDb.TAGS.get(tag,
-				AmendmentDb.TAGS["law"])["title"]).to_upper(), 13, UiStyle.FONT_TEXT, col))
+			names.add_child(UiStyle.label(I18n.t(String(AmendmentDb.TAGS.get(tag,
+				AmendmentDb.TAGS["law"])["title"])).to_upper(), 13, UiStyle.FONT_TEXT, col))
 		var t := UiStyle.label(String(data.get("title", id)), 15 if compact else 17,
 			UiStyle.FONT_TITLE, UiStyle.TEXT)
 		t.clip_text = true
@@ -77,12 +77,12 @@ func _slot(index: int, id: StringName, interactive: bool, compact: bool,
 		names.add_child(t)
 		# Экран замены: слот — кнопка «вычеркнуть»; без надписи щелчок по слоту не угадать.
 		if interactive:
-			var cross := UiStyle.label("× вычеркнуть", 15, UiStyle.FONT_TEXT, UiStyle.BAD)
+			var cross := UiStyle.label(I18n.t("× вычеркнуть"), 15, UiStyle.FONT_TEXT, UiStyle.BAD)
 			cross.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(cross)
 	else:
-		var empty := UiStyle.label("пусто", 15 if compact else 17, UiStyle.FONT_TEXT,
+		var empty := UiStyle.label(I18n.t("пусто"), 15 if compact else 17, UiStyle.FONT_TEXT,
 			Color(UiStyle.TEXT_DIM, 0.7))
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

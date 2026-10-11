@@ -37,21 +37,21 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 	var box := UiStyle.card_box(self, 640.0, 10)
 
 	var mode_label := UiStyle.label(
-		("«Вызов дня» · %s" % daily_date) if daily else "Бесконечный подряд", 16,
+		(I18n.t("«Вызов дня» · %s") % daily_date) if daily else I18n.t("Бесконечный подряд"), 16,
 		UiStyle.FONT_TITLE, UiStyle.SOUL)
 	mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(mode_label)
 
-	var header := UiStyle.label("Объект №%d" % k, 24, UiStyle.FONT_TITLE, UiStyle.GOLD)
+	var header := UiStyle.label(I18n.t("Объект №%d") % k, 24, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(header)
 
-	var tally := UiStyle.label("Объектов пройдено: %d · Души: %d" % [tenure, souls],
+	var tally := UiStyle.label(I18n.t("Объектов пройдено: %d · Души: %d") % [tenure, souls],
 		16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(tally)
-	box.add_child(ProgressionUi.text("Разряд открывает варианты поправок. "
-		+ "Опыт растёт только в кампании.", 15, UiStyle.TEXT_DIM))
+	box.add_child(ProgressionUi.text(I18n.t("Разряд открывает варианты поправок. ")
+		+ I18n.t("Опыт растёт только в кампании."), 15, UiStyle.TEXT_DIM))
 
 	# D-0927-96: рекорды — отдельно по сложности («Вызов дня» — ещё и по дате); показываем рекорд
 	# ТОЙ сложности, с которой реально пойдёт объект (закреплённая — у «Вызова дня» ПОСЛЕ старта
@@ -62,23 +62,24 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 	var rec_souls := LegionRunStore.endless_best_souls(daily_date if daily else "", effective_diff)
 	if rec_tenure > 0 or rec_souls > 0:
 		var rec := UiStyle.label(
-			"Рекорд (%s): стаж %d · души %d"
+			I18n.t("Рекорд (%s): стаж %d · души %d")
 				% [LegionChallenge.title(effective_diff), rec_tenure, rec_souls],
 			14, UiStyle.FONT_TEXT, UiStyle.GOLD)
 		rec.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(rec)
 
-	var title := UiStyle.label(String(map_data.get("title", map_id)), 30, UiStyle.FONT_TITLE)
+	var title := UiStyle.label(I18n.map_text(String(map_data.get("title", map_id))),
+		30, UiStyle.FONT_TITLE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 
 	var subtitle := UiStyle.label(
-		String(map_data.get("subtitle", "")), 17, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		I18n.map_text(String(map_data.get("subtitle", ""))), 17, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD
 	box.add_child(subtitle)
 
-	var hint := String(map_data.get("hint", ""))
+	var hint := I18n.map_text(String(map_data.get("hint", "")))
 	if hint != "":
 		var hint_label := UiStyle.label(Controls.text(hint), 16, UiStyle.FONT_TEXT, UiStyle.TEXT)
 		hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -88,7 +89,7 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 	var threats := _threat_list(map_data, effective_diff)
 	if not threats.is_empty():
 		var threats_title := UiStyle.label(
-			"Кто идёт по объекту", 15, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
+			I18n.t("Кто идёт по объекту"), 15, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
 		threats_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(threats_title)
 		var threats_row := UiStyle.label(", ".join(threats), 16, UiStyle.FONT_TEXT, UiStyle.WARN)
@@ -101,8 +102,8 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 	# менять нечего до конца забега (иначе рекорд набивался бы сменой сложности посреди забега).
 	if locked:
 		var locked_label := UiStyle.label(
-			"Сложность: %s (закреплена на весь %s)" % [LegionChallenge.title(effective_diff),
-				"«Вызов дня»" if daily else "забег"],
+			I18n.t("Сложность: %s (закреплена на весь %s)") % [LegionChallenge.title(effective_diff),
+				I18n.t("«Вызов дня»") if daily else I18n.t("забег")],
 			17, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
 		locked_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(locked_label)
@@ -115,8 +116,8 @@ func populate(map_data: Dictionary, k: int, tenure: int, souls: int, daily: bool
 		if bought:
 			prep_bought.emit())
 
-	LegionUi.nav_bar(self, "В главное меню", func() -> void: back.emit(),
-		"В бой", func() -> void: start.emit(map_id))
+	LegionUi.nav_bar(self, I18n.t("В главное меню"), func() -> void: back.emit(),
+		I18n.t("В бой"), func() -> void: start.emit(map_id))
 
 
 ## Тот же расчёт угроз, что Briefing кампании (Briefing.FOE_NAMES — общий словарь имён).
@@ -138,5 +139,5 @@ func _threat_list(map_data: Dictionary, difficulty: String) -> Array[String]:
 			if type_id == "" or seen.has(type_id):
 				continue
 			seen[type_id] = true
-			out.append(String(Briefing.FOE_NAMES.get(type_id, type_id)))
+			out.append(I18n.t(String(Briefing.FOE_NAMES.get(type_id, type_id))))
 	return out

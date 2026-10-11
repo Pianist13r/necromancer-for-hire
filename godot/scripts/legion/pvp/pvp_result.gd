@@ -29,27 +29,29 @@ static func describe(stats: Dictionary, me := 0) -> Dictionary:
 	var winner := int(stats.get("winner", -2))
 	var reason := String(stats.get("reason", ""))
 	var verdict := "draw" if winner == -1 else ("win" if winner == me else "lose")
-	var title := {"win": "Победа", "lose": "Поражение", "draw": "Ничья"}[verdict] as String
+	var title := {"win": I18n.t("Победа"), "lose": I18n.t("Поражение"), "draw": I18n.t(
+		"Ничья")}[verdict] as String
 	var sides: Array = stats.get("sides", [])
 	var mine: Dictionary = sides[me] if sides.size() > me else {}
 	var rival: Dictionary = sides[1 - me] if sides.size() > 1 and me <= 1 else {}
 	var why := ""
 	match reason:
 		PvpMatch.REASON_CAULDRON:
-			why = "Котёл соперника разрушен" if verdict == "win" else "Ваш Котёл разрушен"
+			why = I18n.t("Котёл соперника разрушен") if verdict == "win" else I18n.t("Ваш Котёл разрушен")
 		PvpMatch.REASON_SURRENDER:
-			why = "Соперник сдался" if verdict == "win" else "Вы сдались"
+			why = I18n.t("Соперник сдался") if verdict == "win" else I18n.t("Вы сдались")
 		PvpMatch.REASON_LIMIT:
-			why = "Время вышло: " + ("Котлы почти равны" if verdict == "draw"
-				else "у вас больше HP Котла" if verdict == "win" else "у соперника больше HP Котла")
+			why = I18n.t("Время вышло: ") + (I18n.t("Котлы почти равны") if verdict == "draw"
+				else I18n.t("у вас больше HP Котла") if verdict == "win" else I18n.t(
+					"у соперника больше HP Котла"))
 		PvpMatch.REASON_DRAW:
-			why = "Оба Котла разрушены одновременно"
+			why = I18n.t("Оба Котла разрушены одновременно")
 	var lines: Array[String] = [
-		"Ваш Котёл: %d    Котёл соперника: %d" % [ceili(float(mine.get("hp", 0.0))),
+		I18n.t("Ваш Котёл: %d    Котёл соперника: %d") % [ceili(float(mine.get("hp", 0.0))),
 			ceili(float(rival.get("hp", 0.0)))],
-		"Ваша армия: %d    армия соперника: %d" % [int(mine.get("army", 0)),
+		I18n.t("Ваша армия: %d    армия соперника: %d") % [int(mine.get("army", 0)),
 			int(rival.get("army", 0))],
-		"Длина матча: %s" % PvpView.clock(float(stats.get("t", 0.0))),
+		I18n.t("Длина матча: %s") % PvpView.clock(float(stats.get("t", 0.0))),
 	]
 	return {"title": title, "reason": why, "verdict": verdict, "lines": lines}
 
@@ -84,12 +86,13 @@ func show_for(w: LegionWorld) -> void:
 		var l := UiStyle.label(line, 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(l)
-	var nav := LegionUi.nav_bar(_root, "В лобби" if w.net_mode else "В главное меню",
-		func() -> void: menu.emit(), "" if w.net_mode else "Ещё раз",
+	var nav := LegionUi.nav_bar(_root, I18n.t("В лобби") if w.net_mode else I18n.t("В главное меню"),
+		func() -> void: menu.emit(), "" if w.net_mode else I18n.t("Ещё раз"),
 		func() -> void: again.emit())
 	if not w.net_mode:
 		# перед «Ещё раз»: тот же матч — главная кнопка, новое поле — рядом
-		var fresh := ProgressionUi.button("Ещё раз на новом поле", func() -> void: again_new.emit())
+		var fresh := ProgressionUi.button(I18n.t("Ещё раз на новом поле"), func(
+			) -> void: again_new.emit())
 		fresh.name = "NavNewField"
 		LegionUi.style_button(fresh, LegionUi.INK, 20)
 		nav.add_child(fresh)

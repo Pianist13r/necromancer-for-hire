@@ -353,7 +353,7 @@ func passed(id: StringName) -> bool:
 ## забега в тексте урока не показываем — он учит базе способности).
 ## Клавиши — текущие (токены {key:…} раскрывает Controls.text после подстановки чисел).
 func step_text(i: int) -> String:
-	var text := String(lessons[i]["text"])
+	var text := I18n.t(String(lessons[i]["text"]))
 	match lessons[i]["kind"]:
 		&"hero_w":
 			if text.contains("%d"):
@@ -370,7 +370,8 @@ func step_text(i: int) -> String:
 
 ## Множитель для текста игрока: 2.0 → «2», 1.5 → «1,5».
 static func _mult(x: float) -> String:
-	return ("%.1f" % x).replace(".", ",").trim_suffix(",0")
+	var text := ("%.1f" % x).trim_suffix(".0")
+	return text if I18n.language == "en" else text.replace(".", ",")
 
 
 ## Реплика урока молчит (только текст): записана под старое правило (STALE_VOICE) или произносит

@@ -286,6 +286,30 @@ static func road_labels(map: Dictionary) -> Dictionary:
 
 ## Сторона кадра 1280×720, за которой лежит первая точка дороги (ворота — на краю, путь начинается
 ## за ним). Как PgGeom.gate_side, но без статической рамки PgGeom (её переставляет PgPvp).
+## Presentation only: road_labels and saved debrief dictionaries keep their canonical text.
+static func display_road_text(source: String) -> String:
+	if I18n.language != "en":
+		return source
+	var translated := I18n.t(source)
+	if translated != source:
+		return translated
+	if source.ends_with("-я") and source.trim_suffix("-я").is_valid_int():
+		return "#" + source.trim_suffix("-я")
+	for title: String in LegionCfg.ROAD_TITLES.values():
+		if not source.begins_with(title + ", "):
+			continue
+		var branch := source.trim_prefix(title + ", ")
+		for noun: String in ["ветка", "дорога"]:
+			if branch.ends_with(" " + noun):
+				var place := display_road_text(branch.trim_suffix(" " + noun))
+				var kind := "branch" if noun == "ветка" else "road"
+				return I18n.t(title) + ", " + place + " " + kind
+	for short: String in LegionCfg.ROAD_SHORT.values():
+		if source.begins_with(short + " "):
+			return I18n.t(short) + " " + display_road_text(source.trim_prefix(short + " "))
+	return source
+
+
 static func _side_of(p: Vector2) -> String:
 	if p.x < 0.0:
 		return "west"

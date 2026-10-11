@@ -287,7 +287,7 @@ func ghost_caption(h: Dictionary) -> String:
 	_meet_ghosts()
 	for x in _ghosts_captioned:
 		if is_same(x, h):
-			return CfgItems.GHOST_CAPTION % ceili(float(h["t"]))
+			return I18n.t(CfgItems.GHOST_CAPTION) % ceili(float(h["t"]))
 	return ""
 
 

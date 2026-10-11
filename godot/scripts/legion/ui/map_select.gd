@@ -56,7 +56,7 @@ func _ready() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(column)
 
-	var title := UiStyle.label("Карты", 36, UiStyle.FONT_TITLE)
+	var title := UiStyle.label(I18n.t("Карты"), 36, UiStyle.FONT_TITLE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(title)
 
@@ -95,7 +95,7 @@ func _ready() -> void:
 	_fit_cards()
 
 	# D-1007-P1: кнопки «Контора» нет — подготовка на брифинге выбранной карты.
-	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+	LegionUi.nav_bar(self, I18n.t("← Назад"), func() -> void: back.emit())
 
 
 ## Ужать карточки под оставшуюся высоту: высота ряда делится поровну, шрифты едут за ней.
@@ -176,23 +176,25 @@ func _build_card(map_data: Dictionary, index: int) -> Control:
 
 	if unlocked:
 		var title := UiStyle.label(
-			String(map_data.get("title", id)), 22, UiStyle.FONT_TITLE, UiStyle.GOLD)
+			I18n.map_text(String(map_data.get("title", id))), 22, UiStyle.FONT_TITLE, UiStyle.GOLD)
 		title.autowrap_mode = TextServer.AUTOWRAP_WORD
 		body.add_child(title)
 		fit["title"] = title
 		fit["title_size"] = 22
 		var subtitle := UiStyle.label(
-			String(map_data.get("subtitle", "")), 15, UiStyle.FONT_TEXT, UiStyle.TEXT)
+			I18n.map_text(String(map_data.get("subtitle", ""))), 15, UiStyle.FONT_TEXT, UiStyle.TEXT)
 		subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD
 		body.add_child(subtitle)
 		fit["subtitle"] = subtitle
 		fit["subtitle_size"] = 15
 	else:
-		var lock := UiStyle.label("🔒 Закрыто", 20, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
+		var lock := UiStyle.label(I18n.t("🔒 Закрыто"), 20, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
 		body.add_child(lock)
 		fit["lock"] = lock
 		fit["lock_size"] = 20
-		var hint := UiStyle.label("Пройдите предыдущий объект", 14, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		var hint := UiStyle.label(I18n.t(
+			"Пройдите предыдущий объект"
+		), 14, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD
 		body.add_child(hint)
 		fit["hint"] = hint
@@ -232,7 +234,7 @@ func _add_record_label(body: VBoxContainer, fit: Dictionary, map_id: String) -> 
 func _refresh_record(lab: Label) -> void:
 	var rec := LegionRecords.best(LegionRecords.MODE_CAMPAIGN, String(lab.get_meta("map_id")),
 		Settings.difficulty())
-	lab.text = "" if rec.is_empty() else "лучшее: " + LegionRecords.short_text(rec)
+	lab.text = "" if rec.is_empty() else I18n.t("лучшее: ") + LegionRecords.short_text(rec)
 
 
 ## Сложность сменили в пикере — подписи рекордов карточек под новую.

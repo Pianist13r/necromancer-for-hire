@@ -77,18 +77,18 @@ func show_report(report: Dictionary, foe_type: String, map_title: String,
 	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_child(text_col)
 
-	var stamp := UiStyle.label("Коллектив с прискорбием сообщает", 26, UiStyle.FONT_TITLE,
+	var stamp := UiStyle.label(I18n.t("Коллектив с прискорбием сообщает"), 26, UiStyle.FONT_TITLE,
 		PAPER_RED)
 	stamp.autowrap_mode = TextServer.AUTOWRAP_WORD
 	text_col.add_child(stamp)
 
 	var tenure := int(report.get("tenure", 0))
 	var souls := int(report.get("souls", 0))
-	var reason := LegionEndless.death_reason(foe_type)
+	var reason := I18n.t(LegionEndless.death_reason(foe_type))
 	var body_lines := [
-		"Некромант не пережил окончание рабочего дня на объекте «%s»." % map_title,
-		"Стаж: %d объект%s. Души: %d." % [tenure, _plural_ru(tenure), souls],
-		"Причина: %s." % reason,
+		I18n.t("Некромант не пережил окончание рабочего дня на объекте «%s».") % I18n.map_text(map_title),
+		I18n.t("Стаж: %d объект%s. Души: %d.") % [tenure, _plural_ru(tenure), souls],
+		I18n.t("Причина: %s.") % reason,
 	]
 	for line in body_lines:
 		var l := UiStyle.label(line, 17, UiStyle.FONT_TEXT, PAPER_INK)
@@ -109,10 +109,10 @@ func show_report(report: Dictionary, foe_type: String, map_title: String,
 	box.add_child(_rule())
 	box.add_child(_signature_row())
 
-	LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
-		"" if daily else "Новый забег", func() -> void: restart.emit())
+	LegionUi.nav_bar(self, I18n.t("В главное меню"), func() -> void: menu.emit(),
+		"" if daily else I18n.t("Новый забег"), func() -> void: restart.emit())
 	if show_collect:
-		box.add_child(ProgressionUi.button("В коллекцию", func() -> void: collect_pressed.emit()))
+		box.add_child(ProgressionUi.button(I18n.t("В коллекцию"), func() -> void: collect_pressed.emit()))
 
 
 
@@ -166,20 +166,22 @@ func _header_row(daily: bool, daily_date: String) -> Control:
 	left.add_theme_constant_override("separation", 1)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(left)
-	var to_line := UiStyle.label("Рассылка: Все сотрудники", 14, UiStyle.FONT_TITLE, PAPER_INK)
+	var to_line := UiStyle.label(I18n.t("Рассылка: Все сотрудники"), 14, UiStyle.FONT_TITLE, PAPER_INK)
 	left.add_child(to_line)
 	var from_line := UiStyle.label(
-		"От: Отдел кадров Конторы", 13, UiStyle.FONT_TEXT, PAPER_INK_DIM)
+		I18n.t("От: Отдел кадров Конторы"), 13, UiStyle.FONT_TEXT, PAPER_INK_DIM)
 	left.add_child(from_line)
 
 	var date_str := daily_date if daily and daily_date != "" else LegionEndless.today_date()
-	var date_label := UiStyle.label("Дата: %s" % date_str, 13, UiStyle.FONT_TEXT, PAPER_INK_DIM)
+	var date_label := UiStyle.label(I18n.t(
+		"Дата: %s"
+	) % date_str, 13, UiStyle.FONT_TEXT, PAPER_INK_DIM)
 	date_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	date_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	row.add_child(date_label)
 
 	if daily:
-		var tag := UiStyle.label("«Вызов дня»", 13, UiStyle.FONT_TITLE, PAPER_RED)
+		var tag := UiStyle.label(I18n.t("«Вызов дня»"), 13, UiStyle.FONT_TITLE, PAPER_RED)
 		left.add_child(tag)
 	return row
 
@@ -201,9 +203,11 @@ func _signature_row() -> Control:
 	var sig_col := VBoxContainer.new()
 	sig_col.add_theme_constant_override("separation", 1)
 	row.add_child(sig_col)
-	var sig := UiStyle.label("Отдел кадров Конторы", 15, UiStyle.FONT_TITLE, PAPER_INK)
+	var sig := UiStyle.label(I18n.t("Отдел кадров Конторы"), 15, UiStyle.FONT_TITLE, PAPER_INK)
 	sig_col.add_child(sig)
-	var flowers := UiStyle.label("Цветы — за счёт профсоюза.", 15, UiStyle.FONT_TEXT, PAPER_INK_DIM)
+	var flowers := UiStyle.label(I18n.t(
+		"Цветы — за счёт профсоюза."
+	), 15, UiStyle.FONT_TEXT, PAPER_INK_DIM)
 	sig_col.add_child(flowers)
 	return row
 
@@ -211,18 +215,20 @@ func _signature_row() -> Control:
 func _record_lines(report: Dictionary) -> Array[String]:
 	var out: Array[String] = []
 	if bool(report.get("is_new_tenure_record", false)):
-		out.append("Новый личный рекорд стажа: %d!" % int(report.get("tenure", 0)))
+		out.append(I18n.t("Новый личный рекорд стажа: %d!") % int(report.get("tenure", 0)))
 	else:
-		out.append("Личный рекорд стажа: %d" % int(report.get("tenure_record", 0)))
+		out.append(I18n.t("Личный рекорд стажа: %d") % int(report.get("tenure_record", 0)))
 	if bool(report.get("is_new_souls_record", false)):
-		out.append("Новый личный рекорд душ: %d!" % int(report.get("souls", 0)))
+		out.append(I18n.t("Новый личный рекорд душ: %d!") % int(report.get("souls", 0)))
 	else:
-		out.append("Личный рекорд душ: %d" % int(report.get("souls_record", 0)))
+		out.append(I18n.t("Личный рекорд душ: %d") % int(report.get("souls_record", 0)))
 	return out
 
 
 ## Число объектов по-русски: 1 объект, 2–4 объекта, 5+ объектов (и 11–14 — тоже «объектов»).
 func _plural_ru(n: int) -> String:
+	if I18n.language == "en":
+		return "" if n == 1 else "s"
 	var n10 := n % 10
 	var n100 := n % 100
 	if n10 == 1 and n100 != 11:

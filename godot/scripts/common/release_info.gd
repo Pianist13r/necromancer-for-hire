@@ -2,12 +2,12 @@ class_name ReleaseInfo
 extends RefCounted
 ## Один источник версии и публичных ссылок. Удалённый JSON меняет только адрес лобби.
 
-const VERSION := "0.3.3-alpha"
+const VERSION := "0.3.4-alpha"
 const REPOSITORY_URL := "https://github.com/Pianist13r/necromancer-for-hire"
 const RELEASES_URL := REPOSITORY_URL + "/releases"
 const SERVER_INFO_URL := (
 	"https://raw.githubusercontent.com/Pianist13r/necromancer-for-hire/main/server.json")
-const DEFAULT_RELAY := "wss://51-250-12-39.sslip.io"
+const DEFAULT_RELAY := "wss://relay.necromancer-for-hire.ru"
 const SERVER_BODY_LIMIT := 4096
 const SERVER_TIMEOUT := 8.0
 ## Сообщество (B-467): канал и чат в Telegram, сайт игры. Меню и экран итога берут адреса отсюда.

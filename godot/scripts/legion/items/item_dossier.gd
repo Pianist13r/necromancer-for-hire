@@ -44,7 +44,7 @@ func _ready() -> void:
 	margins.add_child(panel)
 	_content = VBoxContainer.new()
 	panel.add_child(_content)
-	var nav := LegionUi.nav_bar(surface, "← Назад", close)
+	var nav := LegionUi.nav_bar(surface, I18n.t("← Назад"), close)
 	_close = nav.get_node("NavBack") as Button
 	_close.name = "Close"
 

@@ -168,7 +168,8 @@ func _climax_cleared() -> void:
 	var souls := int(LegionChallenge.value(world.difficulty, "climax_souls"))
 	world.staff.add_souls(souls)
 	world.stats["climax_cleared"] = 1
-	world.toast("Кульминация отбита!" + (" +%d душ" % souls if souls > 0 else ""), &"wave")
+	world.toast(I18n.t("Кульминация отбита!") + (I18n.t(
+		" +%d душ") % souls if souls > 0 else ""), &"wave")
 
 
 func _summary(g: Dictionary) -> Dictionary:

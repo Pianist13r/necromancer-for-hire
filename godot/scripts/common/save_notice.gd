@@ -69,7 +69,7 @@ func _process(_delta: float) -> void:
 		_paths.append(path)
 		var message := String(SafeConfig.notices[path])
 		var label := "Настройки" if path == Settings.path else "Прогресс"
-		messages.append(label + ": " + message)
+		messages.append(I18n.t(label) + ": " + I18n.t(message))
 		recoverable = recoverable and message.contains("резервной копии")
 		retriable = retriable or message.contains(WRITE_FAILED)
 	var combined := "\n".join(messages)

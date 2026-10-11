@@ -41,6 +41,7 @@ const _TEXT_PATTERN := ("\\{(?<tok>key\\+?|keys|cap|mouse):(?<act>[a-z_]+)\\}"
 	+ "|F \\(или N\\)|1/2/3|ЛКМ|ПКМ|Пробелом|Табом|Дубль-вэ|Пробел|Таб|Ку|Эр|Дэ|Эф|[QWERFПЕ]"
 	+ "|(?<=[Нн]ажмите |линия — |[Кк]лавиша |[Кк]лавишей )[123])(?![\\p{L}\\p{N}])")
 static var _text_regex: RegEx = null
+static var _english_regex: RegEx = null
 ## Растёт на каждом apply(): открытый текст (плашка урока) сверяет её и пересчитывается, если
 ## клавишу переназначили посреди боя из паузы (KB-06).
 static var revision := 0
@@ -108,10 +109,10 @@ static func conflict(action: StringName, code: int) -> StringName:
 ## Error string for the UI; a rejected candidate leaves both InputMap and disk unchanged.
 static func rebind(action: StringName, code: int) -> String:
 	if action not in ACTIONS or not valid_key(code):
-		return "Эскейп оставлен для отмены. Выберите другую клавишу."
+		return I18n.t("Эскейп оставлен для отмены. Выберите другую клавишу.")
 	var other := conflict(action, code)
 	if other != &"":
-		return "Клавиша занята: %s. Сначала измените это действие." % TITLES[other]
+		return I18n.t("Клавиша занята: %s. Сначала измените это действие.") % I18n.t(TITLES[other])
 	var bindings := _bindings()
 	bindings[action] = code
 	return _store(bindings)
@@ -141,13 +142,13 @@ static func _store(bindings: Dictionary) -> String:
 		saved[String(name)] = bindings[name]
 	var err := Settings.set_value(SECTION, "keyboard", saved)
 	apply()
-	return "" if err == OK else SAVE_FAILED
+	return "" if err == OK else I18n.t(SAVE_FAILED)
 
 ## Возврат к штатной раскладке — той же проверкой записи, что и rebind (J8).
 static func reset() -> String:
 	var err := Settings.set_value(SECTION, "keyboard", {})
 	apply()
-	return "" if err == OK else SAVE_FAILED
+	return "" if err == OK else I18n.t(SAVE_FAILED)
 
 static func apply() -> void:
 	revision += 1
@@ -196,7 +197,7 @@ static func renamed(action: StringName) -> bool:
 
 static func label(action: StringName, spoken := false) -> String:
 	var code := display_code(key(action))
-	if spoken and SPOKEN.has(code):
+	if spoken and I18n.language == "ru" and SPOKEN.has(code):
 		return SPOKEN[code]
 	return OS.get_keycode_string(code)
 
@@ -213,9 +214,19 @@ static func full_label(action: StringName) -> String:
 ## написана, после переназначения слово заменяется. Звать ОДИН раз на путь вывода (сток):
 ## повторный проход при обмене клавиш вернул бы прежнее слово.
 static func text(source: String) -> String:
+	source = I18n.t(source)
+	if I18n.language == "en":
+		if _english_regex == null:
+			_english_regex = RegEx.create_from_string(
+				"\\{(?<tok>key\\+?|keys|cap|mouse):(?<act>[a-z_]+)\\}")
+		return _expand_tokens(source, _english_regex)
 	if _text_regex == null:
 		_text_regex = RegEx.create_from_string(_TEXT_PATTERN)
-	var matches := _text_regex.search_all(source)
+	return _expand_tokens(source, _text_regex)
+
+
+static func _expand_tokens(source: String, pattern: RegEx) -> String:
+	var matches := pattern.search_all(source)
 	var out := source
 	for i in range(matches.size() - 1, -1, -1):
 		var hit: RegExMatch = matches[i]

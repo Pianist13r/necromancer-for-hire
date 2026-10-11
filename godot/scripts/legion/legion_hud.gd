@@ -127,7 +127,7 @@ func setup(w: LegionWorld) -> void:
 
 
 func _build_pause() -> void:
-	pause_button = ProgressionUi.button("❚❚ Пауза", func() -> void:
+	pause_button = ProgressionUi.button(I18n.t("❚❚ Пауза"), func() -> void:
 		if world.pvp and world.pvp_menu != null:
 			world.pvp_menu.toggle()
 		elif world.phase == LegionWorld.Phase.BATTLE:
@@ -139,7 +139,7 @@ func _build_pause() -> void:
 	pause_button.offset_right = -12
 	pause_button.offset_top = 12
 	pause_button.offset_bottom = 60
-	_pause = LegionUi.label("Пауза (Esc)", 34, LegionUi.FONT_TITLE, LegionUi.TEXT)
+	_pause = LegionUi.label(I18n.t("Пауза (Esc)"), 34, LegionUi.FONT_TITLE, LegionUi.TEXT)
 	_pause.position = Vector2(560, 320)
 	_pause.visible = false
 	add_child(_pause)
@@ -158,7 +158,7 @@ func _build_result() -> void:
 	_result_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_result_text)
 	var again := Button.new()
-	again.text = "Ещё раз"
+	again.text = I18n.t("Ещё раз")
 	LegionUi.style_button(again, LegionUi.GOLD, 20)
 	again.pressed.connect(func() -> void: world.restart())
 	box.add_child(again)
@@ -193,7 +193,7 @@ func tick(delta: float) -> void:
 	var wr := world.wave_runner
 	var wave_txt := "%d/%d" % [wr.wave_no(), wr.total()] if wr != null else "-"
 	_plate.wave_hint = _wave_hint()
-	_stats.text = "Мана %d · Армия %d (строй %d, свободно %d) · Волна %s %s · Котёл %d" % [
+	_stats.text = I18n.t("Мана %d · Армия %d (строй %d, свободно %d) · Волна %s %s · Котёл %d") % [
 		int(world.my_field().mana), world.army_alive(world.local_side), posted, free, wave_txt,
 		_plate.wave_hint,
 		int(ceilf(world.my_side().cauldron_hp)),
@@ -279,13 +279,13 @@ func _wave_hint() -> String:
 	if wr == null:
 		return ""
 	if world.tutorial != null and world.tutorial.holding():
-		return "обучение"
+		return I18n.t("обучение")
 	var left := wr.next_start_in()
 	if left < 0.0:
-		return "последняя" if wr.phase != WaveRunner.Phase.DONE else "все пройдены"
+		return I18n.t("последняя") if wr.phase != WaveRunner.Phase.DONE else I18n.t("все пройдены")
 	if is_finite(left):
-		return "через %d с" % ceili(left)
-	return "идёт проверка" if wr.phase == WaveRunner.Phase.RUN else "после клира"
+		return I18n.t("через %d с") % ceili(left)
+	return I18n.t("идёт проверка") if wr.phase == WaveRunner.Phase.RUN else I18n.t("после клира")
 
 
 ## Сдвинуть столбик тостов ниже y (плашка обучения сверху — legion_tutorial.gd). 0 — вернуть
@@ -423,13 +423,14 @@ func show_result(victory: bool, stats: Dictionary) -> void:
 		return
 	if not show_native_ui:
 		return
-	_result_text.text = "%s\nКотёл: %d   Убито: %d   Потери: %d\nНатисков: %d   Продлений: %d" % [
-		"Победа! Проверка пройдена" if victory else "Котёл пал. Договор расторгнут",
+	_result_text.text = I18n.t(
+		"%s\nКотёл: %d   Убито: %d   Потери: %d\nНатисков: %d   Продлений: %d") % [
+		I18n.t("Победа! Проверка пройдена") if victory else I18n.t("Котёл пал. Договор расторгнут"),
 		int(ceilf(world.cauldron_hp)), int(stats["kills"]), int(stats["lost"]),
 		int(stats["charges"]), int(stats["refreshes"]),
 	]
 	if bool(stats.get("has_breaches", false)) and int(stats.get("breach_leaks", 0)) == 0:
-		_result_text.text += "\nЗакрыл трещину"
+		_result_text.text += I18n.t("\nЗакрыл трещину")
 	_result.visible = true
 
 
@@ -508,7 +509,7 @@ func _build_preview() -> void:
 	_preview_text.add_theme_constant_override("line_separation", 0)
 	box.add_child(_preview_text)
 	_call = Button.new()
-	_call.text = "Вызвать (%s)" % Controls.label(&"call_wave")
+	_call.text = I18n.t("Вызвать (%s)") % Controls.label(&"call_wave")
 	_call.focus_mode = Control.FOCUS_NONE
 	# B-055: кнопка мышь не ловит — штрих, начатый на ней, чертится; щелчок разбирает ui_tap()
 	_call.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -558,7 +559,7 @@ func _hover_call() -> void:
 
 
 func _update_preview() -> void:
-	_call.text = "Вызвать (%s)" % Controls.label(&"call_wave")
+	_call.text = I18n.t("Вызвать (%s)") % Controls.label(&"call_wave")
 	var wr := world.wave_runner
 	if wr == null:
 		return
@@ -566,23 +567,23 @@ func _update_preview() -> void:
 	_call.disabled = not world.contracts.human_input or not wr.can_call()
 	_apply_preview_font(_preview_font_size(1))   # короткие строки — полным кеглем
 	if wr.held:
-		_preview_text.text = "Обучение"
+		_preview_text.text = I18n.t("Обучение")
 		return
 	var left := wr.next_start_in()
 	if left < 0.0:
-		_preview_text.text = "[b]Все волны вызваны[/b]"
+		_preview_text.text = I18n.t("[b]Все волны вызваны[/b]")
 		return
-	var title := "[b]Следующая волна после клира[/b]"
+	var title := I18n.t("[b]Следующая волна после клира[/b]")
 	if is_finite(left):
 		var hot := left <= LegionCfg.HUD_THREAT_LEAD
-		title = "[b]Следующая волна через [color=#%s]%d с[/color][/b]" % [
+		title = I18n.t("[b]Следующая волна через [color=#%s]%d с[/color][/b]") % [
 			(LegionUi.GOLD if hot else LegionUi.TEXT).to_html(false), ceili(left)]
 	var lines := PackedStringArray([title])
 	# Кульминация читается заранее: пик и чем отвечать (вызов — это когда видно, чем ответить)
 	var has_hint := false
 	var hint := ""
 	if wr.is_climax(wr.index + 1):
-		lines[0] = title.replace("Следующая волна", "[color=#%s]КУЛЬМИНАЦИЯ[/color]"
+		lines[0] = title.replace(I18n.t("Следующая волна"), I18n.t("[color=#%s]КУЛЬМИНАЦИЯ[/color]")
 			% LegionUi.STAMP.to_html(false))
 		hint = LegionChallenge.answer_hint(wr.next_wave_groups())
 		has_hint = hint != ""
@@ -649,8 +650,8 @@ func _update_preview() -> void:
 			line += " [color=#%s](%s)[/color]" % [dim, "·".join(letters)]
 		lines.append(line)
 	if order.size() > shown:
-		lines.append("[color=#%s]+ ещё %d %s[/color]" % [dim, order.size() - shown,
-			LegionAbilityAim.plural(order.size() - shown, "вид", "вида", "видов")])
+		lines.append(I18n.t("[color=#%s]+ ещё %d %s[/color]") % [dim, order.size() - shown,
+			LegionAbilityAim.plural(order.size() - shown, I18n.t("вид"), I18n.t("вида"), I18n.t("видов"))])
 	# Мелкая подпись воротами — только если дорог не больше двух (B-204) и панель не занята
 	# подсказкой кульминации (та ценнее и тоже забирает высоту — иначе вдвоём рвали потолок 200 px).
 	if gate_line:
@@ -733,9 +734,11 @@ func gate_summary(sources: Array[String], per_source: Dictionary) -> String:
 				if other.begins_with("gate:") else {}
 			if not done.has(other) and String(ol.get("gate", "")) == String(lab["gate"]):
 				done.append(other)
-				branches.append("%s ×%d" % [String(ol["branch"]), int(per_source[other])])
-		parts.append("%s ворота: %s" % [String(LegionCfg.ROAD_SHORT.get(String(lab["side"]),
-			"")), " · ".join(branches)])
+				branches.append("%s ×%d" % [PgLayout.display_road_text(String(ol["branch"])),
+					int(per_source[other])])
+		parts.append(I18n.t("%s ворота: %s") % [I18n.t(String(LegionCfg.ROAD_SHORT.get(String(
+			lab["side"]),
+			""))), " · ".join(branches)])
 	return " · ".join(parts)
 
 
@@ -753,36 +756,37 @@ func _road_labels() -> Dictionary:
 func _label(source: String, key: String) -> String:
 	if not source.begins_with("gate:"):
 		return ""
-	return String(Dictionary(_road_labels().get(source.trim_prefix("gate:"), {})).get(key, ""))
+	var road: Dictionary = _road_labels().get(source.trim_prefix("gate:"), {})
+	return PgLayout.display_road_text(String(road.get(key, "")))
 
 
 ## Игрок видит русское название источника, а не id дороги из JSON («ворота east» — кадр
 ## приёмки 25.09). Незнакомая дорога — просто «ворота»; у трещины id игроку не нужен.
 func _place_title(source: String) -> String:
 	if source.begins_with("breach:"):
-		return "трещина"
+		return I18n.t("трещина")
 	var lab := _label(source, "title")
 	if lab != "":
 		return lab
-	return String(LegionCfg.ROAD_TITLES.get(source.trim_prefix("gate:"), "ворота"))
+	return I18n.t(String(LegionCfg.ROAD_TITLES.get(source.trim_prefix("gate:"), "ворота")))
 
 
 ## Короткое название источника для строки с несколькими воротами.
 func _place_short(source: String) -> String:
 	if source.begins_with("breach:"):
-		return "трещ."
+		return I18n.t("трещ.")
 	var lab := _label(source, "short")
 	if lab != "":
 		return lab
-	return String(LegionCfg.ROAD_SHORT.get(source.trim_prefix("gate:"), "ворота"))
+	return I18n.t(String(LegionCfg.ROAD_SHORT.get(source.trim_prefix("gate:"), "ворота")))
 
 
 ## Однобуквенная метка источника (B-204: три дороги и больше — вместо коротких слов у вида).
 ## У gen-карты — буква стороны ворот (две восточные дороги обе «в»: их общая метка правдива).
 func _source_letter(source: String) -> String:
 	if source.begins_with("breach:"):
-		return LegionCfg.BREACH_LETTER
+		return I18n.t(LegionCfg.BREACH_LETTER)
 	var lab := _label(source, "letter")
 	if lab != "":
 		return lab
-	return String(LegionCfg.ROAD_LETTER.get(source.trim_prefix("gate:"), "?"))
+	return I18n.t(String(LegionCfg.ROAD_LETTER.get(source.trim_prefix("gate:"), "?")))

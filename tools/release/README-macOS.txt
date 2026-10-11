@@ -1,6 +1,115 @@
+NECROMANCER FOR HIRE — macOS
+Death, guaranteed by contract.
+Alpha version 0.3.4-alpha.
+English instructions first. Русская инструкция ниже.
+
+CONTENTS
+  The .app is a universal build for Intel and Apple Silicon. It is the same game
+  as the Windows edition. No account is required. Saves are local; the campaign
+  and single-player battles work offline.
+
+INSTALLATION
+  1. Double-click the downloaded ZIP. The built-in Archive Utility extracts it;
+     no third-party extractor is required.
+  2. Move the extracted .app into Applications.
+  3. Open the game from Launchpad or Finder.
+
+FIRST LAUNCH
+  The build is ad-hoc signed using Godot's built-in signing and is NOT notarized
+  by Apple. Gatekeeper may therefore say that the application cannot be verified.
+  If you trust this build, allow this application specifically:
+    System Settings -> Privacy & Security -> Open Anyway
+  next to the message about the application.
+  Use a normal double-click on subsequent launches.
+
+REQUIREMENTS AND TESTING LIMITS
+  Universal binary: Intel or Apple Silicon.
+  Intel: macOS 11.0 or newer. Apple Silicon: macOS 13.0 or newer.
+  Metal-capable graphics for the Mobile renderer.
+  This build was made on Windows and checked structurally only: ZIP integrity,
+  Info.plist and .pck presence, and executable permissions. It has not been run
+  on a physical Mac. If it fails, report your macOS version and processor type.
+
+UPDATES AND SAVES
+  Installed version: Settings -> About -> Releases and updates.
+  https://github.com/Pianist13r/necromancer-for-hire/releases
+  Close the game, extract the new release and replace the app in Applications.
+  Progress and settings are stored separately and survive updates:
+  ~/Library/Application Support/Godot/app_userdata/Некромант на аутсорсе/
+  Keep this folder. Its old Russian name is retained for save compatibility.
+  Changing language does not require a new profile.
+
+LANGUAGE AND DEFAULT CONTROLS
+  From the main menu, Settings -> Language / Язык: choose English or Русский.
+  The language setting covers menus, tutorials, cutscenes and spoken instructions.
+  Keyboard bindings can be changed in Settings. The controls below are defaults.
+  Left-handed mode swaps the combat mouse buttons; menu buttons still use LMB.
+  LMB means left mouse button; RMB means right mouse button.
+
+  Drag LMB              Draw a contract; nearby troops form up along the line.
+  RMB on a segment      Pull back and release to slingshot the squad forward,
+                        opposite to your pull. Power is always full. Release
+                        while an enemy is in the gold zone for “Perfect!”.
+                        Click without pulling to charge along the contract arrow.
+  Draw over a line      Renew the segments you touch. Expired segments release
+                        their troops to charge along their arrows.
+  Hold Space or wheel   Aim the melting arrow while drawing, or turn the arrow
+                        of an existing line. Move the mouse to choose direction.
+  Tab                   Erase a contract section.
+  F or N / Call Wave    Bring the next wave now; time saved earns souls.
+  Click a plot          Buy, upgrade or sell a building. Its menu explains the
+                        troops it produces and the contract type they use.
+  1 / 2 / 3 or wheel    Contract type: Contract Work, Security, Audit, as unlocked.
+  Q / W / E             Abilities: hold to aim, release to cast.
+  R                     Rally troops to the cursor, once unlocked.
+  D                     Cash Desk, in single player.
+  Esc / P               Pause single-player battles. Online battles keep running.
+  Full instructions and the tutorial are in How to Play.
+
+GETTING STARTED
+  The large menu button continues the campaign; Maps lets you choose an unlocked
+  map. Your first game includes a tutorial. Replay it via How to Play -> Tutorial.
+  To start the campaign over: Settings -> Reset Progress. This is permanent;
+  sound and display settings are kept.
+
+ONLINE SKIRMISH
+  Main menu -> Skirmish -> Online: enter a name. The server address is prefilled.
+  After upgrading an old version, use Refresh address, then Connect: a saved
+  address is not replaced automatically. Use the same button if the server moves.
+  If the address file is unavailable or you are offline, the current address is
+  kept. You can enter it manually. The public address is published on main:
+  https://raw.githubusercontent.com/Pianist13r/necromancer-for-hire/main/server.json
+  Join another room with Play or open your own. Windows, macOS and Linux can play
+  together; game and server versions must match. Direct peer-to-peer connections
+  are optional and expose connection addresses to your opponent.
+
+OPTIONAL PLAY STATISTICS
+  Off until you consent. The game asks at first launch; you may decline and play.
+  You can change your choice in Settings. With permission, the game sends its
+  version, OS family, a random session ID, sequence number and active battle time.
+  Names, saves, screenshots and full logs are not sent. Online networking is a
+  separate service. Details, recipient and retention: licenses/PRIVACY.md.
+
+HELP AND LICENSES
+  Releases: https://github.com/Pianist13r/necromancer-for-hire/releases
+  Bugs: https://github.com/Pianist13r/necromancer-for-hire/issues
+  Include your OS, game version and steps to reproduce; do not post private logs.
+  Made with Godot Engine 4.7.2 (MIT, https://godotengine.org/license).
+  Code: PolyForm Noncommercial 1.0.0. Art, audio, texts and characters: all rights
+  reserved, with permission to play, stream and make videos. See licenses/.
+  The Godot license is in licenses/GODOT_LICENSE.txt in the GitHub archive
+  and in Settings -> Licenses.
+  Copyright 2026 Igor Andreevich Gubanov.
+
+============================================================
+РУССКАЯ ИНСТРУКЦИЯ
+Язык из главного меню: «Настройки» -> Язык / Language -> Русский или English.
+============================================================
+
+
 Некромант по найму (Necromancer for Hire) — сборка для macOS
 =========================================
-Альфа-версия 0.3.3-alpha.
+Альфа-версия 0.3.4-alpha.
 Добровольная статистика сеансов выключена до вашего согласия; подробности — licenses/PRIVACY.md.
 
 Что внутри

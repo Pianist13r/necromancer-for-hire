@@ -89,7 +89,7 @@ static func valid(d: String) -> String:
 
 
 static func title(d: String) -> String:
-	return String(TABLE[valid(d)]["title"])
+	return I18n.t(String(TABLE[valid(d)]["title"]))
 
 
 static func value(d: String, key: String) -> float:
@@ -245,11 +245,11 @@ static func answer_hint(groups: Array) -> String:
 	for g: Dictionary in groups:
 		seen[String(g.get("type", ""))] = true
 	if seen.has("shield_inspector"):
-		tips.append("щиты — охрана или {key:cast_e}")
+		tips.append(Controls.text("щиты — охрана или {key:cast_e}"))
 	if seen.has("ghost"):
-		tips.append("призраки — аудит или {key:cast_q}")
+		tips.append(Controls.text("призраки — аудит или {key:cast_q}"))
 	if seen.has("signer"):
-		tips.append("нотариусы — натиск")
+		tips.append(I18n.t("нотариусы — натиск"))
 	if seen.has("boss"):
-		tips.append("Прораб — выпуск перед тараном")
+		tips.append(I18n.t("Прораб — выпуск перед тараном"))
 	return Controls.text(" · ".join(tips))

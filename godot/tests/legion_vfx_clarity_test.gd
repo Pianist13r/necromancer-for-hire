@@ -305,6 +305,11 @@ func _test_ghost() -> void:
 	if look.has_method("ghost_caption"):
 		cap = String(look.call("ghost_caption", w.items.hazards[0]))
 	_check(cap.contains("Пролонгация"), "у первого следа подпись с именем артефакта: «%s»" % cap)
+	I18n.language = "en"
+	var english_cap := String(look.call("ghost_caption", w.items.hazards[0]))
+	_check(english_cap == I18n.t(CfgItems.GHOST_CAPTION) % ceili(float(w.items.hazards[0]["t"])),
+		"English ghost caption translates before inserting its duration")
+	I18n.language = "ru"
 	# следующие следы боя — без подписи (значок остаётся): подпись не шумит каждый раз
 	var extra := int(_const(CfgItems, "GHOST_CAPTIONS", 1))
 	for i in int(extra) + 1:

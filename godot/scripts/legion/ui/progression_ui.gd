@@ -96,7 +96,7 @@ static func inspect_card(owner: Control, id: StringName) -> AcceptDialog:
 	var availability := RunProgression.unseen_note(id)
 	var level := int(data.get("unlock_level", 1))
 	if level > Campaign.hero_level():
-		availability = "Для предложения нужен разряд %d. " % level + availability
+		availability = I18n.t("Для предложения нужен разряд %d. ") % level + availability
 	row.configure(id, data, availability,
 		{"expanded": true, "interactive": false, "together": true})
 	var fit := func() -> void: _fit_details(dialog, scroll, row)
@@ -144,11 +144,11 @@ static func update_experience(box: VBoxContainer, xp: int) -> void:
 	var caption := box.get_node("ExperienceCaption") as Label
 	var bar := box.get_node("ExperienceBar") as ProgressBar
 	if bool(progress["maxed"]):
-		caption.text = "Разряд %d · колода открыта целиком" % level
+		caption.text = I18n.t("Разряд %d · колода открыта целиком") % level
 		bar.max_value = 1.0
 		bar.value = 1.0
 	else:
-		caption.text = "Разряд %d · до разряда %d осталось %d опыта" % [
+		caption.text = I18n.t("Разряд %d · до разряда %d осталось %d опыта") % [
 			level, level + 1, int(progress["need"]) - int(progress["cur"])]
 		bar.max_value = float(progress["need"])
 		bar.value = float(progress["cur"])
@@ -159,20 +159,22 @@ static func rank_openings(level: int) -> String:
 	for id: String in AmendmentDb.ORDER:
 		var data := AmendmentDb.card(StringName(id))
 		if int(data.get("unlock_level", 1)) == level:
-			names.append("«%s»" % String(data["title"]))
+			names.append("«%s»" % I18n.t(String(data["title"])))
 	if level == AmendmentDb.PREP_SLOT2_LEVEL:
-		names.append("второе место подготовки")
+		names.append(I18n.t("второе место подготовки"))
 	return ", ".join(names)
 
 
 static func inspect_rank(owner: Control, level: int) -> AcceptDialog:
-	var dialog := _detail_dialog(owner, "Разряд %d" % level)
+	var dialog := _detail_dialog(owner, I18n.t("Разряд %d") % level)
 	dialog.name = "RankDetails"
 	var required := 0 if level == 1 else LegionMetaCfg.HERO_LEVEL_THRESHOLDS[level - 2]
-	var state := "Открыт" if Campaign.hero_level() >= level else "Нужно ещё %d опыта" % (
+	var state := I18n.t("Открыт") if Campaign.hero_level() >= level else I18n.t(
+		"Нужно ещё %d опыта"
+	) % (
 		required - Campaign.hero_xp())
-	dialog.dialog_text = "%s · %d опыта всего\n\nОткрывает: %s\n\n%s" % [state, required,
-		rank_openings(level), "Это варианты для будущих предложений. Подписываются после победы."]
+	dialog.dialog_text = I18n.t("%s · %d опыта всего\n\nОткрывает: %s\n\n%s") % [state, required,
+		rank_openings(level), I18n.t("Это варианты для будущих предложений. Подписываются после победы.")]
 	dialog.popup_centered(Vector2i(mini(650, int(owner.get_viewport_rect().size.x) - 80), 0))
 	return dialog
 
@@ -183,7 +185,7 @@ static func _detail_dialog(owner: Control, title: String) -> AcceptDialog:
 	dialog.exclusive = true
 	dialog.transient = true
 	dialog.dialog_hide_on_ok = true
-	dialog.ok_button_text = "Понятно"
+	dialog.ok_button_text = I18n.t("Понятно")
 	UiStyle.style_dialog(dialog, title)
 	owner.add_child(dialog)
 	dialog.visibility_changed.connect(func() -> void:

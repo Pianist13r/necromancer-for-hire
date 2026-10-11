@@ -31,18 +31,18 @@ func setup(w: LegionWorld) -> void:
 	root.add_child(backdrop)
 	_main_box = UiStyle.card_box(root, CARD_W, 12)
 	_main_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	var title := UiStyle.label("Бой идёт", 34, UiStyle.FONT_TITLE)
+	var title := UiStyle.label(I18n.t("Бой идёт"), 34, UiStyle.FONT_TITLE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_main_box.add_child(title)
-	_main_box.add_child(_button("Продолжить", close))
-	_main_box.add_child(_button("Сдаться", _ask))
+	_main_box.add_child(_button(I18n.t("Продолжить"), close))
+	_main_box.add_child(_button(I18n.t("Сдаться"), _ask))
 	_confirm_box = UiStyle.card_box(root, CARD_W, 12)
 	_confirm_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	var q := UiStyle.label("Сдаться? Победа уйдёт сопернику", 24, UiStyle.FONT_TITLE)
+	var q := UiStyle.label(I18n.t("Сдаться? Победа уйдёт сопернику"), 24, UiStyle.FONT_TITLE)
 	q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_confirm_box.add_child(q)
-	_confirm_box.add_child(_button("Да, сдаюсь", _surrender))
-	_confirm_box.add_child(_button("Нет", _back))
+	_confirm_box.add_child(_button(I18n.t("Да, сдаюсь"), _surrender))
+	_confirm_box.add_child(_button(I18n.t("Нет"), _back))
 	visible = false
 
 

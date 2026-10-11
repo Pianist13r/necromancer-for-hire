@@ -125,4 +125,4 @@ static func grant(victory: bool, stats: Dictionary, out: Dictionary) -> void:
 
 
 static func reason_text(reason: String) -> String:
-	return String(REASON_TEXT.get(reason, "Касса недоступна"))
+	return I18n.t(String(REASON_TEXT.get(reason, "Касса недоступна")))

@@ -194,10 +194,10 @@ static func confirm(parent: Node, message: String, action: Callable) -> void:
 			return
 	var dialog := ConfirmationDialog.new()
 	dialog.process_mode = Node.PROCESS_MODE_ALWAYS
-	dialog.dialog_text = message
-	dialog.ok_button_text = "Подтвердить"
-	dialog.cancel_button_text = "Отмена"
-	UiStyle.style_dialog(dialog, "Подтверждение")
+	dialog.dialog_text = I18n.t(message)
+	dialog.ok_button_text = I18n.t("Подтвердить")
+	dialog.cancel_button_text = I18n.t("Отмена")
+	UiStyle.style_dialog(dialog, I18n.t("Подтверждение"))
 	parent.add_child(dialog)
 	dialog.confirmed.connect(func() -> void:
 		dialog.queue_free()
@@ -212,6 +212,7 @@ static func confirm(parent: Node, message: String, action: Callable) -> void:
 ## текст по центру. Для клавиш (1/2/3, Q/W/E) и счётчиков.
 static func draw_stamp(ci: CanvasItem, center: Vector2, text: String, color: Color = STAMP,
 		size: int = 14, angle: float = -0.12, min_w: float = 0.0) -> void:
+	text = I18n.t(text)
 	var font: Font = FONT_TITLE
 	var ts := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size)
 	var w := maxf(min_w, ts.x + 10.0)
@@ -270,6 +271,7 @@ static func draw_number(ci: CanvasItem, anchor: Vector2, text: String, size: int
 ## Подпись в `_draw` с контуром.
 static func draw_text(ci: CanvasItem, at: Vector2, text: String, size: int, color: Color,
 		font: Font = FONT_TEXT, align_right: bool = false) -> void:
+	text = I18n.t(text)
 	var x := at.x
 	if align_right:
 		x -= font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x

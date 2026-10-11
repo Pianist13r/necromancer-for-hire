@@ -44,19 +44,20 @@ static func lines(report: Dictionary) -> Array[String]:
 	var sources: Dictionary = report.get("sources", {})
 	var foe := _largest(sources)
 	if foe != "" and foe != "unknown":
-		var title := String(Briefing.FOE_NAMES.get(foe, "Проверяющие"))
-		out.append("%s: %d из %d потерянных HP." % [title,
+		var title := I18n.t(String(Briefing.FOE_NAMES.get(foe, "Проверяющие")))
+		out.append(I18n.t("%s: %d из %d потерянных HP.") % [title,
 			roundi(float(sources[foe])), roundi(total)])
 	var roads: Dictionary = report.get("roads", {})
 	var road := _largest(roads)
 	if road != "":
 		var titles: Dictionary = report.get("road_titles", {})
-		var title := String(titles.get(road, LegionCfg.ROAD_TITLES.get(road, "подход к Котлу")))
-		out.append("Главный прорыв — %s: %d HP." % [title, roundi(float(roads[road]))])
+		var title := PgLayout.display_road_text(String(titles.get(road, LegionCfg.ROAD_TITLES.get(road,
+			"подход к Котлу"))))
+		out.append(I18n.t("Главный прорыв — %s: %d HP.") % [title, roundi(float(roads[road]))])
 	var waves: Dictionary = report.get("waves", {})
 	var wave := _largest(waves)
 	if wave != "":
-		out.append("Враги волны %s отняли %d HP. Первый удар — %d:%02d." % [wave,
+		out.append(I18n.t("Враги волны %s отняли %d HP. Первый удар — %d:%02d.") % [wave,
 			roundi(float(waves[wave])), int(float(report.get("first_at", 0.0))) / 60,
 			int(float(report.get("first_at", 0.0))) % 60])
 	return out
@@ -71,7 +72,7 @@ static func panel(report: Dictionary, color: Color = UiStyle.TEXT_DIM) -> Contro
 	if observations.is_empty():
 		box.visible = false
 		return box
-	box.add_child(UiStyle.label("Разбор полётов", 19, UiStyle.FONT_TITLE, color))
+	box.add_child(UiStyle.label(I18n.t("Разбор полётов"), 19, UiStyle.FONT_TITLE, color))
 	for text in observations:
 		var label := UiStyle.label(text, 16, UiStyle.FONT_TEXT, color)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD

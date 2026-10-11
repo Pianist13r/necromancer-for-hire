@@ -148,12 +148,15 @@ func spring_alarm(c: Contract, seg: int) -> bool:
 	return _spring_bend(c, seg) >= IntuitCfg.SPRING_ALARM
 
 
-## «пружина ×1,3» — множитель урона одной цифрой после запятой, по-русски.
+## Множитель урона одной цифрой после разделителя выбранного языка.
 func spring_text(c: Contract, seg: int) -> String:
 	var m := spring_mult(c, seg)
 	if m <= 0.0:
 		return ""
-	return "пружина ×" + ("%.1f" % m).replace(".", ",")
+	var multiplier := "%.1f" % m
+	if I18n.language != "en":
+		multiplier = multiplier.replace(".", ",")
+	return I18n.t("пружина ×") + multiplier
 
 
 func useful(slot: int) -> bool:
@@ -432,6 +435,7 @@ func _scan_figures() -> void:
 ## (ContractField.fig_top), как у квадрата; нет места до полосы HUD — под нижним рядом. Было —
 ## у центра треугольника, поперёк бойцов (кадр 6_tri_posted, 02.10).
 func fig_hint_pos(c: Contract, text := IntuitCfg.HINT_RITE) -> Vector2:
+	text = Controls.text(text)
 	var size := float(PvpView.fs(world, IntuitCfg.HINT_SIZE))
 	var top := ContractField.fig_top(c)
 	var w := UiStyle.FONT_TITLE.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1,
@@ -637,7 +641,9 @@ func _draw_gold(c: Contract, s: int, ms: float) -> void:
 	# подпись совета не ложится на значок (кадр 1_gold: «щёлкни» закрывало искру)
 	_placed.append(Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0).grow(3.0))
 	if gold_stunned(c, s):
-		var mult := "×" + ("%.1f" % LegionCfg.STUNNED_CHARGE_MULT).replace(".", ",")
+		var mult := "×%.1f" % LegionCfg.STUNNED_CHARGE_MULT
+		if I18n.language != "en":
+			mult = mult.replace(".", ",")
 		_text(at + Vector2(r + 4.0, 6.0), mult, IntuitCfg.GOLD_STUN_SIZE, col, false)
 
 
@@ -673,7 +679,7 @@ func _draw_spring(c: Contract, s: int, ms: float) -> void:
 	if _tip_near(center):
 		# над отрядом уже висит совет — не третья строка сверху, а коротко «×1,3» сбоку у дуги
 		# (D-0927-49: над одной дракой не больше одной надписи)
-		var short := spring_text(c, s).trim_prefix("пружина ")
+		var short := spring_text(c, s).trim_prefix(I18n.t("пружина "))
 		_text(center + Vector2(r + 6.0, size * 0.35), short, size, col, false)
 		return
 	_text(center + Vector2(0.0, -IntuitCfg.SPRING_LABEL_UP), spring_text(c, s), size, col, true)

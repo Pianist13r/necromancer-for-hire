@@ -273,7 +273,7 @@ func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 	_ensure_audio().play_menu_music()
 	_teardown_screen()
 	var b := Briefing.new()
-	b.back_label = "← Назад" if on_back.is_valid() else "В главное меню"
+	b.back_label = I18n.t("← Назад") if on_back.is_valid() else I18n.t("В главное меню")
 	_set_screen(b)
 	# populate() кладёт карточку через UiStyle.card_box — тому нужен готовый родитель
 	# (см. tests/legion_ui_preview.gd), поэтому вызываем деферренно, после add_child выше.
@@ -738,8 +738,8 @@ func _show_pause() -> void:
 	# засчитывает конец сегодняшней попытки.
 	if _in_endless_battle and _endless_daily:
 		pause.hide_restart = true
-		pause.confirm_menu_text = ("Бой будет прерван. Награды прошлых боёв сохранены. "
-			+ "Попытка дня будет засчитана — второй сегодня уже не будет.")
+		pause.confirm_menu_text = (I18n.t("Бой будет прерван. Награды прошлых боёв сохранены. ")
+			+ I18n.t("Попытка дня будет засчитана — второй сегодня уже не будет."))
 	# D-0927-162: «В коллекцию» — главное место сохранения (Игорь: «если проигрываешь или тебе
 	# надо бежать»), только пока идёт бой ЗАБЕГА на сгенерированной карте.
 	pause.show_collect = collectible
@@ -847,8 +847,8 @@ func _show_howto() -> void:
 		world.start_tutorial()
 	h.tutorial_pressed.connect(func() -> void:
 		if world != null and world.phase == LegionWorld.Phase.BATTLE:
-			LegionUi.confirm(h, "Бой будет прерван ради обучения. "
-				+ "Награды прошлых боёв сохранены.", launch_tutorial)
+			LegionUi.confirm(h, I18n.t("Бой будет прерван ради обучения. ")
+				+ I18n.t("Награды прошлых боёв сохранены."), launch_tutorial)
 		else:
 			launch_tutorial.call())
 

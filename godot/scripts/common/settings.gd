@@ -332,6 +332,7 @@ static func set_pvp_side(side: int) -> void:
 ## умолчанию. С выпила старого режима (2939a60, v15) вызова не было вовсе: громкости,
 ## выключенный звук и полный экран из настроек при запуске не применялись (нашли 26.09).
 static func apply() -> void:
+	I18n.initialize()
 	var cfg := _file()
 	Controls.apply()
 	for bus in BUSES:

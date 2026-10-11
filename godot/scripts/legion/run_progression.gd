@@ -181,7 +181,8 @@ static func unseen_note(id: StringName) -> String:
 		var mid := String(m.get("id", ""))
 		if Campaign.stars(mid) > 0:
 			return ""
-		return "%s появится на «%s»" % [NEEDS_NAMES[needs], String(m.get("title", mid))]
+		return I18n.t("%s появится на «%s»") % [Controls.text(String(NEEDS_NAMES[needs])),
+			I18n.map_text(String(m.get("title", mid)))]
 	return ""
 
 

@@ -61,7 +61,7 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array([_at + Vector2(-5, -h), _at + Vector2(5, -h), _at]), sand)
 	draw_colored_polygon(PackedVector2Array([_at + Vector2(5, h), _at + Vector2(-5, h), _at]), sand)
 	var font: Font = UiStyle.FONT_TEXT
-	var label := "Отсрочка" if not empty else "Отсрочка пуста"
+	var label := I18n.t("Отсрочка") if not empty else I18n.t("Отсрочка пуста")
 	var w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
 	var pos := _at + Vector2(-w * 0.5, R + 20.0)   # под кольцом: над ним подпись силы
 	draw_string_outline(font, pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4,

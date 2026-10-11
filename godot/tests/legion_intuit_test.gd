@@ -583,6 +583,14 @@ func _test_spring() -> void:
 	var spring_label := "пружина ×" + ("%.1f" % (1.0 + LegionCfg.SPRING_DMG * 0.5)).replace(".", ",")
 	_check(String(_ic("spring_text", [c, 0], "")) == spring_label, "подпись «%s»: «%s»"
 		% [spring_label, String(_ic("spring_text", [c, 0], ""))])
+	var previous_language := I18n.language
+	I18n.language = "en"
+	_check(String(_ic("spring_text", [c, 0], "")) == "spring ×1.5",
+		"EN spring multiplier keeps one decimal and a dot")
+	I18n.language = "ru"
+	_check(String(_ic("spring_text", [c, 0], "")) == "пружина ×1,5",
+		"RU spring multiplier keeps one decimal and a comma")
+	I18n.language = previous_language
 	_check(float(_ic("spring_mult", [c, 1], 1.0)) == 0.0, "прогиб 0,1 (< SPRING_MIN) — метки нет")
 	_check(_ic("spring_alarm", [c, 0], true) == false, "прогиб 0,5 — без тревоги")
 	c.seg_bend[0] = LegionCfg.PRESS_BREAK * 0.85

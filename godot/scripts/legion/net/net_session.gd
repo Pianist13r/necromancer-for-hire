@@ -338,12 +338,12 @@ func _open(url: String, hello: Dictionary) -> void:
 	close()
 	var u := NetCodec.normalize_url(url)
 	if u == "":
-		failed.emit("Укажите адрес сервера")
+		failed.emit(I18n.t("Укажите адрес сервера"))
 		return
 	var link := NetLinkWs.client()
 	var err := link.connect_to_url(u)
 	if err != OK:
-		failed.emit("Не удалось подключиться к %s (ошибка %d)" % [u, err])
+		failed.emit(I18n.t("Не удалось подключиться к %s (ошибка %d)") % [u, err])
 		return
 	_open_link(link, hello)
 
@@ -355,7 +355,7 @@ func _open_link(link: NetLink, hello: Dictionary) -> void:
 	_dq.clear()
 	_connect_t = 0.0
 	stage = Stage.CONNECTING
-	status.emit("Подключение к серверу…" if link.kind() == "ws" else "Подключение…")
+	status.emit(I18n.t("Подключение к серверу…") if link.kind() == "ws" else I18n.t("Подключение…"))
 
 
 func close() -> void:
@@ -420,7 +420,7 @@ func attach(world: LegionWorld) -> void:
 	# пустые (до своей задержки) уйдут при первом закрытии хода, когда задержка выбрана
 	for t in DELAY_MIN:
 		_send_turn(t, [])
-	_label.text = "Загрузка поля…"
+	_label.text = I18n.t("Загрузка поля…")
 
 
 func _on_local_cmd(cmd: Dictionary) -> void:
@@ -446,7 +446,7 @@ func _process(delta: float) -> void:
 		if not _pending_hello.is_empty():
 			_send(_pending_hello)
 			_pending_hello = {}
-			status.emit("Подключено, вход в лобби…")
+			status.emit(I18n.t("Подключено, вход в лобби…"))
 		# UDP — раньше сокета сервера: ход обоими путями за кадр засчитан прямому пути
 		_tick_p2p()
 		_dbg_race()
@@ -461,8 +461,8 @@ func _process(delta: float) -> void:
 	elif st == NetLink.State.CONNECTING:
 		_connect_t += delta
 		if _connect_t > maxf(CONNECT_TIMEOUT, _chan.connect_timeout()):
-			_fail("Сервер не отвечает — проверьте адрес" if _chan.kind() == "ws"
-				else "Соперник не отвечает — соединение не установлено")
+			_fail(I18n.t("Сервер не отвечает — проверьте адрес") if _chan.kind() == "ws"
+				else I18n.t("Соперник не отвечает — соединение не установлено"))
 			return
 	elif st == NetLink.State.CLOSED:
 		# причина разрыва (error) могла прийти последним пакетом — дочитать, а не «связь потеряна»
@@ -511,9 +511,9 @@ func _tick_loading() -> void:
 		_mstats.delay_go = delay
 		_mstats.go_ms = Time.get_ticks_msec()
 	elif _ready_local:
-		_label.text = "Ждём соперника…"
+		_label.text = I18n.t("Ждём соперника…")
 	elif _world.net_can_step():
-		_label.text = "Ищем прямой путь к сопернику…"
+		_label.text = I18n.t("Ищем прямой путь к сопернику…")
 
 
 func _tick_playing(delta: float) -> void:
@@ -700,24 +700,25 @@ func _apply_turn(t: int) -> void:
 
 func _update_label() -> void:
 	if forge_cheater >= 0:
-		_label.text = "Соперник подменил ход — победа засчитана вам" if forge_cheater != side \
-			else "Сервер засчитал вам поражение: ход напрямую не совпал с отправленным серверу"
+		_label.text = I18n.t("Соперник подменил ход — победа засчитана вам") if forge_cheater != side \
+			else I18n.t("Сервер засчитал вам поражение: ход напрямую не совпал с отправленным серверу")
 	elif _remote_left:
-		_label.text = "Соперник отключился"
+		_label.text = I18n.t("Соперник отключился")
 	elif _desync_tick >= 0 and verdict.has("winner"):
 		var win := int(verdict["winner"])
-		var who := "ничья" if win < 0 else ("ваша победа" if win == side else "победа соперника")
-		_label.text = "Итог по счёту сервера: %s" % who
+		var who := I18n.t("ничья") if win < 0 else (I18n.t(
+			"ваша победа") if win == side else I18n.t("победа соперника"))
+		_label.text = I18n.t("Итог по счёту сервера: %s") % who
 	elif _desync_tick >= 0 and not _desync_judge:
-		var t0 := "Бой у вас с соперником разошёлся (тик %d) — судьи нет, итог может отличаться"
+		var t0 := I18n.t("Бой у вас с соперником разошёлся (тик %d) — судьи нет, итог может отличаться")
 		_label.text = t0 % _desync_tick
 	elif _desync_tick >= 0:
-		var t := "Бой у вас разошёлся с сервером (тик %d) — итог засчитает сервер"
+		var t := I18n.t("Бой у вас разошёлся с сервером (тик %d) — итог засчитает сервер")
 		_label.text = t % _desync_tick
 	elif _hold_stall >= STALL_SHOW:
-		_label.text = "Соперник не передаёт ходы на сервер…"
+		_label.text = I18n.t("Соперник не передаёт ходы на сервер…")
 	elif _stall >= STALL_SHOW:
-		_label.text = "Ждём соперника…"
+		_label.text = I18n.t("Ждём соперника…")
 	else:
 		_label.text = ""
 	_link.text = link_text()
@@ -729,9 +730,9 @@ func link_text() -> String:
 		return ""
 	var ms := int(round(_oneway_ms(false)))
 	if p2p_mismatch >= 0:
-		return "Связь: через сервер %d мс (прямой путь отключён: ход не сошёлся)" % ms
-	var how := "напрямую" if path_mode == "p2p" else link_label
-	return "Связь: %s %d мс · задержка %d" % [how, ms, delay]
+		return I18n.t("Связь: через сервер %d мс (прямой путь отключён: ход не сошёлся)") % ms
+	var how := I18n.t("напрямую") if path_mode == "p2p" else I18n.t(link_label)
+	return I18n.t("Связь: %s %d мс · задержка %d") % [how, ms, delay]
 
 
 func _finish() -> void:
@@ -753,7 +754,7 @@ func _handle(msg: Dictionary) -> void:
 			my_name = String(msg.get("name", ""))
 			stage = Stage.LOBBY
 			_ping_t = PING_EVERY   # первый замер RTT до сервера — сразу (по нему задержка ввода)
-			status.emit("Вы в лобби как «%s»" % my_name)
+			status.emit(I18n.t("Вы в лобби как «%s»") % my_name)
 			welcomed.emit()
 		"lobby":
 			lobby.emit(msg.get("rooms", []) as Array, msg.get("players", []) as Array,
@@ -762,14 +763,14 @@ func _handle(msg: Dictionary) -> void:
 			room_code = String(msg.get("code", ""))
 			side = int(msg.get("side", 0))
 			room_created.emit(room_code)
-			status.emit("Комната %s открыта — ждём соперника" % room_code)
+			status.emit(I18n.t("Комната %s открыта — ждём соперника") % room_code)
 		"start":
 			seed_value = int(msg.get("seed", 1))
 			map_id = String(msg.get("map", "pvp:duel"))
 			side = clampi(int(msg.get("side", 0)), 0, 1)
 			room_code = String(msg.get("code", room_code))
 			opponent_name = String(msg.get("opponent", "соперник"))
-			status.emit("Соперник — «%s», загрузка…" % opponent_name)
+			status.emit(I18n.t("Соперник — «%s», загрузка…") % opponent_name)
 			# пробивка — до запуска мира: идёт параллельно загрузке поля
 			var key: Variant = msg.get("key")
 			_my_key = String(key).hex_decode() if key is String and String(key).length() == 32 \
@@ -829,7 +830,7 @@ func _handle(msg: Dictionary) -> void:
 					_req_wait = -1.0
 					_send_stats(code)   # «прерван/отменён без итога», а не «обрыв»
 					# не загрузился вовремя сам — свой текст, а не «соперник отключился»
-					_abort("Матч отменён: поле не загрузилось вовремя" if code == "no_ready"
+					_abort(I18n.t("Матч отменён: поле не загрузилось вовремя") if code == "no_ready"
 						and not _ready_local else _error_text(code))
 			elif code in ["no_room", "busy", "build", "full", "rate_limit"]:
 				failed.emit(_error_text(code))
@@ -1222,7 +1223,7 @@ func _on_remote_left() -> void:
 		_world.net_apply(1 - side, {"type": "surrender"})
 		_world.net_step()
 	elif stage == Stage.LOADING:
-		_abort("Соперник отключился")
+		_abort(I18n.t("Соперник отключился"))
 		return
 	_update_label()
 
@@ -1235,10 +1236,11 @@ func _on_closed() -> void:
 	_log({"ev": "ws_closed", "code": _chan.close_code(), "reason": _chan.close_reason(),
 		"kind": kind})
 	_chan = null
-	var lost := "Связь с сервером потеряна" if kind == "ws" else "Связь с соперником потеряна"
+	var lost := I18n.t("Связь с сервером потеряна") if kind == "ws" else I18n.t(
+		"Связь с соперником потеряна")
 	if was == Stage.CONNECTING:
-		failed.emit("Не удалось подключиться к серверу" if kind == "ws"
-			else "Не удалось соединиться с хозяином игры")
+		failed.emit(I18n.t("Не удалось подключиться к серверу") if kind == "ws"
+			else I18n.t("Не удалось соединиться с хозяином игры"))
 	elif (was == Stage.PLAYING and not _remote_left) or was == Stage.LOADING:
 		_log({"ev": "closed"})
 		_abort(_close_reason if _close_reason != "" else lost)
@@ -1324,24 +1326,24 @@ func _fail(text: String) -> void:
 static func _error_text(code: String) -> String:
 	match code:
 		"no_room":
-			return "Нет такой комнаты — проверьте код"
+			return I18n.t("Нет такой комнаты — проверьте код")
 		"busy":
-			return "В комнате уже двое"
+			return I18n.t("В комнате уже двое")
 		"build":
-			return "У соперника другая версия игры"
+			return I18n.t("У соперника другая версия игры")
 		"proto":
-			return "Версия сервера не совпадает с игрой"
+			return I18n.t("Версия сервера не совпадает с игрой")
 		"full":
-			return "Сервер занят — попробуйте позже"
+			return I18n.t("Сервер занят — попробуйте позже")
 		"rate_limit":
-			return "Слишком частые запросы — попробуйте через несколько секунд"
+			return I18n.t("Слишком частые запросы — попробуйте через несколько секунд")
 		"idle_timeout":
-			return "Ожидание в лобби истекло — подключитесь снова"
+			return I18n.t("Ожидание в лобби истекло — подключитесь снова")
 		"no_ready":
-			return "Соперник не загрузил поле — матч отменён"
+			return I18n.t("Соперник не загрузил поле — матч отменён")
 		"void":
-			return "Матч прерван без итога: ходы не доходили до сервера"
-	return "Ошибка сервера: %s" % code
+			return I18n.t("Матч прерван без итога: ходы не доходили до сервера")
+	return I18n.t("Ошибка сервера: %s") % code
 
 
 func _send(msg: Dictionary) -> void:

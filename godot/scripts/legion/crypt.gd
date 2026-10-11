@@ -70,8 +70,8 @@ func tick(dt: float) -> void:
 				world.stats["crypt_captures"] = int(world.stats.get("crypt_captures", 0)) + 1
 			progress = 0.0
 			capturing = Owner.NEUTRAL
-			world.toast("Склеп: найм открыт!" if allegiance == Owner.PLAYER
-				else "Склеп отбит проверяющими!", &"info")
+			world.toast(I18n.t("Склеп: найм открыт!") if allegiance == Owner.PLAYER
+				else I18n.t("Склеп отбит проверяющими!"), &"info")
 			_redraw()
 			# Время захвата не засчитывается как первый производственный такт.
 			return
@@ -147,17 +147,17 @@ func label_text() -> String:
 	if capturing != Owner.NEUTRAL and progress > 0.0:
 		var left := ceilf(maxf(0.0, LegionCfg.CRYPT_CAPTURE_TIME - progress))
 		if capturing == Owner.PLAYER:
-			return "Захватываем · %d с" % int(left)
-		return "Ад захватывает · %d с" % int(left)
+			return I18n.t("Захватываем · %d с") % int(left)
+		return I18n.t("Ад захватывает · %d с") % int(left)
 	match allegiance:
 		Owner.PLAYER:
 			if contested:
-				return "Враги рядом · набор стоит"
-			return "Склеп ваш · штат %d/%d" % [building.alive_count(), building.cap]
+				return I18n.t("Враги рядом · набор стоит")
+			return I18n.t("Склеп ваш · штат %d/%d") % [building.alive_count(), building.cap]
 		Owner.ENEMY:
-			return "Склеп у Ада · займите %d бойцами" % LegionCfg.CRYPT_UNITS
-	return "Ничей склеп" if nearby_units == 0 and not _teaches() \
-		else "Ничей склеп · займите %d бойцами (рядом %d)" % [LegionCfg.CRYPT_UNITS, nearby_units]
+			return I18n.t("Склеп у Ада · займите %d бойцами") % LegionCfg.CRYPT_UNITS
+	return I18n.t("Ничей склеп") if nearby_units == 0 and not _teaches() \
+		else I18n.t("Ничей склеп · займите %d бойцами (рядом %d)") % [LegionCfg.CRYPT_UNITS, nearby_units]
 
 
 ## «Что делать» у ничейного склепа без бойцов рядом пишет только ближайший к Котлу ничейный:

@@ -126,11 +126,13 @@ func _build_content_column() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(col)
 
-	var title := UiStyle.label("Некромант\nпо найму", 50, UiStyle.FONT_TITLE, UiStyle.TEXT)
+	var title := UiStyle.label(I18n.t("Некромант\nпо найму"), 50, UiStyle.FONT_TITLE, UiStyle.TEXT)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(title)
 
-	var subtitle := UiStyle.label("По истечении договора", 22, UiStyle.FONT_TITLE, UiStyle.GOLD)
+	var subtitle := UiStyle.label(I18n.t(
+		"По истечении договора"
+	), 22, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(subtitle)
 
@@ -138,7 +140,9 @@ func _build_content_column() -> void:
 	var map_title := _next_map_title()
 	if map_title != "":
 		var map_line := UiStyle.label(
-			("Первый договор: %s" if not Campaign.has_progress() else "Следующий договор: %s")
+			(I18n.t("Первый договор: %s") if not Campaign.has_progress() else I18n.t(
+				"Следующий договор: %s"
+			))
 				% map_title, 17, ThemeDB.fallback_font, UiStyle.TEXT_DIM)
 		map_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(map_line)
@@ -199,7 +203,7 @@ func _build_mode_row(col: VBoxContainer) -> void:
 	endless_btn.disabled = not endless_open
 	endless_btn.focus_mode = Control.FOCUS_ALL if endless_open else Control.FOCUS_NONE
 	# Полное название режима — в tooltip: подпись держим короткой, чтобы ряд не разъезжался.
-	endless_btn.tooltip_text = "Бесконечный подряд"
+	endless_btn.tooltip_text = I18n.t("Бесконечный подряд")
 	endless_btn.pressed.connect(func() -> void: endless_pressed.emit())
 	row.add_child(endless_btn)
 
@@ -212,27 +216,29 @@ func _build_mode_row(col: VBoxContainer) -> void:
 	daily_btn.focus_mode = Control.FOCUS_ALL if daily_open else Control.FOCUS_NONE
 	if daily_done_today:
 		var done := LegionRunStore.daily_done_result(today)
-		daily_btn.tooltip_text = "Сегодняшний подряд сдан — приходите завтра. Стаж: %d · Души: %d" \
+		daily_btn.tooltip_text = I18n.t(
+			"Сегодняшний подряд сдан — приходите завтра. Стаж: %d · Души: %d"
+		) \
 			% [int(done.get("tenure", 0)), int(done.get("souls", 0))]
 	elif daily_running:
-		daily_btn.tooltip_text = "«Вызов дня» — продолжение сегодняшней попытки"
+		daily_btn.tooltip_text = I18n.t("«Вызов дня» — продолжение сегодняшней попытки")
 	daily_btn.pressed.connect(func() -> void: daily_pressed.emit())
 	row.add_child(daily_btn)
 
 	# D-0927-162: «Коллекция» — виден, только когда в ней есть хоть одна сохранённая карта.
 	if not LegionCollection.entries().is_empty():
 		var collection_btn := _make_button(
-			"Коллекция (%d)" % LegionCollection.entries().size(), 16)
+			I18n.t("Коллекция (%d)") % LegionCollection.entries().size(), 16)
 		collection_btn.name = "CollectionAction"
 		collection_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		collection_btn.icon = LegionIcons.tex("menu_collection")
 		collection_btn.add_theme_constant_override("icon_max_width", 22)
-		collection_btn.tooltip_text = "Сохранённые договоры"
+		collection_btn.tooltip_text = I18n.t("Сохранённые договоры")
 		collection_btn.pressed.connect(func() -> void: collection_pressed.emit())
 		row.add_child(collection_btn)
 
 	if not endless_open:
-		var lock_note := UiStyle.label("Откроется после прохождения кампании.", 15,
+		var lock_note := UiStyle.label(I18n.t("Откроется после прохождения кампании."), 15,
 			ThemeDB.fallback_font, UiStyle.TEXT_DIM)
 		lock_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(lock_note)
@@ -240,16 +246,16 @@ func _build_mode_row(col: VBoxContainer) -> void:
 
 ## «Схватка» — открыта сразу (D-0927-199), а не после кампании: широкая кнопка и короткая подпись.
 func _build_pvp_row(col: VBoxContainer) -> void:
-	var btn := _make_button("Схватка", 20)
+	var btn := _make_button(I18n.t("Схватка"), 20)
 	btn.name = "PvpAction"
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.icon = LegionIcons.tex("menu_pvp")
 	btn.add_theme_constant_override("icon_max_width", 26)
 	btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
-	btn.tooltip_text = "Матч против бота или другого игрока по сети"
+	btn.tooltip_text = I18n.t("Матч против бота или другого игрока по сети")
 	btn.pressed.connect(func() -> void: pvp_pressed.emit())
 	col.add_child(btn)
-	var note := UiStyle.label("Против бота или по сети · разрушьте Котёл соперника", 15,
+	var note := UiStyle.label(I18n.t("Против бота или по сети · разрушьте Котёл соперника"), 15,
 		ThemeDB.fallback_font, UiStyle.TEXT_DIM)
 	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(note)
@@ -263,12 +269,12 @@ func _build_cards_row(col: VBoxContainer) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(row)
 
-	row.add_child(_make_card("CardMaps", "Карты", "menu_map",
-		"Выбор договора", func() -> void: maps_pressed.emit()))
+	row.add_child(_make_card("CardMaps", I18n.t("Карты"), "menu_map",
+		I18n.t("Выбор договора"), func() -> void: maps_pressed.emit()))
 	# D-1007-P1: «Контора» как экран убрана — подготовка живёт на брифинге; две карточки ровно.
 	# D-1007-P2: одно «Досье» вместо «Героя» — разряд, поправки и артефакты на одном экране.
-	row.add_child(_make_card("CardDossier", "Досье", "menu_hero",
-		"Разряд, поправки, артефакты", func() -> void: hero_pressed.emit()))
+	row.add_child(_make_card("CardDossier", I18n.t("Досье"), "menu_hero",
+		I18n.t("Разряд, поправки, артефакты"), func() -> void: hero_pressed.emit()))
 
 
 func _make_card(card_name: String, caption: String, icon_name: String, tip: String,
@@ -307,7 +313,7 @@ func _build_bottom_strip(col: VBoxContainer) -> void:
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(strip)
 
-	var howto_btn := _make_button("Как играть", 17)
+	var howto_btn := _make_button(I18n.t("Как играть"), 17)
 	howto_btn.name = "HowtoAction"
 	howto_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	howto_btn.icon = LegionIcons.tex("menu_guide")
@@ -315,7 +321,7 @@ func _build_bottom_strip(col: VBoxContainer) -> void:
 	howto_btn.pressed.connect(func() -> void: howto_pressed.emit())
 	strip.add_child(howto_btn)
 
-	var settings_btn := _make_button("Настройки", 17)
+	var settings_btn := _make_button(I18n.t("Настройки"), 17)
 	settings_btn.name = "SettingsAction"
 	settings_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	settings_btn.icon = LegionIcons.tex("menu_settings")
@@ -323,7 +329,7 @@ func _build_bottom_strip(col: VBoxContainer) -> void:
 	settings_btn.pressed.connect(func() -> void: settings_pressed.emit())
 	strip.add_child(settings_btn)
 
-	var quit_btn := _make_button("Выход", 17)
+	var quit_btn := _make_button(I18n.t("Выход"), 17)
 	quit_btn.name = "QuitAction"
 	quit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	quit_btn.icon = LegionIcons.tex("menu_exit")
@@ -348,13 +354,13 @@ func _build_community() -> void:
 	row.offset_right = -COMMUNITY_MARGIN
 	row.offset_bottom = -COMMUNITY_MARGIN
 
-	var caption := UiStyle.label("Сообщество:", 15, ThemeDB.fallback_font, UiStyle.TEXT_DIM)
+	var caption := UiStyle.label(I18n.t("Сообщество:"), 15, ThemeDB.fallback_font, UiStyle.TEXT_DIM)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(caption)
-	var links := [["CommunityChannel", "Telegram-канал", ReleaseInfo.TELEGRAM_CHANNEL_URL],
-		["CommunityChat", "Чат", ReleaseInfo.TELEGRAM_CHAT_URL]]
+	var links := [["CommunityChannel", I18n.t("Telegram-канал"), ReleaseInfo.TELEGRAM_CHANNEL_URL],
+		["CommunityChat", I18n.t("Чат"), ReleaseInfo.TELEGRAM_CHAT_URL]]
 	if not ReleaseInfo.is_steam():
-		links.append(["CommunitySite", "Сайт", ReleaseInfo.SITE_URL])
+		links.append(["CommunitySite", I18n.t("Сайт"), ReleaseInfo.SITE_URL])
 	for link: Array in links:
 		var url := String(link[2])
 		var btn := _make_button(String(link[1]), 15)
@@ -366,8 +372,8 @@ func _build_community() -> void:
 
 func _endless_label() -> String:
 	if LegionRunStore.endless_active(false):
-		return "Забег (объект %d)" % LegionRunStore.endless_k(false)
-	return "Бесконечный"
+		return I18n.t("Забег (объект %d)") % LegionRunStore.endless_k(false)
+	return I18n.t("Бесконечный")
 
 
 ## Метка «Вызов дня»: сегодня уже сыгран (done_today, D-0927-96) — подпись говорит об этом
@@ -375,10 +381,10 @@ func _endless_label() -> String:
 func _daily_label(done_today: bool) -> String:
 	if LegionRunStore.endless_active(true) \
 			and LegionRunStore.endless_daily_date() == LegionEndless.today_date():
-		return "Вызов (объект %d)" % LegionRunStore.endless_k(true)
+		return I18n.t("Вызов (объект %d)") % LegionRunStore.endless_k(true)
 	if done_today:
-		return "«Вызов дня» сдан"
-	return "Вызов дня"
+		return I18n.t("«Вызов дня» сдан")
+	return I18n.t("Вызов дня")
 
 
 ## Следующая карта: первая непройденная из открытых, иначе первая открытая (кампания добита —
@@ -403,12 +409,12 @@ func _next_map_title() -> String:
 	var id := _next_map_id()
 	if id == "":
 		return ""
-	return String(Campaign.map(id).get("title", id))
+	return I18n.map_text(String(Campaign.map(id).get("title", id)))
 
 
 ## CTA — короткая форма; какое именно продолжение, говорит строка названия карты над кнопкой.
 func _continue_label() -> String:
-	return "Начать смену" if not Campaign.has_progress() else "Продолжить"
+	return I18n.t("Начать смену") if not Campaign.has_progress() else I18n.t("Продолжить")
 
 
 ## Сложность: пояснение уровня — в tooltip кнопки (строка-описание под кнопками убрана,
@@ -427,7 +433,7 @@ func _polish_picker(picker: DifficultyPicker) -> void:
 		button.add_theme_color_override("font_pressed_color", DifficultyPicker.COLORS[id])
 	for child in picker.find_children("*", "Label", true, false):
 		var label := child as Label
-		if label.text == "Сложность:":
+		if label.text == I18n.t("Сложность:"):
 			label.add_theme_font_override("font", ThemeDB.fallback_font)
 			label.add_theme_font_size_override("font_size", 16)
 		else:

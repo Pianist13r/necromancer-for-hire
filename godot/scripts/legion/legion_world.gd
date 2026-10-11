@@ -887,8 +887,9 @@ func start_map(id: String, map_data: Dictionary = {}) -> void:
 	var tutorial_about_to_start := id == LegionTutorial.WASTELAND_MAP_ID \
 		and (not Campaign.tutorial_done() or dev.has("tutorial"))
 	if not tutorial_about_to_start:
-		var title := String(map.get("title", map_id))
-		toast(title + (": " + String(map["hint"]) if map.has("hint") else ""), &"info")
+		var title := I18n.map_text(String(map.get("title", map_id)))
+		toast(title + (": " + Controls.text(I18n.map_text(String(map["hint"]))) if map.has(
+			"hint") else ""), &"info")
 
 
 # ── Стороны боя (docs/pvp/DESIGN.md §4) ─────────────────────────────────────
@@ -1098,7 +1099,8 @@ func request_kassa() -> Dictionary:
 	if not bool(res.get("ok", false)):
 		toast(LegionKassa.reason_text(String(res.get("reason", ""))), &"warn")
 		return res
-	toast("В кассу %d душ (курс %d:1) · премия +%d из %d" % [int(res["souls"]), int(res["rate"]),
+	toast(I18n.t("В кассу %d душ (курс %d:1) · премия +%d из %d") % [int(res["souls"]), int(
+		res["rate"]),
 		int(res["earned"]), LegionCfg.KASSA_CAP])
 	return res
 
@@ -1155,7 +1157,7 @@ func start_net_match(map_id: String, seed_value: int, side: int) -> void:
 	for s in sides:
 		s.contracts._next_id = 1
 	# камера не зеркалится: человек стороны 1 просто играет правой половиной поля
-	toast("Вы — справа" if side == 1 else "Вы — слева", &"info")
+	toast(I18n.t("Вы — справа") if side == 1 else I18n.t("Вы — слева"), &"info")
 
 
 ## Сессии можно делать тик: бой идёт и фон карты догружен (у клиентов фон строится разное время).
@@ -1649,7 +1651,7 @@ func _show_ground_loading() -> void:
 	panel_style.set_corner_radius_all(8)
 	panel.add_theme_stylebox_override("panel", panel_style)
 	center.add_child(panel)
-	var label := LegionUi.label("Готовим карту…", 28, LegionUi.FONT_TITLE, LegionUi.TEXT)
+	var label := LegionUi.label(I18n.t("Готовим карту…"), 28, LegionUi.FONT_TITLE, LegionUi.TEXT)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3103,10 +3105,10 @@ func _draw_rally_aim(at: Vector2) -> void:
 	for u: Legionnaire in pv["cut"]:
 		_fx.draw_arc(u.position + LegionCfg.RALLY_AIM_MARK_OFFSET, LegionCfg.RALLY_AIM_MARK_R,
 			0.0, TAU, 16, Color(0.55, 0.55, 0.6, 0.7), 1.5, true)
-	var text := "позовёт %d" % (pv["reach"] as Array).size() if ready \
-		else "откат %d с" % ceili(me.rally_cd)
+	var text := I18n.t("позовёт %d") % (pv["reach"] as Array).size() if ready \
+		else I18n.t("откат %d с") % ceili(me.rally_cd)
 	if me.rally_cd <= 0.0 and not paid:
-		text = "мало маны: %d из %d" % [int(me.contracts.mana), roundi(LegionCfg.RALLY_MANA)]
+		text = I18n.t("мало маны: %d из %d") % [int(me.contracts.mana), roundi(LegionCfg.RALLY_MANA)]
 	var font := ThemeDB.fallback_font
 	var pos := at + LegionCfg.RALLY_AIM_LABEL_OFFSET
 	var rally_fs := PvpView.fs(self, LegionCfg.RALLY_AIM_FONT)   # B-303
@@ -3139,7 +3141,7 @@ func tear_segment(c: Contract, seg: int) -> void:
 	stats["segments_torn"] = int(stats.get("segments_torn", 0)) + 1
 	_tears.append({"poly": c.seg_polys[seg], "t": LegionCfg.LAWYER_TEAR_FX})
 	segment_torn.emit(c, seg, n)
-	toast("Юрист расторг участок договора!", &"warn")
+	toast(I18n.t("Юрист расторг участок договора!"), &"warn")
 
 
 func on_contract_created(c: Contract) -> void:
@@ -3319,9 +3321,9 @@ func _cleanup(dt: float) -> void:
 
 func on_wave_started(i: int, total: int) -> void:
 	if wave_runner.is_climax(i):
-		toast("Кульминация! Волна %d из %d" % [i + 1, total], &"warn")
+		toast(I18n.t("Кульминация! Волна %d из %d") % [i + 1, total], &"warn")
 	else:
-		toast("Волна %d из %d" % [i + 1, total], &"wave")
+		toast(I18n.t("Волна %d из %d") % [i + 1, total], &"wave")
 	wave_started.emit(i, total)
 
 
@@ -3677,7 +3679,7 @@ func breach_pos(id: String) -> Vector2:
 func warn_breach(id: String, in_s: float, summary: Array) -> void:
 	_breach_marks.append({"id": id, "left": in_s, "summary": summary.duplicate(true)})
 	breach_warned.emit(id, in_s, summary)
-	toast("Трещина у поворота дрожит…", &"wave")
+	toast(I18n.t("Трещина у поворота дрожит…"), &"wave")
 	# Подходящей записи в текущем наборе нет: новые файлы и чужие реплики не подменяем.
 
 
@@ -3696,7 +3698,7 @@ func _draw_breaches() -> void:
 		for point: Vector2 in LegionCfg.BREACH_MARK_POINTS:
 			crack.append(pos + point)
 		_fx.draw_polyline(crack, Color(color, pulse), LegionCfg.BREACH_MARK_WIDTH, true)
-		var label := "Трещина · %d с" % ceili(float(mark["left"]))
+		var label := I18n.t("Трещина · %d с") % ceili(float(mark["left"]))
 		var parts := PackedStringArray()
 		for g: Dictionary in mark["summary"]:
 			parts.append("%s ×%d" % [foe_caption(String(g["type"])), int(g["count"])])
@@ -3716,9 +3718,10 @@ func _draw_breaches() -> void:
 
 
 static func foe_caption(type: String) -> String:
-	var names := {"zombie": "● Зомби", "beetle": "◆ Курьер", "signer": "■ Нотариус",
-		"ghost": "◇ Призрак", "mimic": "■ Мимик", "boss": "★ Прораб",
-		"shield_inspector": "▣ Инспектор", "lawyer": "§ Юрист"}
+	var names := {"zombie": I18n.t("● Зомби"), "beetle": I18n.t("◆ Курьер"), "signer": I18n.t(
+		"■ Нотариус"),
+		"ghost": I18n.t("◇ Призрак"), "mimic": I18n.t("■ Мимик"), "boss": I18n.t("★ Прораб"),
+		"shield_inspector": I18n.t("▣ Инспектор"), "lawyer": I18n.t("§ Юрист")}
 	return String(names.get(type, type))
 
 

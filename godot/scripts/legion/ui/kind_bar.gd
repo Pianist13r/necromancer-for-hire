@@ -82,8 +82,14 @@ func _ready() -> void:
 		col.add_theme_constant_override("separation", -2)
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(col)
-		col.add_child(LegionUi.label(LegionCfg.KIND_CARD_NAMES[i], NAME_FONT, LegionUi.FONT_TITLE,
-			LegionUi.TEXT))
+		var title := LegionUi.label(I18n.t(LegionCfg.KIND_CARD_NAMES[i]), NAME_FONT,
+			LegionUi.FONT_TITLE, LegionUi.TEXT)
+		title.name = "Title"
+		title.clip_text = true # Let the container allocate width before measuring the font.
+		title.resized.connect(func() -> void:
+			title.add_theme_font_size_override("font_size", LegionHudTextLayout.fit_font(
+				LegionUi.FONT_TITLE, title.text, NAME_FONT, title.size.x - 2.0)))
+		col.add_child(title)
 		var price := LegionUi.label(_price_text(kind), PRICE_FONT, LegionUi.FONT_TEXT,
 			LegionUi.TEXT_DIM)
 		price.name = "Price"
@@ -109,7 +115,7 @@ func _ready() -> void:
 func _price_text(kind: StringName) -> String:
 	var mult := world.my_field().mana_cost_mult if world != null and world.my_field() != null else 1.0
 	var per := Contract.base_price(kind) * mult * LegionCfg.HUD_ARSHIN_PX
-	return "%d маны за аршин" % roundi(per)
+	return I18n.t("%d маны за аршин") % roundi(per)
 
 
 ## B-055: короткий щелчок поля в точке экрана вьюпорта. true — щелчок пришёлся на карточку (и

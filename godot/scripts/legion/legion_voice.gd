@@ -229,7 +229,8 @@ func voice_sequence(id: StringName) -> Array[StringName]:
 
 ## Из настроек вернулись в тот же урок: повторить инструкцию с новой привязкой.
 func refresh_tutorial_voice(id: StringName) -> void:
-	if not LessonsCfg.VOICE_KEYS.has(id):
+	if not LessonsCfg.VOICE_KEYS.has(id) \
+			and not (I18n.language == "en" and LessonsCfg.VOICE_MOUSE.has(id)):
 		return
 	drop_tutorial_voice()
 	if String(_voice_id).begins_with(TUTORIAL_VOICE_PREFIX):
@@ -268,10 +269,10 @@ func _start_voice(id: StringName, priority: int, cls: LegionAudio.VoiceClass,
 	_voice_parts = voice_sequence(id)
 	_voice_part = 0
 	_voice_gap_until = 0
-	var stream: AudioStream = load(VOICE_DIR + String(_voice_parts[0]) + ".ogg")
+	var stream: AudioStream = load(I18n.voice_path(_voice_parts[0]))
 	var len_msec := 0
 	for part in _voice_parts:
-		var clip: AudioStream = load(VOICE_DIR + String(part) + ".ogg")
+		var clip: AudioStream = load(I18n.voice_path(part))
 		len_msec += int(clip.get_length() * 1000.0)
 	len_msec += maxi(0, _voice_parts.size() - 1) * TutorialVoice.GAP_MSEC
 	_voice_part_until = _run_clock() + int(stream.get_length() * 1000.0)
@@ -380,7 +381,7 @@ func _flush_voice_queue() -> void:
 
 func _sequence_available(parts: Array[StringName]) -> bool:
 	for part in parts:
-		if not ResourceLoader.exists(VOICE_DIR + String(part) + ".ogg"):
+		if not ResourceLoader.exists(I18n.voice_path(part)):
 			return false
 	return not parts.is_empty()
 
@@ -404,7 +405,7 @@ func _tick_voice_parts() -> void:
 	if _voice_part >= _voice_parts.size():
 		_voice_parts.clear()
 		return
-	var path := VOICE_DIR + String(_voice_parts[_voice_part]) + ".ogg"
+	var path := I18n.voice_path(_voice_parts[_voice_part])
 	if not ResourceLoader.exists(path):
 		_voice_parts.clear()
 		return
@@ -425,7 +426,7 @@ func _play_cast_over_story(id: StringName) -> void:
 		_cast_player.bus = &"Voice"
 		_cast_player.volume_db = VOICE_VOLUME_DB - 2.0
 		add_child(_cast_player)
-	var clip := load(VOICE_DIR + String(id) + ".ogg") as AudioStream
+	var clip := load(I18n.voice_path(id)) as AudioStream
 	_voice_last_msec[id] = FxClock.ms()
 	_cast_until = _run_clock() + int(clip.get_length() * 1000.0)
 	if not _muted:

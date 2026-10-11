@@ -64,14 +64,16 @@ func _draw() -> void:
 	LegionUi.draw_blank(self, Rect2(Vector2.ZERO, SIZE), Color(LegionUi.GOLD, 0.9 * a),
 		Color(LegionUi.PAPER, LegionUi.PAPER.a * a))
 	var font: Font = UiStyle.FONT_TITLE
-	var text := "Комбо ×%d" % _combo if _combo >= 2 else "Комбо"
+	var text := I18n.t("Комбо ×%d") % _combo if _combo >= 2 else I18n.t("Комбо")
 	var fs := 30
 	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var at := Vector2((SIZE.x - tw) * 0.5, 34.0)
 	draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0, 0, 0, 0.8 * a))
 	draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(UiStyle.GOLD, a))
 	# десятичная запятая: точка у Neucha почти не видна — «×1.2» читалось как «×12»
-	var sub := ("урон и души ×%.1f" % _mult).replace(".", ",")
+	var sub := I18n.t("урон и души ×%.1f") % _mult
+	if I18n.language == "ru":
+		sub = sub.replace(".", ",")
 	var small: Font = UiStyle.FONT_TEXT
 	var sw := small.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
 	draw_string(small, Vector2((SIZE.x - sw) * 0.5, 52.0), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,

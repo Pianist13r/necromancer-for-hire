@@ -34,14 +34,14 @@ func configure(inventory: LegionItems = null, tab := TAB_UPGRADES) -> DossierVie
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 18)
 	add_child(head)
-	head.add_child(UiStyle.label("Досье", 32, UiStyle.FONT_TITLE, UiStyle.GOLD))
+	head.add_child(UiStyle.label(I18n.t("Досье"), 32, UiStyle.FONT_TITLE, UiStyle.GOLD))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	head.add_child(spacer)
-	_add_tab(head, "TabUpgrades", TAB_UPGRADES, "Поправки")
-	_add_tab(head, "TabItems", TAB_ITEMS, "Артефакты (%d)" % _item_ids().size())
-	_add_tab(head, "TabRecords", TAB_RECORDS, "Рекорды")
+	_add_tab(head, "TabUpgrades", TAB_UPGRADES, I18n.t("Поправки"))
+	_add_tab(head, "TabItems", TAB_ITEMS, I18n.t("Артефакты (%d)") % _item_ids().size())
+	_add_tab(head, "TabRecords", TAB_RECORDS, I18n.t("Рекорды"))
 	var meter := ProgressionUi.experience_meter(Campaign.hero_xp())
 	# В досье полезен и общий опыт. Это единственная строка разряда, над его полосой.
 	(meter.get_node("ExperienceCaption") as Label).text = rank_text()
@@ -69,10 +69,10 @@ func configure(inventory: LegionItems = null, tab := TAB_UPGRADES) -> DossierVie
 static func rank_text() -> String:
 	var progress := Campaign.hero_xp_progress()
 	var level := Campaign.hero_level()
-	var out := "Разряд %d · опыт %d. " % [level, Campaign.hero_xp()]
+	var out := I18n.t("Разряд %d · опыт %d. ") % [level, Campaign.hero_xp()]
 	if bool(progress["maxed"]):
-		return out + "Все записи досье открыты."
-	return out + "До разряда %d: %d опыта." % [level + 1,
+		return out + I18n.t("Все записи досье открыты.")
+	return out + I18n.t("До разряда %d: %d опыта.") % [level + 1,
 		int(progress["need"]) - int(progress["cur"])]
 
 
@@ -130,13 +130,13 @@ func _build_upgrades() -> void:
 	var off := _upgrades_off()
 	strip.configure([] if off else Campaign.upgrades(), false, true)
 	if off:
-		_body.add_child(ProgressionUi.text("В этом бою поправки не действуют: они работают в "
-			+ "кампании и в забеге. " + _next_unlock_text(), 17, UiStyle.GOLD))
+		_body.add_child(ProgressionUi.text(I18n.t("В этом бою поправки не действуют: они работают в ")
+			+ I18n.t("кампании и в забеге. ") + _next_unlock_text(), 17, UiStyle.GOLD))
 	else:
 		# B-421: откуда поправка в слоте — щелчок по каталогу ничего не делает, и это надо
 		# сказать. Одной строкой со следующим открытием: вторая сталкивала каталог под прокрутку.
-		_body.add_child(ProgressionUi.text("Нажмите поправку — прочитайте пользу и цену. "
-			+ "Подписывается после победы. " + _next_unlock_text(), 16, UiStyle.GOLD))
+		_body.add_child(ProgressionUi.text(I18n.t("Нажмите поправку — прочитайте пользу и цену. ")
+			+ I18n.t("Подписывается после победы. ") + _next_unlock_text(), 16, UiStyle.GOLD))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 14)
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -153,13 +153,13 @@ func _build_upgrades() -> void:
 			if String(data["tag"]) != tag:
 				continue
 			var level := int(data.get("unlock_level", 1))
-			var state := "с начала" if level <= 1 else \
-				("открыта" if level <= Campaign.hero_level() else "с разряда %d" % level)
+			var state := I18n.t("с начала") if level <= 1 else \
+				(I18n.t("открыта") if level <= Campaign.hero_level() else I18n.t("с разряда %d") % level)
 			var needs := StringName(data.get("needs", ""))
 			if level <= Campaign.hero_level() and needs != &"" and Campaign.stat(needs) < 0.5:
-				state = "по кампании"
+				state = I18n.t("по кампании")
 			if not off and Campaign.upgrades().has(StringName(id)):
-				state = "✓ действует"
+				state = I18n.t("✓ действует")
 			var row := ProgressionRow.new()
 			col.add_child(row)
 			row.configure(StringName(id), data, "", {"right": state, "row_h": 48.0,
@@ -172,8 +172,8 @@ func _build_upgrades() -> void:
 static func _next_unlock_text() -> String:
 	var level := Campaign.hero_level()
 	if level >= LegionMetaCfg.HERO_MAX_LEVEL:
-		return "Колода открыта целиком."
-	return "Дальше: %s." % ProgressionUi.rank_openings(level + 1)
+		return I18n.t("Колода открыта целиком.")
+	return I18n.t("Дальше: %s.") % ProgressionUi.rank_openings(level + 1)
 
 
 func _build_rank_track() -> void:
@@ -184,7 +184,7 @@ func _build_rank_track() -> void:
 	for level in range(1, LegionMetaCfg.HERO_MAX_LEVEL + 1):
 		var btn := Button.new()
 		btn.name = "Rank%d" % level
-		btn.text = "%s %d" % ["✓" if level < Campaign.hero_level() else "Разряд", level]
+		btn.text = "%s %d" % ["✓" if level < Campaign.hero_level() else I18n.t("Разряд"), level]
 		btn.custom_minimum_size.y = 36.0
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var color := UiStyle.GOLD if level == Campaign.hero_level() else UiStyle.TEXT_DIM
@@ -214,7 +214,7 @@ func _has_item(id: StringName) -> bool:
 func _build_items() -> void:
 	var ids := _item_ids()
 	var scope := _items_scope_name()
-	_body.add_child(_text("Артефакты %s%s" % [scope, " · срабатывания за текущий бой"
+	_body.add_child(_text(I18n.t("Артефакты %s%s") % [scope, I18n.t(" · срабатывания за текущий бой")
 		if _inventory != null else ""], 18, UiStyle.TEXT_DIM))
 	_cards = GridContainer.new()
 	_cards.name = "Cards"
@@ -224,13 +224,13 @@ func _build_items() -> void:
 	_body.add_child(_cards)
 	_resize_cards()
 	if ids.is_empty():
-		_body.add_child(_text("Артефактов пока нет. Их носят элитные проверяющие в короне, "
-			+ "с портфелем: победите такого — находка сама попадёт в инвентарь. Артефакт "
-			+ "остаётся до конца %s и сохраняется победой в бою." % scope, 20))
+		_body.add_child(_text(I18n.t("Артефактов пока нет. Их носят элитные проверяющие в короне, ")
+			+ I18n.t("с портфелем: победите такого — находка сама попадёт в инвентарь. Артефакт ")
+			+ I18n.t("остаётся до конца %s и сохраняется победой в бою.") % scope, 20))
 		return
 	for id in ids:
 		_cards.add_child(_card(id))
-	_body.add_child(_text("Синергии — соберите обе части", 22, UiStyle.GOLD))
+	_body.add_child(_text(I18n.t("Синергии — соберите обе части"), 22, UiStyle.GOLD))
 	for sid in LegionItemDb.synergy_ids():
 		_body.add_child(_synergy(sid))
 
@@ -266,22 +266,22 @@ func _card(id: StringName) -> Control:
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_theme_constant_override("separation", 0)
 	header.add_child(heading)
-	heading.add_child(UiStyle.label(String(d["title"]), 22, UiStyle.FONT_TITLE, rarity_color))
+	heading.add_child(UiStyle.label(I18n.t(String(d["title"])), 22, UiStyle.FONT_TITLE, rarity_color))
 	var tags: Array[String] = []
 	for style: StringName in d["styles"]:
-		tags.append(String(STYLE_NAMES.get(style, style)))
-	heading.add_child(_text(String(CfgItems.RARITY_TITLE[LegionItemDb.rarity(id)])
+		tags.append(I18n.t(String(STYLE_NAMES.get(style, style))))
+	heading.add_child(_text(I18n.t(String(CfgItems.RARITY_TITLE[LegionItemDb.rarity(id)]))
 		+ " · " + " / ".join(tags), 16, UiStyle.TEXT_DIM))
 	if bool(d.get("passive", false)):
-		heading.add_child(_text("Действует постоянно", 17, UiStyle.GOLD))
+		heading.add_child(_text(I18n.t("Действует постоянно"), 17, UiStyle.GOLD))
 	elif _inventory != null:
-		var uses := _text("Срабатываний: %d" % _inventory.activation_count(id), 17, UiStyle.GOLD)
+		var uses := _text(I18n.t("Срабатываний: %d") % _inventory.activation_count(id), 17, UiStyle.GOLD)
 		uses.name = "Uses"
 		heading.add_child(uses)
-	column.add_child(_text("Когда: " + String(d["trigger"])))
-	column.add_child(_text("Эффект: " + String(d["result"])))
-	column.add_child(_text("Приём: " + String(d["play_hint"]), 17, UiStyle.GOOD))
-	column.add_child(_text("На поле: " + String(d["cue"]), 16, UiStyle.TEXT_DIM))
+	column.add_child(_text(I18n.t("Когда: ") + I18n.t(String(d["trigger"]))))
+	column.add_child(_text(I18n.t("Эффект: ") + I18n.t(String(d["result"]))))
+	column.add_child(_text(I18n.t("Приём: ") + I18n.t(String(d["play_hint"])), 17, UiStyle.GOOD))
+	column.add_child(_text(I18n.t("На поле: ") + I18n.t(String(d["cue"])), 16, UiStyle.TEXT_DIM))
 	return panel
 
 
@@ -290,14 +290,14 @@ func _synergy(id: StringName) -> Control:
 	var missing: Array[String] = []
 	var parts: Array[String] = []
 	for part: String in d["items"]:
-		var title := String(LegionItemDb.item(StringName(part))["title"])
+		var title := I18n.t(String(LegionItemDb.item(StringName(part))["title"]))
 		parts.append(title)
 		if not _has_item(StringName(part)):
 			missing.append(title)
 	var row := VBoxContainer.new()
-	row.add_child(_text(String(d["title"]) + " · " + ("Собрана" if missing.is_empty()
-		else "Не хватает: " + ", ".join(missing)), 20, UiStyle.GOLD))
-	row.add_child(_text(" + ".join(parts) + " → " + String(d["text"])))
+	row.add_child(_text(I18n.t(String(d["title"])) + " · " + (I18n.t("Собрана") if missing.is_empty()
+		else I18n.t("Не хватает: ") + ", ".join(missing)), 20, UiStyle.GOLD))
+	row.add_child(_text(" + ".join(parts) + " → " + I18n.t(String(d["text"]))))
 	return row
 
 
@@ -311,7 +311,7 @@ func _upgrades_off() -> bool:
 ## Чьи артефакты на вкладке: «кампании», «забега», «этого боя» («Схватка»), «переигровки».
 func _items_scope_name() -> String:
 	if _inventory != null and _inventory.world != null and _inventory.world.pvp:
-		return "этого боя"
+		return I18n.t("этого боя")
 	if Campaign.is_replay_scope():
-		return "переигровки"
-	return "забега" if Campaign.is_endless_scope() else "кампании"
+		return I18n.t("переигровки")
+	return I18n.t("забега") if Campaign.is_endless_scope() else I18n.t("кампании")

@@ -3,7 +3,7 @@ extends Node
 ## Optional, memory-only session counter. Never reads user logs or identifiers.
 ## No telemetry in editors, headless tests, command-line QA, or without consent.
 
-const ENDPOINT := "https://51-250-12-39.sslip.io/metrics/v1"
+const ENDPOINT := "https://stats.necromancer-for-hire.ru/metrics/v1"
 const VERSION := ReleaseInfo.VERSION
 const SECTION := "privacy"
 const KEY := "share_play_metrics"
@@ -103,11 +103,11 @@ func show_consent() -> void:
 		return
 	_offered = true
 	var dialog := ConfirmationDialog.new()
-	dialog.dialog_text = NOTICE
-	dialog.ok_button_text = "Да, отправлять статистику"
-	dialog.cancel_button_text = "Нет, спасибо"
+	dialog.dialog_text = I18n.t(NOTICE)
+	dialog.ok_button_text = I18n.t("Да, отправлять статистику")
+	dialog.cancel_button_text = I18n.t("Нет, спасибо")
 	dialog.min_size = Vector2i(580, 340)
-	UiStyle.style_dialog(dialog, "Помочь игре стать лучше")
+	UiStyle.style_dialog(dialog, I18n.t("Помочь игре стать лучше"))
 	dialog.confirmed.connect(func() -> void:
 		Settings.set_value(SECTION, KEY, true)
 		dialog.queue_free())
@@ -116,7 +116,7 @@ func show_consent() -> void:
 	dialog.get_cancel_button().pressed.connect(func() -> void:
 		Settings.set_value(SECTION, KEY, false))
 	dialog.canceled.connect(dialog.queue_free)
-	var later := dialog.add_button("Позже", true, "later")
+	var later := dialog.add_button(I18n.t("Позже"), true, "later")
 	dialog.custom_action.connect(func(action: StringName) -> void:
 		if action == &"later":
 			dialog.queue_free())

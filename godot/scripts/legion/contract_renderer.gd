@@ -442,7 +442,7 @@ func _draw_popups() -> void:
 		var pop := 1.0 + (field.POPUP_POP - 1.0) * maxf(0.0, 1.0 - k * 6.0)
 		var size := field._fsz(roundi(float(p.get("size", 30.0)) * pop))
 		var a := 1.0 if k < 0.6 else 1.0 - (k - 0.6) / 0.4
-		var text := String(p.get("text", "Точно!"))
+		var text := I18n.t(String(p.get("text", "Точно!")))
 		var col: Color = p.get("color", LegionCfg.PERFECT_COLOR)
 		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		var at: Vector2 = p["pos"] + Vector2(-w * 0.5, -field.POPUP_LIFT - field.POPUP_RISE * k)
@@ -590,7 +590,7 @@ func _draw_wall_fx() -> void:
 	var ms := FxClock.ms()
 	for i in range(field._wall_fx.size() - 1, -1, -1):
 		var fx := field._wall_fx[i]
-		var label := String(fx.get("label", IntuitCfg.WALL_LABEL))
+		var label := Controls.text(String(fx.get("label", IntuitCfg.WALL_LABEL)))
 		var k := float(ms - int(fx["ms"])) / (float(fx.get("life", IntuitCfg.WALL_FX)) * 1000.0)
 		if k >= 1.0:
 			field._wall_fx.remove_at(i)
@@ -694,13 +694,14 @@ func _draw_ring_draft() -> void:
 	var font: Font = UiStyle.FONT_TITLE
 	var size := field._fsz(roundi(field.RING_LABEL_SIZE * (1.0 + 0.08 * pulse)))
 	var out := (field._pointer - center).normalized()
-	var label_w := font.get_string_size(field.RING_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var label_w := font.get_string_size(I18n.t(field.RING_LABEL), HORIZONTAL_ALIGNMENT_LEFT,
+		-1, size).x
 	var label_at := field._pointer + out * field.RING_LABEL_OFFSET.x + Vector2(0.0, size * 0.35)
 	if out.x < 0.0:
 		label_at.x -= label_w
-	field.overlay.draw_string_outline(font, label_at, field.RING_LABEL,
+	field.overlay.draw_string_outline(font, label_at, I18n.t(field.RING_LABEL),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5, Color(0, 0, 0, 0.85))
-	field.overlay.draw_string(font, label_at, field.RING_LABEL,
+	field.overlay.draw_string(font, label_at, I18n.t(field.RING_LABEL),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size, body)
 	# превью набора — под кольцом по центру (у линии оно у начала штриха, а у кольца начало —
 	# это и есть курсор)
@@ -906,7 +907,7 @@ func _draw_fig_draft() -> void:
 		need = ceili(places * field.fig_need_frac(field._draft_fig) - 0.001)
 	var caption := field.preview_caption(places)
 	if need > 0:
-		caption += " · заряд с %d" % need
+		caption += I18n.t(" · заряд с %d") % need
 	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
 	var cap_at := Vector2(center.x - cw * 0.5, bottom - field.RING_LABEL_OFFSET.y + field.ARROW_OFFSET)
 	cap_at.x = field._clamp_label_x(cap_at.x, cw)
@@ -931,7 +932,7 @@ func _draw_over_limit() -> void:
 	for i in range(1, tail.size()):
 		field.overlay.draw_dashed_line(tail[i - 1], tail[i], Color(1, 1, 1, 0.55), 2.0, 5.0, true)
 	var small: Font = ThemeDB.fallback_font
-	var text := "дальше — только фигура"
+	var text := I18n.t("дальше — только фигура")
 	var at := field._pointer + Vector2(14.0, -12.0)
 	field.overlay.draw_string_outline(small, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 		field._core_fs(), LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)

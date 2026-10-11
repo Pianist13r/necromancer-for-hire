@@ -39,37 +39,38 @@ func _ready() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(backdrop)
 	var box := UiStyle.card_box(self, CARD_W, 12)
-	var title := UiStyle.label("Схватка", 44, UiStyle.FONT_TITLE, UiStyle.GOLD)
+	var title := UiStyle.label(I18n.t("Схватка"), 44, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
-	var hint := UiStyle.label("Против бота: разрушьте Котёл соперника", 18, UiStyle.FONT_TEXT,
+	var hint := UiStyle.label(I18n.t("Против бота: разрушьте Котёл соперника"), 18, UiStyle.FONT_TEXT,
 		UiStyle.TEXT_DIM)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
-	var duel := _field_button("PvpFieldDuel", "Дуэль", "Готовое поле: два прохода в стыке",
+	var duel := _field_button("PvpFieldDuel", I18n.t("Дуэль"), I18n.t(
+		"Готовое поле: два прохода в стыке"),
 		"menu_pvp", FIELD_W)
 	duel.pressed.connect(func() -> void: chosen.emit(PvpMaps.DUEL))
 	box.add_child(duel)
 	var rnd_row := _row(box)
-	var rnd := _field_button("PvpFieldRandom", "Случайное поле", _seed_text(), "menu_map",
+	var rnd := _field_button("PvpFieldRandom", I18n.t("Случайное поле"), _seed_text(), "menu_map",
 		FIELD_W - REROLL_W - 10.0)
 	_random_tip = rnd.find_child("Tip", true, false) as Label
-	rnd.tooltip_text = "Поле процгена; «Другое поле» — новый сид"
+	rnd.tooltip_text = I18n.t("Поле процгена; «Другое поле» — новый сид")
 	rnd.pressed.connect(func() -> void: chosen.emit(random_id))
 	rnd_row.add_child(rnd)
-	var reroll := _option_button("PvpFieldReroll", "Другое поле", REROLL_W, 84.0)
+	var reroll := _option_button("PvpFieldReroll", I18n.t("Другое поле"), REROLL_W, 84.0)
 	reroll.toggle_mode = false
-	reroll.tooltip_text = "Новый сид случайного поля"
+	reroll.tooltip_text = I18n.t("Новый сид случайного поля")
 	reroll.pressed.connect(reroll_field)
 	rnd_row.add_child(reroll)
 	_bot_row(box)
 	_side_row(box)
-	var online := _field_button("PvpFieldNet", "По сети",
-		"Против человека: через Steam" if via_steam else "Против человека: общее лобби",
+	var online := _field_button("PvpFieldNet", I18n.t("По сети"),
+		I18n.t("Против человека: через Steam") if via_steam else I18n.t("Против человека: общее лобби"),
 		"menu_pvp", FIELD_W)
 	online.pressed.connect(func() -> void: net.emit())
 	box.add_child(online)
-	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+	LegionUi.nav_bar(self, I18n.t("← Назад"), func() -> void: back.emit())
 	duel.grab_focus.call_deferred()
 
 
@@ -99,16 +100,16 @@ func reroll_field() -> void:
 
 
 func _seed_text() -> String:
-	return "Поле №%s" % random_id.trim_prefix(ProcGen.ID_PREFIX).get_slice(":", 0)
+	return I18n.t("Поле №%s") % random_id.trim_prefix(ProcGen.ID_PREFIX).get_slice(":", 0)
 
 
 func _bot_row(box: VBoxContainer) -> void:
-	var row := _row(box, "Бот:")
+	var row := _row(box, I18n.t("Бот:"))
 	var group := ButtonGroup.new()
 	var current := Settings.pvp_bot_level()
 	for id: String in LegionCfg.PVP_BOT_LEVEL_ORDER:
 		var b := _option_button("PvpBotLevel_" + id,
-			String(LegionCfg.PVP_BOT_LEVELS[id]["title"]), OPTION_W, 40.0)
+			I18n.t(String(LegionCfg.PVP_BOT_LEVELS[id]["title"])), OPTION_W, 40.0)
 		b.button_group = group
 		b.button_pressed = id == current
 		b.pressed.connect(func() -> void: Settings.set_pvp_bot_level(id))
@@ -116,11 +117,11 @@ func _bot_row(box: VBoxContainer) -> void:
 
 
 func _side_row(box: VBoxContainer) -> void:
-	var row := _row(box, "Ваша сторона:")
+	var row := _row(box, I18n.t("Ваша сторона:"))
 	var group := ButtonGroup.new()
 	var current := Settings.pvp_side()
 	for side in SIDE_TITLES.size():
-		var b := _option_button(SIDE_NODES[side], SIDE_TITLES[side], OPTION_W, 40.0)
+		var b := _option_button(SIDE_NODES[side], I18n.t(SIDE_TITLES[side]), OPTION_W, 40.0)
 		b.button_group = group
 		b.button_pressed = side == current
 		b.pressed.connect(func() -> void: Settings.set_pvp_side(side))

@@ -74,7 +74,7 @@ func _ready() -> void:
 	outer.add_theme_constant_override("separation", 10)
 	panel.add_child(outer)
 
-	var title := UiStyle.label("Лицензии", 34, UiStyle.FONT_TITLE)
+	var title := UiStyle.label(I18n.t("Лицензии"), 34, UiStyle.FONT_TITLE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(title)
 
@@ -95,7 +95,7 @@ func _ready() -> void:
 
 	var close_btn := Button.new()
 	close_btn.name = "LicensesClose"
-	close_btn.text = "Закрыть"
+	close_btn.text = I18n.t("Закрыть")
 	close_btn.custom_minimum_size = Vector2(180.0, 44.0)
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
@@ -167,16 +167,16 @@ func _fit_panel() -> void:
 
 
 func _build_text(rt: RichTextLabel) -> void:
-	_heading(rt, "Некромант по найму (Necromancer for Hire)")
-	_para(rt, "Код игры распространяется по лицензии PolyForm Noncommercial 1.0.0. Графика, "
-		+ "музыка, озвучка, тексты и персонажи — все права принадлежат автору. Играть в игру, "
-		+ "стримить и снимать видео можно. Название и логотип — товарные знаки.")
-	_para(rt, "© 2026 Губанов Игорь Андреевич")
+	_heading(rt, I18n.t("Некромант по найму (Necromancer for Hire)"))
+	_para(rt, I18n.t("Код игры распространяется по лицензии PolyForm Noncommercial 1.0.0. Графика, ")
+		+ I18n.t("музыка, озвучка, тексты и персонажи — все права принадлежат автору. Играть в игру, ")
+		+ I18n.t("стримить и снимать видео можно. Название и логотип — товарные знаки."))
+	_para(rt, I18n.t("© 2026 Губанов Игорь Андреевич"))
 	_para(rt, REPO_URL)
 
 	_heading(rt, "Godot Engine")
-	_para(rt, "Игра сделана на Godot Engine. Ниже — лицензия движка, его сторонние компоненты "
-		+ "и тексты лицензий (дословно, по-английски).")
+	_para(rt, I18n.t("Игра сделана на Godot Engine. Ниже — лицензия движка, его сторонние компоненты ")
+		+ I18n.t("и тексты лицензий (дословно, по-английски)."))
 	_para(rt, Engine.get_license_text())
 	_build_godot_components(rt)
 
@@ -188,7 +188,7 @@ func _build_text(rt: RichTextLabel) -> void:
 
 
 func _build_godot_components(rt: RichTextLabel) -> void:
-	_subheading(rt, "Сторонние компоненты Godot")
+	_subheading(rt, I18n.t("Сторонние компоненты Godot"))
 	for comp: Dictionary in Engine.get_copyright_info():
 		var notices := PackedStringArray()
 		var licenses := PackedStringArray()
@@ -205,7 +205,7 @@ func _build_godot_components(rt: RichTextLabel) -> void:
 		for line in notices:
 			rt.add_text("    " + line + "\n")
 		rt.add_text("    License: " + ", ".join(licenses) + "\n")
-	_subheading(rt, "Тексты лицензий компонентов Godot")
+	_subheading(rt, I18n.t("Тексты лицензий компонентов Godot"))
 	var info: Dictionary = Engine.get_license_info()
 	for lic_name: String in info:
 		rt.push_color(UiStyle.GOLD)
@@ -217,7 +217,7 @@ func _build_godot_components(rt: RichTextLabel) -> void:
 func _read_legal(file_name: String) -> String:
 	var path := LEGAL_DIR + file_name
 	if not FileAccess.file_exists(path):
-		return "[%s: файл не найден]" % file_name
+		return I18n.t("[%s: файл не найден]") % file_name
 	return FileAccess.get_file_as_string(path).strip_edges()
 
 
@@ -225,7 +225,7 @@ func _heading(rt: RichTextLabel, text: String) -> void:
 	rt.add_text("\n")
 	rt.push_font(UiStyle.FONT_TITLE, 26)
 	rt.push_color(UiStyle.GOLD)
-	rt.add_text(text + "\n")
+	rt.add_text(I18n.t(text) + "\n")
 	rt.pop()
 	rt.pop()
 
@@ -234,10 +234,10 @@ func _subheading(rt: RichTextLabel, text: String) -> void:
 	rt.add_text("\n")
 	rt.push_font(UiStyle.FONT_TITLE, 20)
 	rt.push_color(UiStyle.GOLD)
-	rt.add_text(text + "\n")
+	rt.add_text(I18n.t(text) + "\n")
 	rt.pop()
 	rt.pop()
 
 
 func _para(rt: RichTextLabel, text: String) -> void:
-	rt.add_text(text + "\n\n")
+	rt.add_text(I18n.t(text) + "\n\n")

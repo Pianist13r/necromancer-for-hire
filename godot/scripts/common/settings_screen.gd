@@ -43,6 +43,24 @@ var _binding_buttons: Dictionary = {}
 var _binding_note: Label
 
 
+func _language_control(content: VBoxContainer) -> void:
+	_section(content, I18n.t("Язык / Language"))
+	if not allow_reset:
+		content.add_child(UiStyle.label(I18n.t("Язык меняется в главном меню."), 18))
+		return
+	var languages := OptionButton.new()
+	languages.add_item("Русский", 0)
+	languages.add_item("English", 1)
+	languages.selected = 1 if I18n.language == "en" else 0
+	languages.item_selected.connect(func(index: int) -> void:
+		I18n.select("en" if index == 1 else "ru")
+		# Смена языка только из главного меню: пересобираем все подписи и голосовой контур,
+		# не перезапуская бой и не трогая сохранённый прогресс.
+		get_tree().reload_current_scene())
+	content.add_child(languages)
+	content.add_child(HSeparator.new())
+
+
 func _ready() -> void:
 	UiStyle.fill_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -67,7 +85,7 @@ func _ready() -> void:
 	outer.add_theme_constant_override("separation", 8)
 	panel.add_child(outer)
 
-	var title := UiStyle.label("Настройки", 34, UiStyle.FONT_TITLE)
+	var title := UiStyle.label(I18n.t("Настройки"), 34, UiStyle.FONT_TITLE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(title)
 
@@ -84,11 +102,12 @@ func _ready() -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 8)
 	scroll.add_child(content)
+	_language_control(content)
 
-	_section(content, "Звук")
+	_section(content, I18n.t("Звук"))
 
 	var mute_check := CheckBox.new()
-	mute_check.text = "Без звука"
+	mute_check.text = I18n.t("Без звука")
 	mute_check.button_pressed = Settings.is_muted()
 	mute_check.toggled.connect(func(on: bool) -> void: Settings.set_muted(on))
 	mute_check.add_theme_font_override("font", ThemeDB.fallback_font)
@@ -100,10 +119,10 @@ func _ready() -> void:
 		content.add_child(_build_volume_row(bus))
 
 	content.add_child(HSeparator.new())
-	_section(content, "Изображение")
+	_section(content, I18n.t("Изображение"))
 
 	var fullscreen_check := CheckBox.new()
-	fullscreen_check.text = "Полноэкранный режим"
+	fullscreen_check.text = I18n.t("Полноэкранный режим")
 	fullscreen_check.button_pressed = Settings.is_fullscreen()
 	fullscreen_check.toggled.connect(func(on: bool) -> void: Settings.set_fullscreen(on))
 	fullscreen_check.add_theme_font_override("font", ThemeDB.fallback_font)
@@ -114,10 +133,10 @@ func _ready() -> void:
 	# v20: «Графика: экономная» (B-053/B-054) — без слоя эффектов, теней и «живости»; применяется
 	# сразу (LegionWorld._sync_gfx_layers каждый кадр, докстринг Settings.set_economy_graphics).
 	var economy_check := CheckBox.new()
-	economy_check.text = "Экономная графика"
+	economy_check.text = I18n.t("Экономная графика")
 	economy_check.tooltip_text = (
-		"Выключает фоновые эффекты, тени и движение бойцов. "
-		+ "Может помочь слабому ПК.")
+		I18n.t("Выключает фоновые эффекты, тени и движение бойцов. ")
+		+ I18n.t("Может помочь слабому ПК."))
 	economy_check.button_pressed = Settings.is_economy_graphics()
 	economy_check.toggled.connect(func(on: bool) -> void: Settings.set_economy_graphics(on))
 	economy_check.add_theme_font_override("font", ThemeDB.fallback_font)
@@ -126,22 +145,22 @@ func _ready() -> void:
 	content.add_child(economy_check)
 
 	var vsync_check := CheckBox.new()
-	vsync_check.text = "Вертикальная синхронизация"
+	vsync_check.text = I18n.t("Вертикальная синхронизация")
 	vsync_check.button_pressed = Settings.is_vsync()
 	vsync_check.toggled.connect(func(on: bool) -> void: Settings.set_vsync(on))
 	vsync_check.add_theme_font_override("font", ThemeDB.fallback_font)
 	vsync_check.add_theme_font_size_override("font_size", 18)
 	_style_check(vsync_check)
 	content.add_child(vsync_check)
-	_visual_check(content, "Тряска экрана", "ScreenShake", Settings.is_screen_shake_enabled(),
+	_visual_check(content, I18n.t("Тряска экрана"), "ScreenShake", Settings.is_screen_shake_enabled(),
 		Settings.set_screen_shake)
-	_visual_check(content, "Вспышки", "Flashes", Settings.is_flashes_enabled(),
+	_visual_check(content, I18n.t("Вспышки"), "Flashes", Settings.is_flashes_enabled(),
 		Settings.set_flashes)
-	_visual_check(content, "Атмосфера мира", "WorldGrade", Settings.is_world_grade_enabled(),
+	_visual_check(content, I18n.t("Атмосфера мира"), "WorldGrade", Settings.is_world_grade_enabled(),
 		Settings.set_world_grade)
 
 	content.add_child(HSeparator.new())
-	_section(content, "Управление")
+	_section(content, I18n.t("Управление"))
 
 	# v17: «Управление: рогатка» — снято — классика (ПКМ только щелчок, без натяжки)
 	var sling_check := CheckBox.new()
@@ -158,10 +177,10 @@ func _ready() -> void:
 	# B-448: режим левши — ЛКМ↔ПКМ в бою; подпись рогатки выше называет кнопку заново
 	var lefty_check := CheckBox.new()
 	lefty_check.name = "LeftHanded"
-	lefty_check.text = "Режим левши (кнопки мыши в бою наоборот)"
+	lefty_check.text = I18n.t("Режим левши (кнопки мыши в бою наоборот)")
 	lefty_check.tooltip_text = (
-		"Чертить договор — правой кнопкой, рогатка и натиск — левой.\n"
-		+ "Кнопки меню и окон остаются на левой.")
+		I18n.t("Чертить договор — правой кнопкой, рогатка и натиск — левой.\n")
+		+ I18n.t("Кнопки меню и окон остаются на левой."))
 	lefty_check.button_pressed = Settings.is_left_handed()
 	lefty_check.toggled.connect(func(on: bool) -> void:
 		Settings.set_left_handed(on)
@@ -174,7 +193,7 @@ func _ready() -> void:
 	# B-448: у колеса одно действие (вид договора по кругу) — переназначать некуда, только направление
 	var wheel_check := CheckBox.new()
 	wheel_check.name = "WheelInvert"
-	wheel_check.text = "Колесо: вид договора в обратную сторону"
+	wheel_check.text = I18n.t("Колесо: вид договора в обратную сторону")
 	wheel_check.button_pressed = Settings.is_wheel_inverted()
 	wheel_check.toggled.connect(func(on: bool) -> void: Settings.set_wheel_inverted(on))
 	wheel_check.add_theme_font_override("font", ThemeDB.fallback_font)
@@ -185,10 +204,10 @@ func _ready() -> void:
 
 	# slow/intuit: советы боя — когда жать Ку/Дубль-вэ/Е, «щёлкни золотой», «сорви пружину»
 	var hints_check := CheckBox.new()
-	hints_check.text = "Боевые подсказки"
+	hints_check.text = I18n.t("Боевые подсказки")
 	hints_check.tooltip_text = (
-		"Короткие советы: когда применять навыки, где золото "
-		+ "и как сорвать пружину.")
+		I18n.t("Короткие советы: когда применять навыки, где золото ")
+		+ I18n.t("и как сорвать пружину."))
 	hints_check.button_pressed = Settings.hints_enabled()
 	hints_check.toggled.connect(func(on: bool) -> void: Settings.set_hints(on))
 	hints_check.add_theme_font_override("font", ThemeDB.fallback_font)
@@ -197,12 +216,12 @@ func _ready() -> void:
 	content.add_child(hints_check)
 
 	content.add_child(HSeparator.new())
-	_section(content, "Помочь разработке")
+	_section(content, I18n.t("Помочь разработке"))
 	var metrics_check := CheckBox.new()
 	metrics_check.name = "SharePlayMetrics"
-	metrics_check.text = "Отправлять статистику сеансов и времени боя"
+	metrics_check.text = I18n.t("Отправлять статистику сеансов и времени боя")
 	metrics_check.button_pressed = PlayMetrics.consent()
-	metrics_check.tooltip_text = PlayMetrics.NOTICE
+	metrics_check.tooltip_text = I18n.t(PlayMetrics.NOTICE)
 	metrics_check.toggled.connect(func(on: bool) -> void:
 		Settings.set_value(PlayMetrics.SECTION, PlayMetrics.KEY, on))
 	metrics_check.add_theme_font_override("font", ThemeDB.fallback_font)
@@ -210,35 +229,37 @@ func _ready() -> void:
 	_style_check(metrics_check)
 	content.add_child(metrics_check)
 	var privacy_note := UiStyle.label(
-		"Добровольно: версия, система и минуты боя. Без имени и логов. "
-		+ "Записи сеансов — 30 дней, общие итоги сохраняются. Подробнее — наведите на галочку.", 15)
+		I18n.t("Добровольно: версия, система и минуты боя. Без имени и логов. ")
+		+ I18n.t(
+			"Записи сеансов — 30 дней, общие итоги сохраняются. Подробнее — наведите на галочку."
+		), 15)
 	privacy_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(privacy_note)
 
-	var nav := LegionUi.nav_bar(self, "← Назад", _close)
+	var nav := LegionUi.nav_bar(self, I18n.t("← Назад"), _close)
 	var close_btn := nav.get_node("NavBack") as Button
 	close_btn.name = "SettingsClose"
 
 	# «Лицензии»: тексты лицензий третьих сторон внутри игры (exe раздаётся один). Открывается
 	# дочерним модальным оверлеем; пока он открыт, этот экран на ввод не реагирует (_input).
 	content.add_child(HSeparator.new())
-	_section(content, "О игре")
-	var version := UiStyle.label("Версия " + ReleaseInfo.VERSION, 17,
+	_section(content, I18n.t("О игре"))
+	var version := UiStyle.label(I18n.t("Версия ") + ReleaseInfo.VERSION, 17,
 		UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	version.name = "SettingsVersion"
 	content.add_child(version)
 	if not ReleaseInfo.is_steam():   # в Steam обновляет клиент; ссылок наружу не даём
-		var releases_btn := _small_button("Версии и обновления")
+		var releases_btn := _small_button(I18n.t("Версии и обновления"))
 		releases_btn.name = "SettingsReleases"
 		releases_btn.pressed.connect(_on_releases)
 		content.add_child(releases_btn)
 		var update_note := UiStyle.label(
-			"Новый выпуск скачайте со страницы версий. Замените игру — прогресс сохранится.",
+			I18n.t("Новый выпуск скачайте со страницы версий. Замените игру — прогресс сохранится."),
 			16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		update_note.name = "SettingsUpdateNote"
 		update_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		content.add_child(update_note)
-	var licenses_btn := _small_button("Лицензии")
+	var licenses_btn := _small_button(I18n.t("Лицензии"))
 	licenses_btn.name = "SettingsLicenses"
 	licenses_btn.pressed.connect(_open_licenses)
 	content.add_child(licenses_btn)
@@ -267,12 +288,12 @@ func _close() -> void:
 
 ## Подпись рогатки называет её кнопку (B-448): у левши это ЛКМ — пересчёт при каждом переключении.
 static func _sling_texts(check: CheckBox) -> void:
-	check.text = Controls.text("Рывок оттяжкой {mouse:sling} (рогатка)")
+	check.text = Controls.text(I18n.t("Рывок оттяжкой {mouse:sling} (рогатка)"))
 	check.tooltip_text = Controls.text(
-		"Включено: зажмите {mouse:sling} на линии с бойцами,\n"
-		+ "оттяните от врага и отпустите — бойцы рванут к нему.\n"
-		+ "Выключено: щелчок {mouse:sling} сразу выпускает\n"
-		+ "бойцов по стрелке линии.")
+		I18n.t("Включено: зажмите {mouse:sling} на линии с бойцами,\n")
+		+ I18n.t("оттяните от врага и отпустите — бойцы рванут к нему.\n")
+		+ I18n.t("Выключено: щелчок {mouse:sling} сразу выпускает\n")
+		+ I18n.t("бойцов по стрелке линии."))
 
 
 func _capture_input(event: InputEvent) -> void:
@@ -284,11 +305,11 @@ func _capture_input(event: InputEvent) -> void:
 			if not key_event.pressed or key_event.echo:
 				return
 			if key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE:
-				_finish_capture("Назначение отменено.")
+				_finish_capture(I18n.t("Назначение отменено."))
 				return
 			if key_event.ctrl_pressed or key_event.alt_pressed or key_event.meta_pressed \
 					or (key_event.shift_pressed and key_event.physical_keycode != KEY_SHIFT):
-				_binding_note.text = "Нажмите одну клавишу без сочетания. Эскейп — отмена."
+				_binding_note.text = I18n.t("Нажмите одну клавишу без сочетания. Эскейп — отмена.")
 				return
 			var code := int(key_event.physical_keycode)
 			if code == 0:
@@ -299,21 +320,21 @@ func _capture_input(event: InputEvent) -> void:
 			var error := Controls.swap(_capture, code) if swapping \
 				else Controls.rebind(_capture, code)
 			if error.is_empty():
-				_finish_capture("Клавиши поменялись местами с «%s»." % Controls.TITLES[holder]
-					if swapping else "Клавиша сохранена.")
+				_finish_capture(I18n.t("Клавиши поменялись местами с «%s».") % I18n.t(Controls.TITLES[holder])
+					if swapping else I18n.t("Клавиша сохранена."))
 			elif holder != &"" and Controls.key(holder) == code and not swapping:
 				_swap_offer = code
-				_binding_note.text = ("Клавиша занята: %s. Нажмите её ещё раз — поменять местами. "
-					+ "Эскейп — отмена.") % Controls.TITLES[holder]
-			elif error == Controls.SAVE_FAILED:
+				_binding_note.text = (I18n.t("Клавиша занята: %s. Нажмите её ещё раз — поменять местами. ")
+					+ I18n.t("Эскейп — отмена.")) % I18n.t(Controls.TITLES[holder])
+			elif error == I18n.t(Controls.SAVE_FAILED):
 				# Клавиша назначена и уже работает — врать «сохранено» нельзя, но и просить
 				# другую клавишу незачем: захват заканчиваем с честной причиной (J8).
 				_finish_capture(error)
 			else:
-				_binding_note.text = error + " Эскейп — отмена."
+				_binding_note.text = error + I18n.t(" Эскейп — отмена.")
 		elif event.is_action_pressed(&"ui_cancel"):
 			get_viewport().set_input_as_handled()
-			_finish_capture("Назначение отменено.")
+			_finish_capture(I18n.t("Назначение отменено."))
 		return
 
 
@@ -341,7 +362,9 @@ func _input(event: InputEvent) -> void:
 
 
 func _build_bindings(content: VBoxContainer) -> void:
-	_binding_note = UiStyle.label("Нажмите клавишу справа, затем новую клавишу. Эскейп — отмена.", 16)
+	_binding_note = UiStyle.label(I18n.t(
+		"Нажмите клавишу справа, затем новую клавишу. Эскейп — отмена."
+	), 16)
 	_binding_note.name = "BindingNote"
 	_binding_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_binding_note)
@@ -358,18 +381,18 @@ func _build_bindings(content: VBoxContainer) -> void:
 		_binding_buttons[action] = button
 		row.add_child(button)
 		content.add_child(row)
-	var reset := _small_button("Вернуть стандартные клавиши")
+	var reset := _small_button(I18n.t("Вернуть стандартные клавиши"))
 	reset.name = "ResetBindings"
 	reset.pressed.connect(func() -> void:
 		_capture = &""
 		var error := Controls.reset()
 		_refresh_bindings()
 		_binding_note.text = error if not error.is_empty() \
-			else "Стандартные клавиши восстановлены.")
+			else I18n.t("Стандартные клавиши восстановлены."))
 	content.add_child(reset)
-	var cancel := _small_button("Отменить назначение")
+	var cancel := _small_button(I18n.t("Отменить назначение"))
 	cancel.name = "CancelBinding"
-	cancel.pressed.connect(func() -> void: _finish_capture("Назначение отменено."))
+	cancel.pressed.connect(func() -> void: _finish_capture(I18n.t("Назначение отменено.")))
 	content.add_child(cancel)
 
 
@@ -378,8 +401,10 @@ func _begin_capture(action: StringName) -> void:
 		_refresh_bindings()
 	_capture = action
 	_swap_offer = -1
-	(_binding_buttons[action] as Button).text = "Нажмите…"
-	_binding_note.text = "%s: нажмите новую клавишу. Эскейп — отмена." % Controls.TITLES[action]
+	(_binding_buttons[action] as Button).text = I18n.t("Нажмите…")
+	_binding_note.text = I18n.t(
+		"%s: нажмите новую клавишу. Эскейп — отмена."
+	) % I18n.t(Controls.TITLES[action])
 
 
 func _refresh_bindings() -> void:
@@ -490,16 +515,16 @@ func _build_reset_block(close_btn: Button) -> Control:
 	block.add_theme_constant_override("separation", 8)
 	block.add_child(HSeparator.new())
 
-	var reset_btn := _small_button("Сбросить прогресс…")
+	var reset_btn := _small_button(I18n.t("Сбросить прогресс…"))
 	block.add_child(reset_btn)
 
 	var confirm := VBoxContainer.new()
 	confirm.add_theme_constant_override("separation", 8)
 	confirm.visible = false
 	var warn := UiStyle.label(
-		"Удалить весь прогресс: кампанию, забеги и рекорды, коллекцию карт, "
-			+ "премию, разряд героя, поправки, артефакты, подготовку и обучение? "
-			+ "Настройки останутся. Отменить нельзя.",
+		I18n.t("Удалить весь прогресс: кампанию, забеги и рекорды, коллекцию карт, ")
+			+ I18n.t("премию, разряд героя, поправки, артефакты, подготовку и обучение? ")
+			+ I18n.t("Настройки останутся. Отменить нельзя."),
 		16, UiStyle.FONT_TEXT, UiStyle.BAD)
 	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -508,11 +533,11 @@ func _build_reset_block(close_btn: Button) -> Control:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
-	var yes_btn := _small_button("Стереть")
+	var yes_btn := _small_button(I18n.t("Стереть"))
 	yes_btn.name = "ResetYes"
 	yes_btn.add_theme_color_override("font_color", UiStyle.BAD)
 	yes_btn.pressed.connect(func() -> void: reset_confirmed.emit())
-	var no_btn := _small_button("Отмена")
+	var no_btn := _small_button(I18n.t("Отмена"))
 	no_btn.pressed.connect(func() -> void:
 		confirm.visible = false
 		close_btn.visible = true

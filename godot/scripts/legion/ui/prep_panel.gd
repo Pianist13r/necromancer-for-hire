@@ -44,10 +44,10 @@ func refresh() -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	add_child(head)
-	head.add_child(UiStyle.label("Подготовка к бою", 18, UiStyle.FONT_TITLE, UiStyle.GOLD))
-	var status := "Премия: %d · мест: %d из %d" % [Campaign.bounty(), picked.size(), slots]
+	head.add_child(UiStyle.label(I18n.t("Подготовка к бою"), 18, UiStyle.FONT_TITLE, UiStyle.GOLD))
+	var status := I18n.t("Премия: %d · мест: %d из %d") % [Campaign.bounty(), picked.size(), slots]
 	if slots == 1:
-		status += " · второе место — с разряда %d" % AmendmentDb.PREP_SLOT2_LEVEL
+		status += I18n.t(" · второе место — с разряда %d") % AmendmentDb.PREP_SLOT2_LEVEL
 	var status_label := UiStyle.label(status, 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -57,7 +57,7 @@ func refresh() -> void:
 	var notes: PackedStringArray = []
 	var auto_kept := _auto.filter(func(id: String) -> bool: return picked.has(id))
 	if not auto_kept.is_empty():
-		notes.append("Взято как в прошлый раз — щелчок снимает.")
+		notes.append(I18n.t("Взято как в прошлый раз — щелчок снимает."))
 	if not notes.is_empty():
 		var note := UiStyle.label(" ".join(notes), 15, UiStyle.FONT_TEXT, UiStyle.GOOD)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -70,17 +70,17 @@ func _add_row(id: String, picked: Array[String], slots: int) -> void:
 	var data: Dictionary = AmendmentDb.PREPARATIONS[id].duplicate()
 	var cost := int(data["cost"])
 	# Короткий эффект — первая фраза полного текста («+45 душ на следующем объекте.»).
-	data["short"] = String(data["text"]).get_slice(". ", 0).trim_suffix(".") + "."
+	data["short"] = I18n.t(String(data["text"])).get_slice(". ", 0).trim_suffix(".") + "."
 	var owned := picked.has(id)
 	var reason := ""
 	if not owned:
 		if picked.size() >= slots:
-			reason = "мест больше нет"
+			reason = I18n.t("мест больше нет")
 		elif Campaign.bounty() < cost:
-			reason = "не хватает %d премии" % (cost - Campaign.bounty())
-	var right := "%d премии" % cost
+			reason = I18n.t("не хватает %d премии") % (cost - Campaign.bounty())
+	var right := I18n.t("%d премии") % cost
 	if owned:
-		right = "взято · щелчок вернёт %d" % cost
+		right = I18n.t("взято · щелчок вернёт %d") % cost
 	elif reason != "":
 		right = reason
 	var row := ProgressionRow.new()

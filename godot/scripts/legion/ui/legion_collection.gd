@@ -33,7 +33,7 @@ func populate() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(backdrop)
 
-	var title := UiStyle.label("Коллекция", 34, UiStyle.FONT_TITLE, UiStyle.GOLD)
+	var title := UiStyle.label(I18n.t("Коллекция"), 34, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	title.offset_top = 30.0
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -43,7 +43,7 @@ func populate() -> void:
 
 	if list.is_empty():
 		var empty_label := UiStyle.label(
-			"Коллекция пуста. Сохраните карту во время боя (пауза) или на итоге объекта.",
+			I18n.t("Коллекция пуста. Сохраните карту во время боя (пауза) или на итоге объекта."),
 			18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		empty_label.set_anchors_preset(Control.PRESET_CENTER)
 		empty_label.position = Vector2(-320.0, -20.0)
@@ -70,7 +70,7 @@ func populate() -> void:
 		for i in range(list.size() - 1, -1, -1):
 			rows.add_child(_build_row(list[i]))
 
-	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+	LegionUi.nav_bar(self, I18n.t("← Назад"), func() -> void: back.emit())
 
 
 
@@ -97,7 +97,8 @@ func _build_row(entry: Dictionary) -> Control:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
 
-	var title := UiStyle.label(String(entry.get("title", map_id)), 20, UiStyle.FONT_TITLE)
+	var title := UiStyle.label(I18n.map_text(String(entry.get("title", map_id))),
+		20, UiStyle.FONT_TITLE)
 	info.add_child(title)
 
 	var card: Dictionary = {}
@@ -105,32 +106,32 @@ func _build_row(entry: Dictionary) -> Control:
 	var archetype := String(entry.get("archetype", ""))
 	var meta_bits: Array[String] = []
 	if biome != "":
-		meta_bits.append(String(BIOME_LABELS.get(biome, biome)))
+		meta_bits.append(I18n.t(String(BIOME_LABELS.get(biome, biome))))
 	if archetype != "":
-		meta_bits.append(archetype)
+		meta_bits.append(I18n.t(archetype))
 	meta_bits.append(LegionChallenge.title(String(entry.get("difficulty", ""))))
-	meta_bits.append(String(SOURCE_LABELS.get(String(entry.get("source", "")), "?")))
+	meta_bits.append(I18n.t(String(SOURCE_LABELS.get(String(entry.get("source", "")), "?"))))
 	meta_bits.append(String(entry.get("saved_date", "")))
 	var meta_label := UiStyle.label(" · ".join(meta_bits), 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	info.add_child(meta_label)
 
 	var best: Dictionary = entry.get("best_result", {})
 	if not best.is_empty():
-		var verdict := "победа" if bool(best.get("victory", false)) else "поражение"
+		var verdict := I18n.t("победа") if bool(best.get("victory", false)) else I18n.t("поражение")
 		var pct := roundi(100.0 * float(best.get("hp_ratio", 0.0)))
 		var best_label := UiStyle.label(
-			"Лучший результат: %s, HP Котла %d%%" % [verdict, pct], 14, UiStyle.FONT_TEXT,
+			I18n.t("Лучший результат: %s, HP Котла %d%%") % [verdict, pct], 14, UiStyle.FONT_TEXT,
 			UiStyle.GOOD if bool(best.get("victory", false)) else UiStyle.WARN)
 		info.add_child(best_label)
 
 	if LegionCollection.entry_stale(entry):
 		var stale := UiStyle.label(
-			"Старая версия генератора — карта может выглядеть иначе", 13, UiStyle.FONT_TEXT,
+			I18n.t("Старая версия генератора — карта может выглядеть иначе"), 13, UiStyle.FONT_TEXT,
 			UiStyle.WARN)
 		info.add_child(stale)
 
 	var play_btn := Button.new()
-	play_btn.text = "Играть"
+	play_btn.text = I18n.t("Играть")
 	play_btn.custom_minimum_size = Vector2(110.0, 40.0)
 	play_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
 	play_btn.add_theme_font_size_override("font_size", 17)
@@ -140,14 +141,14 @@ func _build_row(entry: Dictionary) -> Control:
 	row.add_child(play_btn)
 
 	var remove_btn := Button.new()
-	remove_btn.text = "Убрать"
+	remove_btn.text = I18n.t("Убрать")
 	remove_btn.custom_minimum_size = Vector2(110.0, 40.0)
 	remove_btn.add_theme_font_override("font", UiStyle.FONT_TITLE)
 	remove_btn.add_theme_font_size_override("font_size", 17)
 	remove_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	UiStyle.style_button(remove_btn)
 	remove_btn.pressed.connect(func() -> void:
-		LegionUi.confirm(self, "Убрать карту из коллекции? Сохранённая запись будет удалена.",
+		LegionUi.confirm(self, I18n.t("Убрать карту из коллекции? Сохранённая запись будет удалена."),
 			func() -> void:
 				LegionCollection.remove(map_id)
 				populate()))

@@ -43,17 +43,17 @@ func populate(map_data: Dictionary) -> void:
 	var box := UiStyle.card_box(self, 620.0, 12)
 
 	var title := UiStyle.label(
-		String(map_data.get("title", _map_id)), 34, UiStyle.FONT_TITLE, UiStyle.GOLD)
+		I18n.map_text(String(map_data.get("title", _map_id))), 34, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 
 	var subtitle := UiStyle.label(
-		String(map_data.get("subtitle", "")), 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		I18n.map_text(String(map_data.get("subtitle", ""))), 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD
 	box.add_child(subtitle)
 
-	var hint := String(map_data.get("hint", ""))
+	var hint := I18n.map_text(String(map_data.get("hint", "")))
 	if hint != "":
 		var hint_label := UiStyle.label(Controls.text(hint), 17, UiStyle.FONT_TEXT, UiStyle.TEXT)
 		hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -63,9 +63,11 @@ func populate(map_data: Dictionary) -> void:
 	# meta: правка чужого файла (задание meta п.4) — плашка «Новое: …» про открытия кампанией
 	# (вид бойца/способность), показывается один раз, дальше не повторяется
 	# (Campaign.mark_unlocks_seen сразу после показа).
-	var new_labels := Campaign.pending_unlock_labels()
+	var new_labels: Array[String] = []
+	for source: String in Campaign.pending_unlock_labels():
+		new_labels.append(I18n.t(source))
 	if not new_labels.is_empty():
-		var new_label := UiStyle.label(Controls.text("Новое: " + ", ".join(new_labels)), 16,
+		var new_label := UiStyle.label(Controls.text(I18n.t("Новое: ") + ", ".join(new_labels)), 16,
 			UiStyle.FONT_TITLE, UiStyle.GOOD)
 		new_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		new_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -75,7 +77,7 @@ func populate(map_data: Dictionary) -> void:
 	var threats := _threat_list(map_data)
 	if not threats.is_empty():
 		var threats_title := UiStyle.label(
-			"Кто идёт по объекту", 16, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
+			I18n.t("Кто идёт по объекту"), 16, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
 		threats_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(threats_title)
 		var threats_row := UiStyle.label(", ".join(threats), 17, UiStyle.FONT_TEXT, UiStyle.WARN)
@@ -88,7 +90,7 @@ func populate(map_data: Dictionary) -> void:
 			prep_bought.emit())
 
 	LegionUi.nav_bar(self, back_label, func() -> void: back.emit(),
-		"В бой", func() -> void: start.emit(_map_id))
+		I18n.t("В бой"), func() -> void: start.emit(_map_id))
 
 
 ## D-1007-P1/P2: под угрозами — что уже действует (полоса поправок, артефакты кампании) и
@@ -97,7 +99,7 @@ static func add_prep_block(box: VBoxContainer) -> PrepPanel:
 	var active := Campaign.upgrades()
 	var items := Campaign.run_items()
 	if not active.is_empty() or not items.is_empty():
-		var head := UiStyle.label("Действует", 15, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
+		var head := UiStyle.label(I18n.t("Действует"), 15, UiStyle.FONT_TITLE, UiStyle.TEXT_DIM)
 		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(head)
 	if not active.is_empty():
@@ -108,8 +110,8 @@ static func add_prep_block(box: VBoxContainer) -> PrepPanel:
 	if not items.is_empty():
 		var names: PackedStringArray = []
 		for id in items:
-			names.append(String(LegionItemDb.item(id).get("title", id)))
-		var line := UiStyle.label("Артефакты: " + ", ".join(names), 15, UiStyle.FONT_TEXT,
+			names.append(I18n.t(String(LegionItemDb.item(id).get("title", id))))
+		var line := UiStyle.label(I18n.t("Артефакты: ") + ", ".join(names), 15, UiStyle.FONT_TEXT,
 			UiStyle.SOUL.lightened(0.35))
 		line.name = "ActiveItems"
 		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -140,5 +142,5 @@ func _threat_list(map_data: Dictionary) -> Array[String]:
 			if type_id == "" or seen.has(type_id):
 				continue
 			seen[type_id] = true
-			out.append(String(FOE_NAMES.get(type_id, type_id)))
+			out.append(I18n.t(String(FOE_NAMES.get(type_id, type_id))))
 	return out

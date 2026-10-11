@@ -25,7 +25,7 @@ func _ready() -> void:
 	view = DossierView.new()
 	margin.add_child(view)
 	view.configure(null, DossierView.TAB_UPGRADES)
-	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+	LegionUi.nav_bar(self, I18n.t("← Назад"), func() -> void: back.emit())
 	ModalFocus.contain.call_deferred(self)
 
 

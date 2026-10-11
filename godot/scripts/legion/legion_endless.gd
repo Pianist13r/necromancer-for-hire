@@ -45,7 +45,7 @@ const STUB_VERSION := ProcGen.VERSION
 ## теперь помнит его в stats["last_hit_foe_type"], see legion_world.gd). Тип неизвестен
 ## (карта пала без единого удара по Котлу — теоретически, тест не встречал) — общая фраза.
 static func death_reason(foe_type: String) -> String:
-	return String(DEATH_REASONS.get(foe_type, DEFAULT_DEATH_REASON))
+	return I18n.t(String(DEATH_REASONS.get(foe_type, DEFAULT_DEATH_REASON)))
 
 
 ## id карты объекта k (k ≥ 1) забега run_seed. stub=true — кампанийная карта по кругу

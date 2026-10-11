@@ -121,13 +121,13 @@ func cast_at(s: int, at: Vector2) -> bool:
 		return true
 	var word := ""
 	if not unlocked:
-		word = "ещё закрыто"
+		word = I18n.t("ещё закрыто")
 	elif cd > 0.0:
-		word = "откат %d с" % ceili(cd)
+		word = I18n.t("откат %d с") % ceili(cd)
 	elif not paid:
 		word = mana_word(s)
 	else:
-		word = ["нет цели", "нет трупа", "некого"][s]
+		word = [I18n.t("нет цели"), I18n.t("нет трупа"), I18n.t("некого")][s]
 	_note(at, word, FAIL_COLOR)
 	return false
 
@@ -154,30 +154,31 @@ func describe(s: int) -> String:
 		return ""
 	match s:
 		LegionHero.SLOT_Q:
-			return "{key:cast_q} — молния по цепи до %d врагов" % hero.q_chain_len()
+			return Controls.text("{key:cast_q} — молния по цепи до %d врагов") % hero.q_chain_len()
 		LegionHero.SLOT_W:
 			var k := hero.w_raise_max()
 			if k > 1:
-				return "{key:cast_w} — до %d свежих трупов врагов бьются за вас %s с" % [
+				return Controls.text("{key:cast_w} — до %d свежих трупов врагов бьются за вас %s с") % [
 					k, num(hero.w_duration())]
-			return "{key:cast_w} — свежий труп врага бьётся за вас %s с" % num(hero.w_duration())
+			return Controls.text("{key:cast_w} — свежий труп врага бьётся за вас %s с") % num(
+				hero.w_duration())
 		_:
-			return "{key:cast_e} — Аврал: свои быстрее ×%s и сильнее ×%s%s" % [
+			return Controls.text("{key:cast_e} — Аврал: свои быстрее ×%s и сильнее ×%s%s") % [
 				num(LegionCfg.E_SPEED_MULT), num(LegionCfg.E_DMG_MULT), _e_press_tail()]
 
 
 ## D-0927-140: способности не хватает маны — сколько нужно и сколько есть.
 func mana_word(s: int) -> String:
-	return "мало маны: %d из %d" % [int(world.my_field().mana), roundi(world.ability_mana(s))]
+	return I18n.t("мало маны: %d из %d") % [int(world.my_field().mana), roundi(world.ability_mana(s))]
 
 
 ## Подпись прицела в точке at: сколько заденет, либо почему не выйдет.
 func preview_text(s: int, at: Vector2) -> String:
 	var hero := world.my_hero()
 	if not hero.is_unlocked(s):
-		return "ещё закрыто"
+		return I18n.t("ещё закрыто")
 	if hero.cd_left(s) > 0.0:
-		return "откат %d с" % ceili(hero.cd_left(s))
+		return I18n.t("откат %d с") % ceili(hero.cd_left(s))
 	if not world.can_pay_ability(s, world.local_side):
 		return mana_word(s)
 	match s:
@@ -187,8 +188,8 @@ func preview_text(s: int, at: Vector2) -> String:
 			return _preview_w(hero.w_corpses(at))
 		_:
 			var n := hero.e_targets(at).size()
-			return "ускорит %d на %s с%s" % [n, num(hero.e_duration()), _e_press_tail()] \
-				if n > 0 else "некого ускорять"
+			return I18n.t("ускорит %d на %s с%s") % [n, num(hero.e_duration()), _e_press_tail()] \
+				if n > 0 else I18n.t("некого ускорять")
 
 
 ## Оглушение — по первой цели цепи: босса Ку оглушает только на долю (Q_STUN_BOSS_MULT), и подпись
@@ -196,21 +197,22 @@ func preview_text(s: int, at: Vector2) -> String:
 func _preview_q(chain: Array[Foe]) -> String:
 	var n := chain.size()
 	if n == 0:
-		return "нет цели рядом"
+		return I18n.t("нет цели рядом")
 	var stun := world.my_hero().q_stun()
 	if chain[0].type_id == "boss":
 		stun *= LegionCfg.Q_STUN_BOSS_MULT
-	return "молния: %d %s, оглушит на %s с" % [n, plural(n, "цель", "цели", "целей"), num(stun)]
+	return I18n.t("молния: %d %s, оглушит на %s с") % [n, plural(n, I18n.t("цель"), I18n.t(
+		"цели"), I18n.t("целей")), num(stun)]
 
 
 ## Один труп — по имени вида (видно, кого именно), несколько — числом.
 func _preview_w(cs: Array[Foe]) -> String:
 	var t := num(world.my_hero().w_duration())
 	if cs.is_empty():
-		return "нет свежего трупа"
+		return I18n.t("нет свежего трупа")
 	if cs.size() == 1:
-		return "поднимет: %s на %s с" % [foe_name(cs[0].type_id), t]
-	return "поднимет %d на %s с" % [cs.size(), t]
+		return I18n.t("поднимет: %s на %s с") % [foe_name(cs[0].type_id), t]
+	return I18n.t("поднимет %d на %s с") % [cs.size(), t]
 
 
 ## Хвост подписи Е про давку: «строй держит вдвое». Множитель добавляет ветка slow/action
@@ -220,7 +222,8 @@ func _e_press_tail() -> String:
 	var m := float(LegionHero.cfg_or(E_PRESS_KEY, 0.0))
 	if m <= 1.0:
 		return ""
-	return ", строй держит вдвое" if is_equal_approx(m, 2.0) else ", строй держит ×%s" % num(m)
+	return I18n.t(", строй держит вдвое") if is_equal_approx(m, 2.0) else I18n.t(
+		", строй держит ×%s") % num(m)
 
 
 ## Имя вида врага без значка (подписи волн: «● Зомби» → «Зомби»).
@@ -234,10 +237,13 @@ static func foe_name(type: String) -> String:
 static func num(x: float) -> String:
 	if is_equal_approx(x, roundf(x)):
 		return "%d" % roundi(x)
-	return str(snappedf(x, 0.01)).replace(".", ",")
+	var value := str(snappedf(x, 0.01))
+	return value if I18n.language == "en" else value.replace(".", ",")
 
 
 static func plural(n: int, one: String, few: String, many: String) -> String:
+	if I18n.language == "en":
+		return I18n.t(one if n == 1 else many)
 	var m100 := n % 100
 	var m10 := n % 10
 	if m100 >= 11 and m100 <= 14:
@@ -262,9 +268,9 @@ func _on_hero_cast(s: int, _at: Vector2) -> void:
 				_note(h["pos"], "−%d" % roundi(float(h["dmg"])), LegionCfg.Q_COLOR)
 		LegionHero.SLOT_W:
 			for r: Dictionary in lc["raised"]:
-				_note(r["pos"], "в штат!", LegionCfg.W_COLOR)
+				_note(r["pos"], I18n.t("в штат!"), LegionCfg.W_COLOR)
 		_:
-			_note(lc["at"], "Аврал ×%s" % num(LegionCfg.E_SPEED_MULT), LegionCfg.E_COLOR)
+			_note(lc["at"], I18n.t("Аврал ×%s") % num(LegionCfg.E_SPEED_MULT), LegionCfg.E_COLOR)
 
 
 ## B-347 (D-0930-51): подписи цепи Ку по слипшейся куче стояли друг на друге («−944»). Новая

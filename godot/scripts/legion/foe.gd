@@ -719,7 +719,7 @@ func begin_siege() -> void:
 	_ram_run = -1.0
 	_atk_cd = LegionCfg.BOSS_SIEGE_INTERVAL
 	world.stats["boss_sieges"] = int(world.stats.get("boss_sieges", 0)) + 1
-	world.toast("ПРОРАБ ОСАЖДАЕТ КОТЁЛ! Переведи строй к котлу!", &"warn")
+	world.toast(I18n.t("ПРОРАБ ОСАЖДАЕТ КОТЁЛ! Переведи строй к котлу!"), &"warn")
 	view.play_once(&"roar")
 
 
@@ -782,7 +782,7 @@ func _tick_boss(dt: float) -> bool:
 	_face(ram_pos - position)
 	view.play_once(&"roar")
 	world.boss_roared.emit(self, ram_pos)
-	world.toast("ПРОРАБ: ОСВОБОДИТЬ УЧАСТОК!", &"warn")
+	world.toast(I18n.t("ПРОРАБ: ОСВОБОДИТЬ УЧАСТОК!"), &"warn")
 	return true
 
 

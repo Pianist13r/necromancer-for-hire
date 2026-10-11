@@ -44,27 +44,35 @@ var _box: VBoxContainer = null
 ## W_RAISE_MAX / E_PRESS_HOLD_MULT, шпаргалка не устареет.
 static func cheatsheet() -> Array[String]:
 	var rows: Array[String] = [
-		"ЛКМ — чертить договор · ПКМ по участку: оттянуть, отпустить в золото — натиск",
+		I18n.t("ЛКМ — чертить договор · ПКМ по участку: оттянуть, отпустить в золото — натиск"),
 		# рогатка — главная строка выше; Пробел/колесо и щелчок — второстепенные приёмы, в этом
 		# порядке (Игорь 26.09: зажатое колесо — то же самое, что Пробел)
-		"{key:aim_contract} или колесо (зажать) — стрелка для таяния · щелчок ПКМ — натиск по стрелке",
+		I18n.t(
+			"{key:aim_contract} или колесо (зажать) — стрелка для таяния · щелчок ПКМ — натиск по стрелке"
+		),
 		# slow/intuit: правило для игрока одно — золотой щёлкни; пружина сама говорит свой множитель
-		"Золотой участок (враг в зоне) — щелчок ПКМ: «Точно!» · «пружина ×N» — сорвите, ударит сильнее",
-		"Круг ЛКМ — «Оцепление»: ПКМ по кольцу срывает его целиком ({key:aim_contract} снаружи — наружу)",
+		I18n.t(
+			"Золотой участок (враг в зоне) — щелчок ПКМ: «Точно!» · «пружина ×N» — сорвите, ударит сильнее"
+		),
+		I18n.t(
+			"Круг ЛКМ — «Оцепление»: ПКМ по кольцу срывает его целиком ({key:aim_contract} снаружи — наружу)"
+		),
 		# slow/tab-erase (Игорь 29.09): стереть кусок линии, бойцы — в натиск
-		"{key:erase_piece} над линией — стереть кусок под курсором: его бойцы в натиск, мана не вернётся",
-		"Восьмёрка — бьют чаще · квадрат — «Каре»",
-		"Треугольник — «Обряд»: {charge:triangle}, заряд {cfg:charge} с, ПКМ — срыв",
+		I18n.t(
+			"{key:erase_piece} над линией — стереть кусок под курсором: его бойцы в натиск, мана не вернётся"
+		),
+		I18n.t("Восьмёрка — бьют чаще · квадрат — «Каре»"),
+		I18n.t("Треугольник — «Обряд»: {charge:triangle}, заряд {cfg:charge} с, ПКМ — срыв"),
 		# clarity (26.09): по строке на навык — что делает (v20, D-0926-39: у каждого своя работа);
 		# как целиться — общей строкой
-		"{key+:cast_q} — молния по цепи врагов: оглушает, срывает Юриста и печать",
-		"{key+:cast_w} — до %d свежих трупов врага воюют за вас" % LegionCfg.W_RAISE_MAX,
-		"{key+:cast_e} — «Аврал»: свои быстрее и сильнее, строй держит напор ×%s"
+		I18n.t("{key+:cast_q} — молния по цепи врагов: оглушает, срывает Юриста и печать"),
+		I18n.t("{key+:cast_w} — до %d свежих трупов врага воюют за вас") % LegionCfg.W_RAISE_MAX,
+		I18n.t("{key+:cast_e} — «Аврал»: свои быстрее и сильнее, строй держит напор ×%s")
 		% LegionAbilityAim.num(LegionCfg.E_PRESS_HOLD_MULT),
-		"Q W E: зажать — видно, кого заденет, отпустить — каст · R — сбор к курсору · F — волна",
-		"Прокрутка колеса или {keys:runes} — вид договора · Esc / {key:pause} — пауза",
-		"Предметы — из элитных (в короне), на кампанию или забег; наведите на иконку",
-		"{key:kassa} — Касса · {key:mute} — включить / выключить звук",
+		I18n.t("Q W E: зажать — видно, кого заденет, отпустить — каст · R — сбор к курсору · F — волна"),
+		I18n.t("Прокрутка колеса или {keys:runes} — вид договора · Esc / {key:pause} — пауза"),
+		I18n.t("Предметы — из элитных (в короне), на кампанию или забег; наведите на иконку"),
+		I18n.t("{key:kassa} — Касса · {key:mute} — включить / выключить звук"),
 	]
 	for i in rows.size():
 		rows[i] = Controls.text(preload("res://scripts/legion/legion_teaching_text.gd").render(rows[i]))
@@ -87,29 +95,31 @@ func _ready() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(backdrop)
 
-	var shell := ProgressionUi.shell(self, "Пауза", "Бой приостановлен")
+	var shell := ProgressionUi.shell(self, I18n.t("Пауза"), I18n.t("Бой приостановлен"))
 	var box: VBoxContainer = shell["body"]
 	_box = box
-	box.add_child(_make_button("Настройки", func() -> void: settings_pressed.emit()))
-	box.add_child(_make_button("Как играть", func() -> void: howto_pressed.emit()))
-	box.add_child(_make_button("Клавиши", _show_keys))
+	box.add_child(_make_button(I18n.t("Настройки"), func() -> void: settings_pressed.emit()))
+	box.add_child(_make_button(I18n.t("Как играть"), func() -> void: howto_pressed.emit()))
+	box.add_child(_make_button(I18n.t("Клавиши"), _show_keys))
 	if show_dossier:
 		# D-1007-P2: одно «Досье» (поправки и артефакты) — тот же экран, что из меню.
-		box.add_child(_make_button("Досье", func() -> void: dossier_pressed.emit()))
+		box.add_child(_make_button(I18n.t("Досье"), func() -> void: dossier_pressed.emit()))
 	if not hide_restart:
-		box.add_child(_make_button("Заново", func() -> void:
-			LegionUi.confirm(self, "Бой будет начат заново. Награды прошлых боёв сохранены.",
+		box.add_child(_make_button(I18n.t("Заново"), func() -> void:
+			LegionUi.confirm(self, I18n.t("Бой будет начат заново. Награды прошлых боёв сохранены."),
 				func() -> void: restart_pressed.emit())))
 	if show_skip_tutorial:
-		box.add_child(_make_button("Пропустить обучение", func() -> void: skip_tutorial_pressed.emit()))
+		box.add_child(_make_button(I18n.t(
+			"Пропустить обучение"
+		), func() -> void: skip_tutorial_pressed.emit()))
 	if show_collect:
-		var collect_btn := _make_button("В коллекцию", func() -> void: collect_pressed.emit())
+		var collect_btn := _make_button(I18n.t("В коллекцию"), func() -> void: collect_pressed.emit())
 		collect_btn.pressed.connect(func() -> void:
-			collect_btn.text = "Сохранено в коллекцию"
+			collect_btn.text = I18n.t("Сохранено в коллекцию")
 			collect_btn.disabled = true)
 		box.add_child(collect_btn)
-	var nav := LegionUi.nav_bar(self, "В главное меню", _on_menu_pressed,
-		"Продолжить", func() -> void: resume_pressed.emit())
+	var nav := LegionUi.nav_bar(self, I18n.t("В главное меню"), _on_menu_pressed,
+		I18n.t("Продолжить"), func() -> void: resume_pressed.emit())
 	# Esc остаётся дублем продолжения, а не подтверждением выхода.
 	(nav.get_node("NavBack") as Button).shortcut = null
 	(nav.get_node("NavPrimary") as Button).grab_focus.call_deferred()
@@ -121,9 +131,9 @@ func _show_keys() -> void:
 	dialog.name = "ControlsCheatsheet"
 	dialog.dialog_text = "\n".join(cheatsheet())
 	dialog.dialog_autowrap = true
-	dialog.ok_button_text = "Вернуться к паузе"
+	dialog.ok_button_text = I18n.t("Вернуться к паузе")
 	dialog.min_size = Vector2i(900, 480)
-	UiStyle.style_dialog(dialog, "Клавиши и приёмы")
+	UiStyle.style_dialog(dialog, I18n.t("Клавиши и приёмы"))
 	dialog.confirmed.connect(dialog.queue_free)
 	dialog.canceled.connect(dialog.queue_free)
 	add_child(dialog)

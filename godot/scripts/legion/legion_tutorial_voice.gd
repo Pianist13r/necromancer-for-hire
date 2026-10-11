@@ -27,6 +27,9 @@ static func key_id(action: StringName) -> StringName:
 
 
 static func sequence(id: StringName) -> Array[StringName]:
+	if I18n.language == "en" and LessonsCfg.VOICE_MOUSE.has(id):
+		var suffix := "_lefty" if Settings.is_left_handed() else "_righty"
+		return [StringName(String(id) + suffix)]
 	if REPLACEMENTS.has(id):
 		return [REPLACEMENTS[id]]
 	var actions: Array = LessonsCfg.VOICE_KEYS.get(id, [])
@@ -42,4 +45,5 @@ static func sequence(id: StringName) -> Array[StringName]:
 
 
 static func has_replacement(id: StringName) -> bool:
-	return LessonsCfg.VOICE_KEYS.has(id) or REPLACEMENTS.has(id)
+	return LessonsCfg.VOICE_KEYS.has(id) or REPLACEMENTS.has(id) \
+		or (I18n.language == "en" and LessonsCfg.VOICE_MOUSE.has(id))

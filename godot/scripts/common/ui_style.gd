@@ -203,7 +203,7 @@ static func card_box(parent: Control, min_w: float, separation: int = 12) -> VBo
 ## (B-435). Рамка окна (embedded_border) рисуется вокруг панели и заодно служит полосой
 ## заголовка: её верхний край расширен на высоту заголовка.
 static func style_dialog(dialog: AcceptDialog, title: String) -> void:
-	dialog.title = title
+	dialog.title = I18n.t(title)
 	var frame := StyleBoxFlat.new()
 	frame.bg_color = Color(0.09, 0.07, 0.12, 0.98)
 	frame.border_color = Color(GOLD, 0.75)

@@ -18,24 +18,24 @@ static func build() -> VBoxContainer:
 	box.name = "RecordsTab"
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 10)
-	box.add_child(_note("Лучшая победа на карте: больше HP Котла, при равенстве — быстрее. "
-		+ "Поражения рекорд не меняют."))
+	box.add_child(_note(I18n.t("Лучшая победа на карте: больше HP Котла, при равенстве — быстрее. ")
+		+ I18n.t("Поражения рекорд не меняют.")))
 	var campaign_rows: Array = []
 	for m in Campaign.maps():
 		var id := String(m.get("id", ""))
-		campaign_rows.append([String(m.get("title", id)),
+		campaign_rows.append([I18n.map_text(String(m.get("title", id))),
 			_run_cells(LegionRecords.MODE_CAMPAIGN, id)])
-	box.add_child(_section("Кампания", "CampaignRecords", campaign_rows))
+	box.add_child(_section(I18n.t("Кампания"), "CampaignRecords", campaign_rows))
 	var collection := {}
 	for row: Dictionary in LegionRecords.rows(LegionRecords.MODE_COLLECTION):
-		collection[String(row["map"])] = String(row.get("title", row["map"]))
+		collection[String(row["map"])] = I18n.map_text(String(row.get("title", row["map"])))
 	if not collection.is_empty():
 		var rows: Array = []
 		for id: String in collection:
 			rows.append([collection[id], _run_cells(LegionRecords.MODE_COLLECTION, id)])
-		box.add_child(_section("Коллекция", "CollectionRecords", rows))
-	box.add_child(_section("Подряд и «Вызов дня»", "EndlessRecords", [
-		["Подряд", _endless_cells(false)], ["Вызов дня", _endless_cells(true)]]))
+		box.add_child(_section(I18n.t("Коллекция"), "CollectionRecords", rows))
+	box.add_child(_section(I18n.t("Подряд и «Вызов дня»"), "EndlessRecords", [
+		[I18n.t("Подряд"), _endless_cells(false)], [I18n.t("Вызов дня"), _endless_cells(true)]]))
 	box.add_child(_pvp_section())
 	return box
 
@@ -54,7 +54,7 @@ static func _endless_cells(daily: bool) -> Array[String]:
 	var out: Array[String] = []
 	for d: String in LegionChallenge.ORDER:
 		var r: Dictionary = rows.get(d, {})
-		out.append(EMPTY if r.is_empty() else "стаж %d · души %d" % [
+		out.append(EMPTY if r.is_empty() else I18n.t("стаж %d · души %d") % [
 			int(r["tenure"]), int(r["souls"])])
 	return out
 
@@ -64,16 +64,16 @@ static func _pvp_section() -> VBoxContainer:
 	var sec := VBoxContainer.new()
 	sec.name = "PvpRecords"
 	sec.add_theme_constant_override("separation", 4)
-	sec.add_child(UiStyle.label("«Схватка» с ботом", 22, UiStyle.FONT_TITLE, UiStyle.GOLD))
+	sec.add_child(UiStyle.label(I18n.t("«Схватка» с ботом"), 22, UiStyle.FONT_TITLE, UiStyle.GOLD))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 12)
 	sec.add_child(grid)
-	for pair: Array in [["Дуэль", LegionRecords.PVP_DUEL],
-			["Случайное поле", LegionRecords.PVP_RANDOM]]:
+	for pair: Array in [[I18n.t("Дуэль"), LegionRecords.PVP_DUEL],
+			[I18n.t("Случайное поле"), LegionRecords.PVP_RANDOM]]:
 		var t := LegionRecords.pvp_tally(String(pair[1]))
 		grid.add_child(_cell(String(pair[0]), NAME_W, UiStyle.TEXT))
-		grid.add_child(_cell("побед %d · поражений %d · ничьих %d" % [
+		grid.add_child(_cell(I18n.t("побед %d · поражений %d · ничьих %d") % [
 			int(t["wins"]), int(t["losses"]), int(t["draws"])], CELL_W * 2.0, UiStyle.TEXT))
 	return sec
 

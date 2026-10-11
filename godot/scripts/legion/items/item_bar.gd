@@ -121,7 +121,7 @@ func _on_fx(kind: StringName, d: Dictionary) -> void:
 func _on_synergy(id: StringName) -> void:
 	# карточка синергии встаёт в очередь за карточкой предмета, который набор собрал
 	var s := LegionItemDb.synergy(id)
-	_pending_syn.append({"id": id, "title": "Синергия: " + String(s["title"]),
+	_pending_syn.append({"id": id, "title": I18n.t("Синергия: ") + I18n.t(String(s["title"])),
 		"text": Controls.text(String(s["text"])), "kind": &"synergy"})
 
 
@@ -166,7 +166,7 @@ func _land(id: StringName, card := false) -> void:
 	_punch[id] = 1.0
 	if card:
 		var e := LegionItemDb.item(id)
-		_cards.append({"id": id, "title": "Артефакт: " + String(e["title"]),
+		_cards.append({"id": id, "title": I18n.t("Артефакт: ") + I18n.t(String(e["title"])),
 			"text": Controls.text(String(e["text"])), "kind": &"item"})
 		# импульс на посадке: то, на что артефакт действует, вспыхивает ~1,5 с, и звучит находка
 		inventory.start_pulse(id)
@@ -235,29 +235,33 @@ func slot_info(i: int) -> Dictionary:
 		var names: Array[String] = []
 		for k in range(i, shown.size() + shown_synergies.size()):
 			if k < shown.size():
-				names.append(String(LegionItemDb.item(shown[k])["title"]))
+				names.append(I18n.t(String(LegionItemDb.item(shown[k])["title"])))
 			else:
 				var syn := LegionItemDb.synergy(shown_synergies[k - shown.size()])
-				names.append("Синергия: " + String(syn["title"]))
-		return {"title": "Ещё %d" % overflow(), "text": ", ".join(names), "sub": "",
+				names.append(I18n.t("Синергия: ") + I18n.t(String(syn["title"])))
+		return {"title": I18n.t("Ещё %d") % overflow(), "text": ", ".join(names), "sub": "",
 			"color": LegionUi.GOLD}
 	if i < shown.size():
 		var id := shown[i]
 		var e := LegionItemDb.item(id)
 		var r := LegionItemDb.rarity(id)
 		var n := shown_count(id)
-		var status := "Постоянно" if bool(e.get("passive", false)) else "Срабатываний: %d" \
+		var status := I18n.t("Постоянно") if bool(e.get("passive", false)) else I18n.t(
+			"Срабатываний: %d"
+		) \
 			% inventory.activation_count(id)
-		return {"title": String(e["title"]) + (" ×%d" % n if n > 1 else ""),
-			"text": Controls.text(String(e["text"])), "sub": String(CfgItems.RARITY_TITLE.get(r, ""))
+		return {"title": I18n.t(String(e["title"])) + (" ×%d" % n if n > 1 else ""),
+			"text": Controls.text(String(e["text"])), "sub": I18n.t(String(CfgItems.RARITY_TITLE.get(r, "")))
 				+ " · " + status,
 			"color": CfgItems.RARITY_COLOR.get(r, Color.WHITE)}
 	var sid := shown_synergies[i - shown.size()]
 	var s := LegionItemDb.synergy(sid)
 	var names: Array[String] = []
 	for n: String in s["items"]:
-		names.append(String(LegionItemDb.item(StringName(n))["title"]))
-	return {"title": "Синергия: " + String(s["title"]), "text": Controls.text(String(s["text"])),
+		names.append(I18n.t(String(LegionItemDb.item(StringName(n))["title"])))
+	return {"title": I18n.t(
+		"Синергия: "
+	) + I18n.t(String(s["title"])), "text": Controls.text(String(s["text"])),
 		"sub": " + ".join(names), "color": CfgItems.LINK_COLOR}
 
 

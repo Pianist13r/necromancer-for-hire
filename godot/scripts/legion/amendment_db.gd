@@ -232,7 +232,7 @@ static func card(id: StringName) -> Dictionary:
 ## Короткая строка эффекта для строки списка; нет короткой — полный текст карточки.
 static func short_text(id: StringName) -> String:
 	var s := String(SHORT.get(String(id), ""))
-	return s if s != "" else String(card(id).get("text", ""))
+	return Controls.text(s if s != "" else String(card(id).get("text", "")))
 
 
 static func color(id: StringName) -> Color:

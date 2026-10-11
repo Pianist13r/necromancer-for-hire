@@ -51,6 +51,8 @@ static func physical(action: StringName) -> MouseButton:
 
 ## Подпись физической кнопки действия: «ЛКМ» / «ПКМ» (токен {mouse:draw|sling}).
 static func label(action: StringName) -> String:
+	if I18n.language == "en":
+		return "LMB" if physical(action) == MOUSE_BUTTON_LEFT else "RMB"
 	return NAMES[physical(action)]
 
 

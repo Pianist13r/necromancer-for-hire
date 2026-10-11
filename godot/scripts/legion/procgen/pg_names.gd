@@ -95,6 +95,51 @@ const ROSTER_HINT := {
 }
 
 
+static var _display_titles: Dictionary = {}
+
+
+## В сохранениях и сетевых снимках остаётся исходное имя. Восстановление перевода
+## перебирает небольшой словарь шаблонов без RNG и без изменения карты.
+static func display_text(source: String) -> String:
+	if _display_titles.is_empty():
+		_build_display_titles()
+	if _display_titles.has(source):
+		return String(_display_titles[source])
+	var suffix := " особой важности"
+	if source.ends_with(suffix):
+		var base := source.trim_suffix(suffix)
+		return display_text(base) + " of Special Importance"
+	for raw: String in ARCH_HINT.values():
+		if source.ends_with(" " + raw):
+			var prefix := source.trim_suffix(" " + raw)
+			return _display_hint(prefix) + " " + I18n.t(raw)
+	return _display_hint(source)
+
+
+static func _display_hint(source: String) -> String:
+	var translated := I18n.t(source)
+	if translated != source:
+		return translated
+	var template: String = QUIRK_HINT["quiet_road"]
+	var pieces := template.split("%d")
+	if source.begins_with(pieces[0]) and source.ends_with(pieces[1]):
+		var number := source.trim_prefix(pieces[0]).trim_suffix(pieces[1])
+		if number.is_valid_int():
+			return I18n.t(template) % int(number)
+	return source
+
+
+static func _build_display_titles() -> void:
+	for pool: Array in TITLES.values():
+		for template: String in pool:
+			for biome: String in GEN:
+				for genitive: String in GEN[biome]:
+					for place: String in PLACE[biome]:
+						var raw := template.replace("{gen}", genitive).replace("{place}", place)
+						var translated := I18n.t(template).replace("{gen}", I18n.t(genitive))
+						_display_titles[raw] = translated.replace("{place}", I18n.t(place))
+
+
 static func apply(map: Dictionary, card: Dictionary, rng: RandomNumberGenerator) -> void:
 	var arch := String(card["archetype"])
 	var biome := String(card["biome"])

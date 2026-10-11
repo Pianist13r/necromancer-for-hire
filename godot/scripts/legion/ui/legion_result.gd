@@ -42,17 +42,17 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		c.queue_free()
 	if _reward_tween != null:
 		_reward_tween.kill()
-	var map_title := String(stats.get("map_title", ""))
-	var stamp_text := "Договор расторгнут"
+	var map_title := I18n.map_text(String(stats.get("map_title", "")))
+	var stamp_text := I18n.t("Договор расторгнут")
 	if victory:
-		stamp_text = "Кампания пройдена" if campaign_complete else "Договор исполнен"
+		stamp_text = I18n.t("Кампания пройдена") if campaign_complete else I18n.t("Договор исполнен")
 	var shell := ProgressionUi.shell(self, stamp_text, map_title,
 		{"shade": 0.64, "title_color": UiStyle.GOOD if victory else UiStyle.BAD})
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 24)
 	shell["body"].add_child(columns)
-	var box := _result_panel(columns, "Этот бой")
-	var reward_box := _result_panel(columns, "Награда")
+	var box := _result_panel(columns, I18n.t("Этот бой"))
+	var reward_box := _result_panel(columns, I18n.t("Награда"))
 
 	# mode: «Бесконечный подряд»/«Вызов дня» переиспользует этот экран для итога объекта, но
 	# звёзд там нет (stars == 0 не значит «худший результат» — значит «эта шкала не при деле»,
@@ -72,20 +72,22 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 	if not rewards.is_empty():
 		reward_box.add_child(_rewards_block(rewards, victory))
 	elif stats.has("tenure"):
-		reward_box.add_child(ProgressionUi.text("Премия — на подготовку и переброску. "
-			+ "В забеге опыт не начисляется: разряд растёт в кампании.", 19))
+		reward_box.add_child(ProgressionUi.text(I18n.t("Премия — на подготовку и переброску. ")
+			+ I18n.t("В забеге опыт не начисляется: разряд растёт в кампании."), 19))
 	else:
-		reward_box.add_child(ProgressionUi.text("Разряд и подписанные поправки — в «Досье».", 19))
+		reward_box.add_child(ProgressionUi.text(I18n.t("Разряд и подписанные поправки — в «Досье»."), 19))
 	if victory and has_next:
-		reward_box.add_child(ProgressionUi.text("Дальше — выберите и подпишите поправку. "
-			+ "Она действует до конца %s." % ("забега" if stats.has("tenure") else "кампании"),
+		reward_box.add_child(ProgressionUi.text(I18n.t("Дальше — выберите и подпишите поправку. ")
+			+ I18n.t(
+				"Она действует до конца %s."
+			) % (I18n.t("забега") if stats.has("tenure") else I18n.t("кампании")),
 			18, UiStyle.GOLD))
 	elif not victory:
-		reward_box.add_child(ProgressionUi.text("Дальше — «Ещё раз»: подготовьтесь "
-			+ "на брифинге и повторите бой." if show_retry else
-			"Дальше — в главное меню, чтобы начать новый подряд.", 18, UiStyle.GOLD))
+		reward_box.add_child(ProgressionUi.text(I18n.t("Дальше — «Ещё раз»: подготовьтесь ")
+			+ I18n.t("на брифинге и повторите бой.") if show_retry else
+			I18n.t("Дальше — в главное меню, чтобы начать новый подряд."), 18, UiStyle.GOLD))
 
-	var primary := "Дальше: выбор поправки" if victory and has_next else "Ещё раз"
+	var primary := I18n.t("Дальше: выбор поправки") if victory and has_next else I18n.t("Ещё раз")
 	var action := func() -> void:
 		if victory and has_next:
 			next.emit()
@@ -93,7 +95,7 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 			retry.emit()
 	if not show_retry and not has_next:
 		primary = ""
-	var nav := LegionUi.nav_bar(self, "В главное меню", func() -> void: menu.emit(),
+	var nav := LegionUi.nav_bar(self, I18n.t("В главное меню"), func() -> void: menu.emit(),
 		primary, action)
 	var main_button := nav.get_node_or_null("NavPrimary") as Button
 	if main_button != null:
@@ -102,13 +104,13 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 	# После победы с наградой «Карты» нет (D-1007-P4): главное — «Дальше: выбор поправки»,
 	# а экран карт уводил мимо выбора.
 	if show_maps and not (victory and has_next):
-		_add_secondary(nav, _make_button("Карты", func() -> void: maps.emit()))
+		_add_secondary(nav, _make_button(I18n.t("Карты"), func() -> void: maps.emit()))
 	if show_retry and victory and has_next:
-		var again := _make_button("Ещё раз", func() -> void: retry.emit())
-		again.tooltip_text = "Сначала забрать поправку, затем подготовиться к повторному бою."
+		var again := _make_button(I18n.t("Ещё раз"), func() -> void: retry.emit())
+		again.tooltip_text = I18n.t("Сначала забрать поправку, затем подготовиться к повторному бою.")
 		_add_secondary(nav, again)
 	if show_collect:
-		_add_secondary(nav, _make_button("В коллекцию", func() -> void: collect_pressed.emit()))
+		_add_secondary(nav, _make_button(I18n.t("В коллекцию"), func() -> void: collect_pressed.emit()))
 	# в нижней строке кнопок, перед главным действием: подвал над ней отнимал высоту у итога
 	var share := _share_link()
 	nav.add_child(share)
@@ -124,7 +126,7 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 
 func _result_panel(parent: HBoxContainer, title: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.name = "BattlePanel" if title == "Этот бой" else "RewardPanel"
+	panel.name = "BattlePanel" if title == I18n.t("Этот бой") else "RewardPanel"
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var style := UiStyle.panel_style(Color(0.09, 0.075, 0.13, 0.9), 10)
@@ -179,51 +181,53 @@ func _stats_block(stats: Dictionary) -> Control:
 	# mode: «Бесконечный подряд»/«Вызов дня» кладёт сюда стаж и души забега ПОСЛЕ этого объекта
 	# (LegionMain._on_endless_match_ended) — кампания этих ключей не пишет, строка не появится.
 	if stats.has("tenure"):
-		lines.append("Объектов пройдено: %d · Души: %d" % [
+		lines.append(I18n.t("Объектов пройдено: %d · Души: %d") % [
 			int(stats["tenure"]), int(stats.get("souls", 0))])
 	if stats.has("bounty"):
-		lines.append("Премия за объект: +%d" % int(stats["bounty"]))
+		lines.append(I18n.t("Премия за объект: +%d") % int(stats["bounty"]))
 	if stats.has("kassa"):   # «Касса» (D-1001-01): в забеге — только с победой (поражение — некролог)
-		lines.append("Касса: +%d премии" % int(stats["kassa"]))
+		lines.append(I18n.t("Касса: +%d премии") % int(stats["kassa"]))
 	if _breach_closed(stats):
-		lines.append("Закрыл трещину")
+		lines.append(I18n.t("Закрыл трещину"))
 	if stats.has("cauldron_hp") and stats.has("cauldron_max"):
 		var hp := float(stats["cauldron_hp"])
 		var max_hp := float(stats["cauldron_max"])
 		var pct := roundi(100.0 * hp / max_hp) if max_hp > 0.0 else 0
-		lines.append("HP Котла: %d / %d (%d%%)" % [int(hp), int(max_hp), pct])
+		lines.append(I18n.t("HP Котла: %d / %d (%d%%)") % [int(hp), int(max_hp), pct])
 	if stats.has("kills"):
-		lines.append("Упокоено проверяющих: %d" % int(stats["kills"]))
+		lines.append(I18n.t("Упокоено проверяющих: %d") % int(stats["kills"]))
 	if stats.has("lost"):
-		lines.append("Потеряно подрядчиков: %d" % int(stats["lost"]))
+		lines.append(I18n.t("Потеряно подрядчиков: %d") % int(stats["lost"]))
 	if stats.has("charges"):
-		lines.append("Натисков: %d" % int(stats["charges"]))
+		lines.append(I18n.t("Натисков: %d") % int(stats["charges"]))
 	if stats.has("refreshes"):
-		lines.append("Продлений договора: %d" % int(stats["refreshes"]))
+		lines.append(I18n.t("Продлений договора: %d") % int(stats["refreshes"]))
 	# Ревью, п.6: раньше все выпуски строя назывались «досрочными», включая естественное
 	# таяние срока — оно не решение игрока и не должно звучать как расторжение договора.
 	# releases_manual — счётчик именно ручных выпусков (ПКМ), считает LegionWorld.release_segment().
 	if stats.has("releases_manual"):
 		var manual := int(stats["releases_manual"])
 		if manual > 0:
-			lines.append("Досрочных расторжений (вручную): %d" % manual)
+			lines.append(I18n.t("Досрочных расторжений (вручную): %d") % manual)
 	elif stats.has("releases"):
-		lines.append("Досрочных расторжений: %d" % int(stats["releases"]))
+		lines.append(I18n.t("Досрочных расторжений: %d") % int(stats["releases"]))
 	if stats.has("time"):
 		var t := float(stats["time"])
-		lines.append("Время на объекте: %d:%02d" % [int(t) / 60, int(t) % 60])
+		lines.append(I18n.t("Время на объекте: %d:%02d") % [int(t) / 60, int(t) % 60])
 
 	for line in lines:
 		var icon := ""
-		if line.begins_with("HP Котла"):
+		if line.begins_with(I18n.t("HP Котла: %d / %d (%d%%)").get_slice("%", 0)):
 			icon = "hud_cauldron"
-		elif line.begins_with("Упокоено"):
+		elif line.begins_with(I18n.t("Упокоено проверяющих: %d").get_slice("%", 0)):
 			icon = "soul"
-		elif line.begins_with("Потеряно"):
+		elif line.begins_with(I18n.t("Потеряно подрядчиков: %d").get_slice("%", 0)):
 			icon = "hud_army"
-		elif line.begins_with("Время"):
+		elif line.begins_with(I18n.t("Время на объекте: %d:%02d").get_slice("%", 0)):
 			icon = "perk_short_cd"
-		elif line.begins_with("Премия") or line.begins_with("Касса"):
+		elif line.begins_with(I18n.t(
+			"Премия за объект: +%d"
+		).get_slice("%", 0)) or line.begins_with(I18n.t("Касса: +%d премии").get_slice("%", 0)):
 			icon = "premium"
 		var row := _stat_row(icon, line)
 		row.name = "StatRow%d" % box.get_child_count()
@@ -241,7 +245,7 @@ func _add_record_line(box: VBoxContainer, record: Dictionary) -> void:
 	if best.is_empty():
 		return
 	var is_new := bool(record.get("is_new", false))
-	var text := "Новый личный рекорд! " if is_new else "Личный рекорд: "
+	var text := I18n.t("Новый личный рекорд! ") if is_new else I18n.t("Личный рекорд: ")
 	var line := UiStyle.label(text + LegionRecords.short_text(best), 20,
 		UiStyle.FONT_TITLE if is_new else UiStyle.FONT_TEXT,
 		UiStyle.GOLD if is_new else UiStyle.TEXT_DIM)
@@ -293,7 +297,7 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 	box.add_theme_constant_override("separation", 8)
 
 	var line := UiStyle.label(
-		"Премия: +%d · Опыт: +%d" % [int(rewards.get("bounty", 0)), int(rewards.get("xp", 0))],
+		I18n.t("Премия: +%d · Опыт: +%d") % [int(rewards.get("bounty", 0)), int(rewards.get("xp", 0))],
 		24, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	line.name = "RewardCounters"
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -305,7 +309,7 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 	box.add_child(row)
 	_reward_tween = create_tween().set_parallel(true)
 	var count := func(fraction: float) -> void:
-		line.text = "Премия: +%d · Опыт: +%d" % [
+		line.text = I18n.t("Премия: +%d · Опыт: +%d") % [
 			roundi(float(rewards.get("bounty", 0)) * fraction),
 			roundi(float(rewards.get("xp", 0)) * fraction)]
 	count.call(0.0)
@@ -323,9 +327,9 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 	# «Касса» (D-1001-01): строка — только если в бою закладывали (LegionMain._grant_kassa)
 	if rewards.has("kassa_souls"):
 		var kassa := int(rewards.get("kassa", 0))
-		var text := "Касса: +%d премии" % kassa
+		var text := I18n.t("Касса: +%d премии") % kassa
 		if not victory:
-			text = "Касса сгорела: %d душ" % int(rewards["kassa_souls"])
+			text = I18n.t("Касса сгорела: %d душ") % int(rewards["kassa_souls"])
 		var kl := UiStyle.label(text, 16, UiStyle.FONT_TEXT,
 			UiStyle.GOLD if victory else UiStyle.BAD)
 		kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -333,8 +337,8 @@ func _rewards_block(rewards: Dictionary, victory := true) -> Control:
 
 	# Новичку: на что премия и зачем опыт (D-1007-P3) — одна строка, без экрана объяснений.
 	if rewards.has("xp"):
-		var why := UiStyle.label("Премия — на подготовку перед боем. Опыт растит разряд: "
-			+ "разряд открывает новые поправки.", 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		var why := UiStyle.label(I18n.t("Премия — на подготовку перед боем. Опыт растит разряд: ")
+			+ I18n.t("разряд открывает новые поправки."), 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(why)
@@ -379,15 +383,15 @@ static func rank_up_text(before: int, after: int) -> String:
 	for id: String in AmendmentDb.ORDER:
 		var ul := int(AmendmentDb.card(StringName(id)).get("unlock_level", 1))
 		if ul > before and ul <= after:
-			names.append("«%s»" % String(AmendmentDb.card(StringName(id)).get("title", id)))
+			names.append("«%s»" % I18n.t(String(AmendmentDb.card(StringName(id)).get("title", id))))
 	var parts: Array[String] = []
 	if names.size() == 1:
-		parts.append("открыта поправка " + names[0])
+		parts.append(I18n.t("открыта поправка ") + names[0])
 	elif names.size() > 1:
-		parts.append("открыты поправки " + ", ".join(names))
+		parts.append(I18n.t("открыты поправки ") + ", ".join(names))
 	if before < AmendmentDb.PREP_SLOT2_LEVEL and after >= AmendmentDb.PREP_SLOT2_LEVEL:
-		parts.append("второе место подготовки перед боем")
-	var out := "Новый разряд %d" % after
+		parts.append(I18n.t("второе место подготовки перед боем"))
+	var out := I18n.t("Новый разряд %d") % after
 	if not parts.is_empty():
 		out += " — " + "; ".join(parts)
 	return out
@@ -398,7 +402,7 @@ static func rank_up_text(before: int, after: int) -> String:
 func _share_link() -> Button:
 	var link := Button.new()
 	link.name = "ShareChat"
-	link.text = "Поделиться впечатлением — чат в Telegram"
+	link.text = I18n.t("Поделиться впечатлением — чат в Telegram")
 	link.flat = true
 	link.focus_mode = Control.FOCUS_ALL
 	link.size_flags_vertical = Control.SIZE_SHRINK_CENTER

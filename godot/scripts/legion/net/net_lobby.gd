@@ -79,17 +79,19 @@ func _ready() -> void:
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(backdrop)
 	var box := UiStyle.card_box(self, CARD_W, 10)
-	var title := UiStyle.label("Схватка по сети", 40, UiStyle.FONT_TITLE, UiStyle.GOLD)
+	var title := UiStyle.label(I18n.t("Схватка по сети"), 40, UiStyle.FONT_TITLE, UiStyle.GOLD)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
 	var cfg := ConfigFile.new()
 	cfg.load(CFG)
-	_name_edit = _edit(box, "Имя", String(cfg.get_value("net", "name", "")), "Как вас видят другие")
+	_name_edit = _edit(box, I18n.t("Имя"), String(cfg.get_value("net", "name", "")), I18n.t(
+		"Как вас видят другие"))
 	var saved_url := String(cfg.get_value("net", "url", "")).strip_edges()
-	_url_edit = _edit(box, "Сервер", saved_url if saved_url != "" else ReleaseInfo.DEFAULT_RELAY,
-		"Адрес сервера, например wss://example.com")
+	_url_edit = _edit(box, I18n.t("Сервер"),
+		saved_url if saved_url != "" else ReleaseInfo.DEFAULT_RELAY,
+		I18n.t("Адрес сервера, например wss://example.com"))
 	_url_edit.text_changed.connect(func(_text: String) -> void: _url_revision += 1)
-	_update_address_btn = _btn("Обновить адрес", 240.0)
+	_update_address_btn = _btn(I18n.t("Обновить адрес"), 240.0)
 	_update_address_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_update_address_btn.pressed.connect(_on_update_address)
 	box.add_child(_update_address_btn)
@@ -108,7 +110,7 @@ func _ready() -> void:
 	add_child(_server_http)
 	# прямое соединение быстрее сервера, но соперник узнаёт ваш IP-адрес — выбор за игроком
 	_direct = CheckBox.new()
-	_direct.text = "Прямое соединение (видны ваш IP и адреса домашней сети)"
+	_direct.text = I18n.t("Прямое соединение (видны ваш IP и адреса домашней сети)")
 	_direct.button_pressed = bool(cfg.get_value("net", "direct", false))
 	_direct.add_theme_font_override("font", UiStyle.FONT_TEXT)
 	_direct.add_theme_font_size_override("font_size", 16)
@@ -116,7 +118,7 @@ func _ready() -> void:
 	_direct.toggled.connect(_on_direct)
 	box.add_child(_direct)
 	session.direct_enabled = _direct.button_pressed
-	_connect_btn = _btn("Подключиться", 260.0)
+	_connect_btn = _btn(I18n.t("Подключиться"), 260.0)
 	_connect_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_connect_btn.pressed.connect(_on_connect)
 	box.add_child(_connect_btn)
@@ -125,7 +127,7 @@ func _ready() -> void:
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_status)
-	_bot_btn = _btn(BOT_TEXT, 400.0)
+	_bot_btn = _btn(I18n.t(BOT_TEXT), 400.0)
 	_bot_btn.name = "LobbyBot"
 	_bot_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_bot_btn.visible = false
@@ -143,7 +145,7 @@ func _ready() -> void:
 	_create_row.add_theme_constant_override("separation", 12)
 	box.add_child(_create_row)
 	for map: String in ["pvp:duel", "gen:"]:
-		var b := _btn("Открыть: %s" % MAP_TITLES[map], 280.0)
+		var b := _btn(I18n.t("Открыть: %s") % I18n.t(String(MAP_TITLES[map])), 280.0)
 		b.pressed.connect(func() -> void:
 			_note = ""
 			session.create_room(map))
@@ -152,17 +154,17 @@ func _ready() -> void:
 	_code_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_code_row.add_theme_constant_override("separation", 8)
 	box.add_child(_code_row)
-	_code_row.add_child(UiStyle.label("Код комнаты:", 16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM))
+	_code_row.add_child(UiStyle.label(I18n.t("Код комнаты:"), 16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM))
 	_code_edit = LineEdit.new()
 	_code_edit.custom_minimum_size = Vector2(110.0, 36.0)
 	_code_edit.max_length = 8
 	_code_row.add_child(_code_edit)
-	var join := _btn("Войти", 120.0)
+	var join := _btn(I18n.t("Войти"), 120.0)
 	join.pressed.connect(func() -> void:
 		_note = ""
 		session.join_room(_code_edit.text))
 	_code_row.add_child(join)
-	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+	LegionUi.nav_bar(self, I18n.t("← Назад"), func() -> void: back.emit())
 	# status раньше не был подключён вовсе: «Подключение…» и код своей комнаты не показывались
 	session.status.connect(_on_status)
 	session.failed.connect(_on_failed)
@@ -226,7 +228,7 @@ func _on_update_address() -> void:
 	_address_pending = true
 	_address_at_request = _url_edit.text
 	_revision_at_request = _url_revision
-	_address_status.text = "Получаем актуальный адрес…"
+	_address_status.text = I18n.t("Получаем актуальный адрес…")
 	_refresh_mode()
 	var error := _request_server_address(ReleaseInfo.SERVER_INFO_URL)
 	if error != OK:
@@ -239,7 +241,7 @@ func _request_server_address(url: String) -> Error:
 
 func _cancel_address_update() -> void:
 	if _address_pending and _address_status != null:
-		_address_status.text = "Обновление адреса отменено — текущий адрес сохранён."
+		_address_status.text = I18n.t("Обновление адреса отменено — текущий адрес сохранён.")
 	_address_pending = false
 	if _server_http != null:
 		_server_http.cancel_request()
@@ -252,25 +254,26 @@ func _on_server_info(result: int, code: int, _headers: PackedStringArray,
 	_address_pending = false
 	_refresh_mode()
 	if session.stage != NetSession.Stage.IDLE or session.is_online():
-		_address_status.text = "Подключение уже началось — адрес оставлен прежним."
+		_address_status.text = I18n.t("Подключение уже началось — адрес оставлен прежним.")
 		return
 	if _revision_at_request != _url_revision or _address_at_request != _url_edit.text:
-		_address_status.text = "Адрес изменён вручную — ваш ввод сохранён."
+		_address_status.text = I18n.t("Адрес изменён вручную — ваш ввод сохранён.")
 		return
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-		_address_status.text = "Не удалось обновить адрес. Текущий адрес сохранён; попробуйте позже."
+		_address_status.text = I18n.t(
+			"Не удалось обновить адрес. Текущий адрес сохранён; попробуйте позже.")
 		return
 	var relay := ReleaseInfo.relay_from_body(body)
 	if relay == "":
-		_address_status.text = "В ответе нет корректного адреса. Текущий адрес сохранён."
+		_address_status.text = I18n.t("В ответе нет корректного адреса. Текущий адрес сохранён.")
 		return
 	_url_edit.text = relay
 	var cfg := ConfigFile.new()
 	cfg.load(CFG)
 	cfg.set_value("net", "url", relay)
 	var error := cfg.save(CFG)
-	_address_status.text = "Адрес обновлён. Теперь можно подключиться." if error == OK else (
-		"Адрес обновлён для этого запуска, но сохранить его не удалось.")
+	_address_status.text = I18n.t("Адрес обновлён. Теперь можно подключиться.") if error == OK else (
+		I18n.t("Адрес обновлён для этого запуска, но сохранить его не удалось."))
 
 
 ## Галочка действует и в лобби (на следующий матч) и запоминается рядом с адресом и именем.
@@ -294,7 +297,7 @@ func _on_status(text: String) -> void:
 ## сервера (версия, занят, нет комнаты) и обрыв уже из лобби — словами сессии.
 func _on_failed(text: String) -> void:
 	_had_failure = true
-	_note = SERVER_DOWN if not _reached_lobby and not _server_text(text) else text
+	_note = I18n.t(SERVER_DOWN) if not _reached_lobby and not _server_text(text) else text
 	_refresh_mode()
 	_process(0.0)
 
@@ -326,13 +329,13 @@ func _live_status() -> String:
 		NetSession.Stage.IDLE:
 			return ""
 		NetSession.Stage.CONNECTING:
-			return "Подключаемся…"
+			return I18n.t("Подключаемся…")
 		NetSession.Stage.LOBBY:
 			if _my_room_map != "":
-				return "Ждём соперника · %d:%02d" % [floori(_wait_t / 60.0), int(_wait_t) % 60]
+				return I18n.t("Ждём соперника · %d:%02d") % [floori(_wait_t / 60.0), int(_wait_t) % 60]
 			if _foreign_rooms == 0:
-				return "Открытых комнат нет"
-			return "Вы в лобби как «%s»" % session.my_name
+				return I18n.t("Открытых комнат нет")
+			return I18n.t("Вы в лобби как «%s»") % session.my_name
 	return _session_text   # загрузка матча — словами сессии («Соперник — …, загрузка…»)
 
 
@@ -348,8 +351,8 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 	var names: Array[String] = []
 	for n: Variant in players:
 		names.append(String(n))
-	_online.text = "В лобби: %s%s" % [", ".join(names),
-		(" · в бою: %d" % in_game) if in_game > 0 else ""]
+	_online.text = I18n.t("В лобби: %s%s") % [", ".join(names),
+		(I18n.t(" · в бою: %d") % in_game) if in_game > 0 else ""]
 	for c in _rooms_box.get_children():
 		c.queue_free()
 	var waiting_mine := false
@@ -362,12 +365,13 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 		var map := String(room.get("map", ""))
 		var map_title: String = MAP_TITLES.get(map, MAP_TITLES["gen:"] if map.begins_with("gen:")
 			else map)
+		map_title = I18n.t(map_title)
 		if bool(room.get("mine", false)):
 			waiting_mine = true
 			_my_room_map = map if map != "" else PvpMaps.DUEL
 			# код — чтобы позвать знакомого («Код комнаты» у него); время ожидания — в строке состояния
 			var my_code := String(room.get("code", session.room_code))
-			var row := _room_row("Ваша комната %s · %s" % [my_code, map_title], "Закрыть")
+			var row := _room_row(I18n.t("Ваша комната %s · %s") % [my_code, map_title], I18n.t("Закрыть"))
 			(row.get_child(1) as Button).pressed.connect(func() -> void:
 				_note = ""
 				session.cancel_room())
@@ -375,7 +379,7 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 		_foreign_rooms += 1
 		var host := String(room.get("host", "?"))
 		var code := String(room.get("code", ""))
-		var row2 := _room_row("«%s» · %s" % [host, map_title], "Играть")
+		var row2 := _room_row("«%s» · %s" % [host, map_title], I18n.t("Играть"))
 		(row2.get_child(1) as Button).pressed.connect(func() -> void: session.join_room(code))
 	# пустой список называет строка состояния («Открытых комнат нет»)
 	_create_row.visible = session.is_online() and not waiting_mine

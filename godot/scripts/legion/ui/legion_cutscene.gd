@@ -108,7 +108,7 @@ func _ready() -> void:
 	margin.add_child(_caption_label)
 
 	var hint := UiStyle.label(
-		"ЛКМ / Пробел — дальше · Esc — пропустить", 14, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+		I18n.t("ЛКМ / Пробел — дальше · Esc — пропустить"), 14, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	hint.anchor_left = 1.0
 	hint.anchor_right = 1.0
 	hint.offset_left = -440.0
@@ -122,7 +122,7 @@ func _ready() -> void:
 	UiStyle.fill_rect(_fade)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fade)
-	var skip := ProgressionUi.button("Пропустить ▸▸", _skip_all)
+	var skip := ProgressionUi.button(I18n.t("Пропустить ▸▸"), _skip_all)
 	add_child(skip)
 	skip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	skip.offset_left = -244
@@ -149,10 +149,10 @@ func _next_frame() -> void:
 		_finish()
 		return
 	var f: Frame = _frames[_index]
-	_caption_label.text = f.caption
-	var dur := maxf(FRAME_MIN_SEC, f.caption.length() * FRAME_SEC_PER_CHAR)
-	if f.voice_id != &"":
-		var voice_stream := load(LegionAudio.VOICE_DIR + String(f.voice_id) + ".ogg") as AudioStream
+	_caption_label.text = I18n.t(f.caption)
+	var dur := maxf(FRAME_MIN_SEC, _caption_label.text.length() * FRAME_SEC_PER_CHAR)
+	if f.voice_id != &"" and ResourceLoader.exists(I18n.voice_path(f.voice_id)):
+		var voice_stream := load(I18n.voice_path(f.voice_id)) as AudioStream
 		if voice_stream != null:
 			dur = maxf(dur, voice_stream.get_length() + VOICE_TAIL_MARGIN_SEC)
 

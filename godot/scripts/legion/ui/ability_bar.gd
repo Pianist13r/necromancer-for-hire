@@ -155,9 +155,9 @@ func _draw_rally_slot() -> void:
 	LegionUi.draw_stamp(_root, rect.position + Vector2(rect.size.x - 6.0, 4.0),
 		Controls.label(&"rally"),
 		Color(LegionUi.TEXT_DIM, 0.4) if locked else LegionUi.STAMP, 14, 0.12, 20.0)
-	var nw := LegionUi.FONT_TEXT.get_string_size("Сбор", HORIZONTAL_ALIGNMENT_LEFT, -1,
+	var nw := LegionUi.FONT_TEXT.get_string_size(I18n.t("Сбор"), HORIZONTAL_ALIGNMENT_LEFT, -1,
 		NAME_FONT).x
-	LegionUi.draw_text(_root, Vector2(c.x - nw * 0.5, rect.end.y + 15.0), "Сбор", NAME_FONT,
+	LegionUi.draw_text(_root, Vector2(c.x - nw * 0.5, rect.end.y + 15.0), I18n.t("Сбор"), NAME_FONT,
 		Color(LegionUi.TEXT_DIM, 0.35) if locked else LegionUi.TEXT_DIM)
 
 

@@ -121,14 +121,14 @@ func _start(backend: Object) -> void:
 			backend = SteamApi.find()
 	if backend == null:
 		if why_not == "":
-			why_not = "GodotSteam не загружен"
+			why_not = I18n.t("GodotSteam не загружен")
 		push_warning("SteamNet: %s" % why_not)
 		return
 	api = SteamApi.new(backend)
 	var app_env := OS.get_environment(ENV_APPID)
 	var r := api.init(int(app_env) if app_env.is_valid_int() else 0)
 	if int(r.get("status", 1)) != SteamApi.INIT_OK:
-		why_not = "Steam не запущен (%s)" % String(r.get("verbal", ""))
+		why_not = I18n.t("Steam не запущен (%s)") % I18n.t(String(r.get("verbal", "")))
 		push_warning("SteamNet: %s" % why_not)
 		return
 	ok = true
@@ -150,11 +150,11 @@ func _load_extension() -> void:
 	if path == "":
 		path = OS.get_executable_path().get_base_dir().path_join(EXT_REL)
 	if not FileAccess.file_exists(path):
-		why_not = "нет %s" % path
+		why_not = I18n.t("нет %s") % path
 		return
 	var st := GDExtensionManager.load_extension(path)
 	if st != GDExtensionManager.LOAD_STATUS_OK and st != GDExtensionManager.LOAD_STATUS_ALREADY_LOADED:
-		why_not = "GodotSteam не загрузилось из %s (код %d)" % [path, st]
+		why_not = I18n.t("GodotSteam не загрузилось из %s (код %d)") % [path, st]
 
 
 ## Steam запускает игру по приглашению как `игра +connect_lobby <id>`.
@@ -200,7 +200,7 @@ func _process(delta: float) -> void:
 		_join_t += delta
 		if _join_t > JOIN_TIMEOUT_S:
 			_join_t = -1.0
-			_fail("Лобби Steam не ответило")
+			_fail(I18n.t("Лобби Steam не ответило"))
 			leave()
 	if _guest_lost:
 		_guest_lost = false
@@ -217,7 +217,7 @@ func _process(delta: float) -> void:
 		if _owner_t >= OWNER_CHECK_S:
 			_owner_t = 0.0
 			if api.lobby_owner(lobby_id) == my_id:
-				status.emit("Хозяин вышел из игры")
+				status.emit(I18n.t("Хозяин вышел из игры"))
 				leave()
 
 
@@ -231,7 +231,7 @@ func host(sess: NetSession, map: String, player_name: String) -> void:
 	_player_name = player_name
 	_listen = api.listen_p2p(VIRTUAL_PORT)
 	if _listen == SteamApi.INVALID_HANDLE:
-		_fail("Steam не открыл P2P-сокет")
+		_fail(I18n.t("Steam не открыл P2P-сокет"))
 		leave()
 		return
 	relay = NetRelayCore.new()
@@ -240,11 +240,11 @@ func host(sess: NetSession, map: String, player_name: String) -> void:
 	var ends := NetLinkPipe.pair()
 	relay.add_link(ends[0], false)
 	_bind_session(sess)
-	sess.link_label = "через Steam"
+	sess.link_label = I18n.t("через Steam")
 	sess.connect_link(ends[1], player_name)
 	_lobby_pending += 1
 	api.create_lobby(SteamApi.LOBBY_PUBLIC, LOBBY_MAX)
-	status.emit("Открываем игру в Steam…")
+	status.emit(I18n.t("Открываем игру в Steam…"))
 	changed.emit()
 
 
@@ -257,12 +257,12 @@ func _on_lobby_created(result: int, lobby: int) -> void:
 			api.leave_lobby(lobby)
 		return
 	if result != SteamApi.RESULT_OK or lobby == 0:
-		_fail("Steam не создал лобби (код %d)" % result)
+		_fail(I18n.t("Steam не создал лобби (код %d)") % result)
 		leave()
 		return
 	lobby_id = lobby
 	_publish()
-	status.emit("Игра открыта — ждём соперника")
+	status.emit(I18n.t("Игра открыта — ждём соперника"))
 	changed.emit()
 
 
@@ -279,7 +279,8 @@ func _publish() -> void:
 	api.set_lobby_data(lobby_id, "open", "1" if code != "" else "0")
 	api.set_lobby_joinable(lobby_id, code != "")
 	api.set_rich_presence("connect", "%s %d" % [CONNECT_PREFIX, lobby_id])
-	api.set_rich_presence("status", "Схватка: ждёт соперника" if code != "" else "Схватка: в бою")
+	api.set_rich_presence("status", I18n.t(
+		"Схватка: ждёт соперника") if code != "" else I18n.t("Схватка: в бою"))
 
 
 ## Оверлей Steam «пригласить друга» (работает в игре, запущенной из клиента Steam).
@@ -299,7 +300,7 @@ func join(sess: NetSession, lobby: int, player_name: String) -> void:
 	_join_lobby = lobby
 	api.join_lobby(lobby)
 	_join_t = 0.0
-	status.emit("Входим в игру…")
+	status.emit(I18n.t("Входим в игру…"))
 	changed.emit()
 
 
@@ -318,32 +319,32 @@ func _on_lobby_joined(lobby: int, _permissions: int, _locked: bool, response: in
 	lobby_id = lobby
 	var owner := api.lobby_owner(lobby)
 	if owner == 0 or owner == my_id:
-		_fail("В этой игре нет хозяина")
+		_fail(I18n.t("В этой игре нет хозяина"))
 		leave()
 		return
 	var h := api.connect_p2p(owner, VIRTUAL_PORT)
 	if h == SteamApi.INVALID_HANDLE:
-		_fail("Steam не открыл соединение с хозяином")
+		_fail(I18n.t("Steam не открыл соединение с хозяином"))
 		leave()
 		return
 	var link := NetLinkSteam.new(api, h)
 	_links[h] = link
 	_auto_join = true
-	session.link_label = "через Steam"
+	session.link_label = I18n.t("через Steam")
 	session.connect_link(link, _player_name)
-	status.emit("Соединяемся с «%s»…" % api.get_lobby_data(lobby, "name"))
+	status.emit(I18n.t("Соединяемся с «%s»…") % api.get_lobby_data(lobby, "name"))
 	changed.emit()
 
 
 static func _enter_text(response: int) -> String:
 	match response:
 		SteamApi.ENTER_DOESNT_EXIST:
-			return "Этой игры уже нет"
+			return I18n.t("Этой игры уже нет")
 		SteamApi.ENTER_FULL:
-			return "В этой игре уже двое"
+			return I18n.t("В этой игре уже двое")
 		SteamApi.ENTER_NOT_ALLOWED:
-			return "В эту игру нельзя войти"
-	return "Steam не пустил в игру (код %d)" % response
+			return I18n.t("В эту игру нельзя войти")
+	return I18n.t("Steam не пустил в игру (код %d)") % response
 
 
 # ── Соединения Steam ─────────────────────────────────────────────────────────
@@ -466,7 +467,7 @@ func _on_match_start(_seed_value: int, _map_id: String, _side: int) -> void:
 	if mode == "host" and lobby_id != 0:
 		api.set_lobby_data(lobby_id, "open", "0")
 		api.set_lobby_joinable(lobby_id, false)
-		api.set_rich_presence("status", "Схватка: в бою")
+		api.set_rich_presence("status", I18n.t("Схватка: в бою"))
 	changed.emit()
 
 
