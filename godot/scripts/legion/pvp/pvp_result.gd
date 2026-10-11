@@ -12,6 +12,8 @@ extends CanvasLayer
 ##
 
 signal again
+## «Ещё раз на новом поле» (B-332): матч с ботом заново на новом случайном поле.
+signal again_new
 signal menu
 
 ## Над PvpMenu (90) и HUD (5): итог закрывает всё, кроме самого себя.
@@ -82,9 +84,16 @@ func show_for(w: LegionWorld) -> void:
 		var l := UiStyle.label(line, 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(l)
-	LegionUi.nav_bar(_root, "В лобби" if w.net_mode else "В главное меню",
+	var nav := LegionUi.nav_bar(_root, "В лобби" if w.net_mode else "В главное меню",
 		func() -> void: menu.emit(), "" if w.net_mode else "Ещё раз",
 		func() -> void: again.emit())
+	if not w.net_mode:
+		# перед «Ещё раз»: тот же матч — главная кнопка, новое поле — рядом
+		var fresh := ProgressionUi.button("Ещё раз на новом поле", func() -> void: again_new.emit())
+		fresh.name = "NavNewField"
+		LegionUi.style_button(fresh, LegionUi.INK, 20)
+		nav.add_child(fresh)
+		nav.move_child(fresh, nav.get_child_count() - 2)
 	visible = true
 
 

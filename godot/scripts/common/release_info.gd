@@ -2,7 +2,7 @@ class_name ReleaseInfo
 extends RefCounted
 ## Один источник версии и публичных ссылок. Удалённый JSON меняет только адрес лобби.
 
-const VERSION := "0.3.2-alpha"
+const VERSION := "0.3.3-alpha"
 const REPOSITORY_URL := "https://github.com/Pianist13r/necromancer-for-hire"
 const RELEASES_URL := REPOSITORY_URL + "/releases"
 const SERVER_INFO_URL := (
@@ -10,10 +10,24 @@ const SERVER_INFO_URL := (
 const DEFAULT_RELAY := "wss://51-250-12-39.sslip.io"
 const SERVER_BODY_LIMIT := 4096
 const SERVER_TIMEOUT := 8.0
+## Сообщество (B-467): канал и чат в Telegram, сайт игры. Меню и экран итога берут адреса отсюда.
+const TELEGRAM_CHANNEL_URL := "https://t.me/necromancer_for_hire"
+const TELEGRAM_CHAT_URL := "https://t.me/necromancer_for_hire_chat"
+const SITE_URL := "https://necromancer-for-hire.ru"
 
 ## Канал сборки: "" — по фиче экспорта; тесты подставляют "steam" или "standalone"
 ## (в headless-прогоне фичу пресета не задать).
 static var channel_override := ""
+## Тесты подменяют открытие ссылки (url: String) -> void: настоящий браузер в прогоне не нужен.
+static var url_opener := Callable()
+
+
+## Открыть внешнюю ссылку: в игре — браузер ОС, в тесте — подменённый url_opener.
+static func open_url(url: String) -> void:
+	if url_opener.is_valid():
+		url_opener.call(url)
+		return
+	OS.shell_open(url)
 
 
 ## Steam-сборка (пресеты «Steam Windows»/«Steam Linux», фича `steam`): обновляет клиент Steam,

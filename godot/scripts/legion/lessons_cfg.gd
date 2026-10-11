@@ -55,3 +55,7 @@ const VOICE_KEYS := {
 	&"lg_tut_4": [&"cast_q"], &"lg_tut_lawyer": [&"cast_q"], &"lg_tut_hero_w": [&"cast_w"],
 	&"lg_tut_hero_e": [&"cast_e"], &"lg_tut_rally": [&"rally"], &"lg_tut_aim": [&"aim_contract"],
 }
+## B-448: реплики, называющие кнопку мыши вслух («левую кнопку», «правой кнопкой»). В режиме
+## левши голос спорил бы с плашкой — молчат (voice_muted), текст плашки остаётся.
+const VOICE_MOUSE: Array[StringName] = [&"lg_tut_1", &"lg_tut_2", &"lg_tut_perfect_w",
+	&"lg_tut_spring", &"lg_tut_ring", &"lg_tut_sling_one"]

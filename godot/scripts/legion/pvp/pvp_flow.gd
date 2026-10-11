@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ## Матч не касается кампании: поправки, «Контору» и артефакты забега мир в нём не читает
 ## (in_campaign = false, mods пусты, carry_items = false — у бота их нет, у человека тоже), итог
-## показывает PvpResult, а не экран кампании, сохранение не пишется. Следующий бой кампании
+## показывает PvpResult, а не экран кампании, сохранение не пишется (кроме личного счёта побед,
+## record_result). Следующий бой кампании
 ## возвращает in_campaign через LegionMain._ensure_world(), а камеру — LegionWorld._apply_view().
 ##
 
@@ -53,6 +54,12 @@ static func show_net_lobby(main: LegionMain) -> void:
 	lobby.back.connect(func() -> void:
 		session.close()
 		show_field_select(main))
+	# «Никого нет — сыграть с ботом»: своя комната уже закрыта лобби (cancel_room), соединение
+	# закрываем как по «Назад»; поле — комнаты («gen:» — новый случайный сид) или «Дуэль»
+	lobby.play_bot.connect(func(map: String) -> void:
+		session.close()
+		start(main, PvpFieldSelect.random_map_id() if map.begins_with(ProcGen.ID_PREFIX)
+			else map))
 
 
 ## Steam-сборка с запущенным клиентом Steam: «По сети» — лобби Steam, не адрес сервера.
@@ -114,9 +121,36 @@ static func start(main: LegionMain, map_id: String) -> void:
 	w.in_campaign = false
 	w.carry_items = false
 	w.battle_preparation = {}   # «Схватка» без поправок забега и подготовки «Конторы»
+	apply_bot_choice(w)
 	w.start_map(map_id)
+
+
+## Уровень бота и сторона человека из настроек (экран выбора поля, B-331) — теми же ключами
+## --dev, что у серий (pvp_bot_level, pvp_swap): мир их уже понимает, сетевой матч снимает
+## (NET_DEV_KEEP), снимок сверяет в конфиге боя. По умолчанию ключей нет — мир как до выбора.
+## «Правая» — смена сторон карты (PvpMaps.swap_sides): человек остаётся стороной 0, весь его
+## интерфейс (local_side = 0) прежний.
+static func apply_bot_choice(w: LegionWorld) -> void:
+	var level := Settings.pvp_bot_level()
+	if level == LegionCfg.PVP_BOT_LEVEL_DEFAULT:
+		w.dev.erase("pvp_bot_level")
+	else:
+		w.dev["pvp_bot_level"] = level
+	if Settings.pvp_side() == 1:
+		w.dev["pvp_swap"] = "1"
+	else:
+		w.dev.erase("pvp_swap")
 
 
 ## Итог матча — экран самого PvP-HUD; сигнал match_ended кампании здесь ничего не даёт.
 static func swallows_match_end(main: LegionMain) -> bool:
 	return main.world != null and main.world.pvp
+
+
+## Личный счёт «Схватки» с ботом (LegionRecords): одна запись в legion.cfg на исход — кроме этой
+## строки матч сохранение не трогает. Сетевой матч не пишем: счёт — против бота.
+static func record_result(main: LegionMain, victory: bool, stats: Dictionary) -> void:
+	var w := main.world
+	if w == null or w.net_mode:
+		return
+	LegionRecords.record_pvp(w.map_id, LegionRecords.pvp_verdict(victory, stats, w.local_side))

@@ -24,6 +24,7 @@ const BOT_SAVED: Array[String] = ["stage", "counts", "_rng", "_think_t", "_defen
 	"_stage_t", "_siege_hp", "_siege_hit_t"]
 const BOT_SKIP: Array[String] = [
 	"world", "side",   # структура: _setup_pvp_bots в start_map
+	"level_id", "_lv",   # уровень: dev pvp_bot_level (конфиг К1) → тот же _setup_pvp_bots
 	"sink",            # сетевая проба (Callable): куда слать команды — решает хозяин мира
 ]
 

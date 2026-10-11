@@ -204,7 +204,12 @@ static func pending(map_id: String, map: Dictionary, force := false) -> Array[Di
 		# карта уже выиграна (в том числе до v20) — её уроки считаются пройденными: удержание
 		# волн и подсказки на знакомой карте мешали бы (проверяющий 27.09, сохранение владельца)
 		return out
+	var sling := Settings.control_scheme() == Settings.SCHEME_SLING
 	for l in parse(map):
+		if l["kind"] == &"figure_slung" and not sling:
+			# B-414: в «классике» ПКМ — только щелчок, оси оттяжки нет и figure_slung не придёт.
+			# Урок начала боя не зачёлся бы никогда и загородил бы уроки посреди боя своей карты.
+			continue
 		if force or not Campaign.hint_seen(flag(map_id, l["id"])):
 			out.append(l)
 	return out
@@ -369,9 +374,12 @@ static func _mult(x: float) -> String:
 
 
 ## Реплика урока молчит (только текст): записана под старое правило (STALE_VOICE) или произносит
-## клавишу, которую игрок переназначил (KB-07) — голос спорил бы с плашкой.
+## клавишу, которую игрок переназначил (KB-07), или кнопку мыши, а включён режим левши (B-448) —
+## голос спорил бы с плашкой.
 static func voice_muted(voice: StringName) -> bool:
 	if STALE_VOICE.has(voice):
+		return true
+	if Settings.is_left_handed() and LessonsCfg.VOICE_MOUSE.has(voice):
 		return true
 	for action: StringName in LessonsCfg.VOICE_KEYS.get(voice, []):
 		if Controls.renamed(action):

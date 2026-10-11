@@ -24,6 +24,8 @@ func fresh() -> void:
 	w.contracts.mana = 1000.0
 
 
+## D-1011-AM1: линии для резерва у Котла (180, 360) — в пределе автомарша AUTOMARCH_R (500), x = 560
+## (прежде 1000 — 830 px); боец в поле у x = 300 от неё дальше ближнего набора RECRUIT_R.
 func line_at(x: float) -> Contract:
 	return w.contracts.add_contract(
 		PackedVector2Array([Vector2(x, 540), Vector2(x, 640)]), 1, true)
@@ -49,7 +51,7 @@ func _run() -> void:
 
 func test_rally() -> void:
 	fresh()
-	line_at(1000)
+	line_at(560)
 	var u := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300, 440))
 	w.grid.rebuild()
 	check(w.rally(Vector2(300, 600)) == 1, "ручной Сбор принят")
@@ -89,7 +91,7 @@ func test_rally() -> void:
 
 func test_hold_lifecycle() -> void:
 	fresh()
-	line_at(1000)
+	line_at(560)
 	var u := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300, 580))
 	u.rally_to(PackedVector2Array([Vector2(300, 600)]))
 	u.rally_to(PackedVector2Array([Vector2(320, 600)]))
@@ -145,7 +147,7 @@ func test_plots() -> void:
 
 
 func test_snapshot() -> void:
-	check(NetSession.BUILD == "net-2026-10-09a" and NetSnap.VERSION == 5,
+	check(NetSession.BUILD == "net-2026-10-11c" and NetSnap.VERSION == 5,
 		"старый сетевой клиент отделён версией сборки и снимка")
 	fresh()
 	w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300, 400))

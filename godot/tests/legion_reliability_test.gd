@@ -160,7 +160,7 @@ func _blocked_rally(side: int) -> void:
 	var enemy := w.sides[1 - side].cauldron_pos
 	# Независимо от координат Котлов fixture наступает вправо.
 	w.sides[1 - side].cauldron_pos = Vector2(w.world_size.x - 100 if side == 0 else 100, 320)
-	for i in PvpBot.ASSAULT_MIN:
+	for i in int(PvpBot.level_params(LegionCfg.PVP_BOT_LEVEL_DEFAULT)["assault_min"]):
 		w.spawn_unit(LegionCfg.KIND_LABORER, front + Vector2(0, i), null, side)
 	var stray := w.spawn_unit(LegionCfg.KIND_LABORER, back, null, side)
 	var blocked := back + (front - back).normalized() * PvpBot.STRAY_PULL

@@ -35,13 +35,14 @@ const EXPECT := {
 	"wasteland": [&"draw", &"refresh", &"release", &"perfect", &"build", &"hero_q"],
 	"gatehouse": [&"aim", &"erase", &"guard", &"spring", &"rally"],
 	"fork": [&"ring", &"hero_w", &"hero_e"],
-	"archive": [&"eight", &"clerk", &"item"],
+	# B-414 (10.10): рогатка по ОДНОЙ фигуре — в «Архиве» следом за восьмёркой, а не на «Прорабе»
+	"archive": [&"eight", &"sling_one", &"clerk", &"item"],
 	"bridge": [&"triangle", &"perfect", &"lawyer_q", &"stun_hit"],
 	# D-1002: «Лабиринт» учит «Комиссии» (пятиугольник) и мини-фигуре, «Болото» — «Неустойке»
-	# (полукруг), «Прораб» — рогатке по ОДНОЙ фигуре
+	# (полукруг); «Прораб» уроков не ведёт
 	"maze": [&"pentagon", &"mini"],
 	"swamp": [&"square", &"d_shape"],
-	"boss": [&"sling_one"],
+	"boss": [],
 }
 
 var w: LegionWorld
@@ -323,6 +324,7 @@ func _test_triggers() -> void:
 
 	tut = await _start("archive")
 	tut._passed[&"eight"] = true
+	tut._passed[&"sling_one"] = true
 	tut._next()
 	var elite := w.spawn_foe("zombie", "north", {})
 	elite.make_elite()

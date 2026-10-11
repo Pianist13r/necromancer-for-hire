@@ -30,6 +30,8 @@ signal pvp_pressed
 ## Геометрия кадра 1280×720: безопасное поле и ширина левой колонки контента.
 const SAFE := 48.0
 const COLUMN_W := 540.0
+## Строка «Сообщество» — от правого нижнего угла кадра.
+const COMMUNITY_MARGIN := 16.0
 
 var dev_force_open := false
 var _rune_bg: Control
@@ -42,6 +44,7 @@ func _ready() -> void:
 	_build_background()
 	_build_hero_composition()
 	_build_content_column()
+	_build_community()
 
 
 ## Фон: офисная картина, поверх — градиентная вуаль (плотно слева под текст, прозрачно справа,
@@ -327,6 +330,38 @@ func _build_bottom_strip(col: VBoxContainer) -> void:
 	quit_btn.add_theme_constant_override("icon_max_width", 20)
 	quit_btn.pressed.connect(func() -> void: quit_pressed.emit())
 	strip.add_child(quit_btn)
+
+
+## B-467: «Сообщество» — канал, чат и сайт. Не в колонке действий (она и так во весь рост
+## кадра), а тихой строкой в правом нижнем углу под фигурой героя: видно, но не спорит с игрой.
+## Сайт раздаёт сборки вне Steam — в Steam-сборке его нет (STEAM_PLAN §4).
+func _build_community() -> void:
+	var row := HBoxContainer.new()
+	row.name = "Community"
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(row)
+	row.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+	row.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	row.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	row.offset_right = -COMMUNITY_MARGIN
+	row.offset_bottom = -COMMUNITY_MARGIN
+
+	var caption := UiStyle.label("Сообщество:", 15, ThemeDB.fallback_font, UiStyle.TEXT_DIM)
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(caption)
+	var links := [["CommunityChannel", "Telegram-канал", ReleaseInfo.TELEGRAM_CHANNEL_URL],
+		["CommunityChat", "Чат", ReleaseInfo.TELEGRAM_CHAT_URL]]
+	if not ReleaseInfo.is_steam():
+		links.append(["CommunitySite", "Сайт", ReleaseInfo.SITE_URL])
+	for link: Array in links:
+		var url := String(link[2])
+		var btn := _make_button(String(link[1]), 15)
+		btn.name = String(link[0])
+		btn.tooltip_text = url
+		btn.pressed.connect(func() -> void: ReleaseInfo.open_url(url))
+		row.add_child(btn)
 
 
 func _endless_label() -> String:

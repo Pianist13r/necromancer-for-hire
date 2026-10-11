@@ -29,6 +29,7 @@ const FONT_FLOOR := 0.78
 
 var _grid: GridContainer
 var _cards: Array[Button] = []
+var _records: Array[Label] = []
 
 
 func _ready() -> void:
@@ -63,6 +64,7 @@ func _ready() -> void:
 	var picker := DifficultyPicker.new()
 	picker.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(picker)
+	picker.changed.connect(_refresh_records)
 
 	var holder := Control.new()
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -118,7 +120,7 @@ func _fit_card_text(card: Button, k: float) -> void:
 	var fit: Dictionary = card.get_meta("fit")
 	var body: VBoxContainer = fit["body"]
 	body.add_theme_constant_override("separation", maxi(2, roundi(6.0 * k)))
-	for key: String in ["number", "title", "subtitle", "lock", "hint", "stars"]:
+	for key: String in ["number", "title", "subtitle", "lock", "hint", "stars", "record"]:
 		var lab: Label = fit.get(key)
 		if lab == null:
 			continue
@@ -206,11 +208,37 @@ func _build_card(map_data: Dictionary, index: int) -> Control:
 		body.add_child(stars_row)
 		fit["stars"] = stars_row
 		fit["stars_size"] = 20
+		_add_record_label(body, fit, id)
 
 	btn.set_meta("fit", fit)
 	if unlocked:
 		btn.pressed.connect(func() -> void: map_chosen.emit(id))
 	return btn
+
+
+## Личный рекорд карты на выбранной сложности мелко под звёздами (LegionRecords): «лучшее: HP N ·
+## M:SS»; рекорда нет — пустая строка (место под неё держим, чтобы карточки не прыгали).
+func _add_record_label(body: VBoxContainer, fit: Dictionary, map_id: String) -> void:
+	var lab := UiStyle.label("", 15, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+	lab.name = "CardRecord"
+	lab.set_meta("map_id", map_id)
+	body.add_child(lab)
+	fit["record"] = lab
+	fit["record_size"] = 15
+	_records.append(lab)
+	_refresh_record(lab)
+
+
+func _refresh_record(lab: Label) -> void:
+	var rec := LegionRecords.best(LegionRecords.MODE_CAMPAIGN, String(lab.get_meta("map_id")),
+		Settings.difficulty())
+	lab.text = "" if rec.is_empty() else "лучшее: " + LegionRecords.short_text(rec)
+
+
+## Сложность сменили в пикере — подписи рекордов карточек под новую.
+func _refresh_records(_difficulty: String = "") -> void:
+	for lab in _records:
+		_refresh_record(lab)
 
 
 func _star_text(stars: int) -> String:

@@ -41,7 +41,12 @@ def run(job):
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, timeout=900, env=env)
     txt = f.read_text(encoding='utf-8')
     rows = [json.loads(s) for s in txt.splitlines() if s.startswith('{') and '"result"' in s]
-    if proc.returncode or not rows or 'SCRIPT ERROR' in txt or 'ERROR:' in txt:
+    # Движок после итога пишет «ERROR: N resources still in use at exit» — утечка ресурсов при
+    # выходе, бой уже кончился. Она браковала КАЖДЫЙ бой (серии camp-waves-0930 и night-1010:
+    # results.json пуст, сводку собирали по логам); прочие ERROR: по-прежнему бракуют прогон.
+    errors = [s for s in txt.splitlines()
+              if 'ERROR:' in s and 'resources still in use at exit' not in s]
+    if proc.returncode or not rows or 'SCRIPT ERROR' in txt or errors:
         raise RuntimeError(f'Invalid run {f}')
     row = rows[-1] | {'profile': profile}
     trace = [json.loads(s) for s in txt.splitlines() if s.startswith('{') and '"mana"' in s and '"foes"' in s]

@@ -116,8 +116,8 @@ var wall_bumps := 0
 var recruit_r: Dictionary = {}
 var unlocked: Dictionary = {}
 ## Кампания v20 (D-0926-46): открытые фигуры (ContractShape.RING/EIGHT/TRIANGLE/SQUARE -> bool).
-## Закрытая фигура чертится обычной линией — распознавание её просто не видит. Вне кампании всё
-## открыто.
+## Закрытая фигура чертится обычной линией, а у пера подпись, где она откроется (_locked_bump,
+## B-490). Вне кампании всё открыто.
 var shapes: Dictionary = {}
 ## Стрелка отряда Пробелом/колесом открыта (кампания: с «Проходной»). Закрыта — клавиши молчат.
 var aim_unlocked := true
@@ -408,7 +408,7 @@ func draft_color(refresh_like: bool, part: String) -> Color:
 		return LegionCfg.LIMIT_DRAFT_COLOR
 	if refresh_like and part == "color":
 		return REFRESH_COLOR
-	return _kind_color(current_kind, part)
+	return line_color(current_kind, part)
 
 
 ## Подпись у пера при упоре в лимит; клавиша стирания — текущая (Controls.text).
@@ -988,17 +988,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		_pointer = _to_world(mb.position)
-		if mb.button_index == MOUSE_BUTTON_LEFT:
+		# B-448: кнопка по смыслу (режим левши, инверсия колеса) — ниже только btn
+		var btn := MouseBind.button(mb)
+		if btn == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
 				_press(_pointer)
 			else:
 				_release(_pointer)
-		elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		elif btn == MOUSE_BUTTON_RIGHT:
 			if mb.pressed:
 				_right_press(_pointer)
 			else:
 				_right_release(_pointer)
-		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
+		elif btn == MOUSE_BUTTON_MIDDLE:
 			# Зажатое колесо = Пробел (Игорь 26.09; отменяет «нажатие колеса не используем»
 			# D-0926-12). Тики прокрутки вокруг нажатия глушим — см. WHEEL_CLICK_QUIET.
 			var ms := FxClock.ms()
@@ -1012,8 +1014,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_wheel_quiet_ms = ms + quiet
 			_hold_aim(AIM_WHEEL, mb.pressed)
 			get_viewport().set_input_as_handled()
-		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP
-				or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		elif mb.pressed and (btn == MOUSE_BUTTON_WHEEL_UP or btn == MOUSE_BUTTON_WHEEL_DOWN):
 			# v18: прокрутка — вид договора по кругу. Во время штриха и натяжки колесо молчит:
 			# смена вида завершает штрих (set_kind → finish), а колесо задеть случайно легче,
 			# чем 1/2/3 (находка verifier 26.09). Молчит и пока колесо зажато и сразу после.
@@ -1023,7 +1024,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if ms - _wheel_tick_ms > roundi(LegionCfg.WHEEL_CLICK_QUIET * 1000.0):
 					_wheel_prev_kind = current_kind   # первый тик серии — запомнить, откуда
 				_wheel_tick_ms = ms
-				cycle_kind(-1 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
+				cycle_kind(-1 if btn == MOUSE_BUTTON_WHEEL_UP else 1)
 			get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey:
@@ -1554,7 +1555,7 @@ func _sling_cancel_event(event: InputEvent) -> bool:
 	if event.is_action_pressed(&"pause"):
 		return true
 	var mb := event as InputEventMouseButton
-	return mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
+	return mb != null and mb.pressed and MouseBind.button(mb) == MOUSE_BUTTON_LEFT
 
 
 ## Окно потеряло фокус посреди натяжки — отпускание ПКМ сюда уже не придёт: снимаем захват.
@@ -1915,6 +1916,25 @@ func _short_bump(stroke: PackedVector2Array) -> void:
 		IntuitCfg.NARROW_FX)
 
 
+## Фигура, которую штрих рисует, но кампания ещё не открыла (B-490); &"" — нет такой.
+func _locked_fig(stroke: PackedVector2Array) -> StringName:
+	if not shapes.values().has(false):
+		return &""   # вне кампании и после «Болота» открыто всё — лишний разбор штриха не нужен
+	var fig := ContractShape.classify(stroke)
+	return fig if fig != &"" and not bool(shapes.get(fig, true)) else &""
+
+
+## Закрытая фигура легла обычной линией — у пера подпись, где она откроется (B-490: игрок не
+## должен гадать, почему его пятиугольник «не работает»).
+func _locked_bump(at: Vector2, fig: StringName) -> void:
+	if owner_side != world.local_side:
+		return
+	var name := RING_LABEL if fig == ContractShape.RING else fig_label(fig)
+	var title := Campaign.unlock_map_title("shape_unlocked_" + String(fig))
+	_wall_bump(at, IntuitCfg.LOCKED_LABEL % name if title.is_empty()
+		else IntuitCfg.LOCKED_MAP_LABEL % [name, title], IntuitCfg.LOCKED_FX)
+
+
 # gdlint: disable=max-returns
 func extend(to: Vector2) -> void:
 	if not _drawing:
@@ -1976,6 +1996,7 @@ func finish() -> void:
 	_draft_ring = false
 	_draft_fig = &""
 	_draft = PackedVector2Array()
+	var locked := _locked_fig(stroke) if not ring and fig == &"" else &""
 	if not ring and fig == &"" and _draft_len > LegionCfg.LINE_MAX:
 		# не фигура — обычный штрих со своим пределом, как до фигур (черновик тогда упирался в
 		# LINE_MAX): хвост отрезается ДО распознавания подновления, его мана возвращается
@@ -2067,6 +2088,8 @@ func finish() -> void:
 		figure_made.emit(c)
 	elif _draft_dir != Vector2.ZERO:
 		c.set_dir(_draft_dir)
+	if locked != &"":
+		_locked_bump(stroke[stroke.size() - 1], locked)
 	_draft_dir = Vector2.ZERO
 	_pen_wait = false
 
@@ -2162,6 +2185,33 @@ func _kind_price(kind: StringName) -> float:
 static func _kind_color(kind: StringName, field: String) -> Color:
 	var k := kind if LegionCfg.UNIT_KINDS.has(kind) else LegionCfg.KIND_LABORER
 	return LegionCfg.UNIT_KINDS[k][field]
+
+
+## Поле соперника человека за этим экраном («Схватка»: сторона ≠ world.local_side — у клиента
+## стороны 1 чужое поле 0; против бота local_side = 0). Одиночка и обучение — никогда.
+func is_rival() -> bool:
+	return world != null and world.pvp and owner_side != world.local_side
+
+
+## Цвет линии вида ЭТОГО поля: свой — цвет вида как есть, соперника — сдвиг тона (Игорь 10.10:
+## «линии оттенками отличались, чтобы не путались»; CfgLines.RIVAL_*). Тем же цветом рисуются
+## контур, течение, кольца срока, места набора, рождение, продление и растворение участка.
+func line_color(kind: StringName, part: String) -> Color:
+	var c := _kind_color(kind, part)
+	return rival_tint(c) if is_rival() else c
+
+
+## Цвет фигуры на этом поле (контур, точки петель, обод заряда) — тот же сдвиг у соперника.
+func fig_line_color(fig: StringName) -> Color:
+	var c := fig_color(fig)
+	return rival_tint(c) if is_rival() else c
+
+
+## Сдвиг соперника в Okhsl: тон на RIVAL_HUE_SHIFT, насыщенность ×RIVAL_SAT_MUL, светлота та же
+## (перцептивная — линия не становится ярче или темнее своей, читается так же на земле).
+static func rival_tint(c: Color) -> Color:
+	return Color.from_ok_hsl(fposmod(c.ok_hsl_h + CfgLines.RIVAL_HUE_SHIFT, 1.0),
+		clampf(c.ok_hsl_s * CfgLines.RIVAL_SAT_MUL, 0.0, 1.0), c.ok_hsl_l, c.a)
 
 
 static func _poly_len(pts: PackedVector2Array) -> float:
@@ -2309,8 +2359,8 @@ func _fade(c: Contract, s: int) -> void:
 	if _fading.size() >= CfgLines.FADE_CAP:
 		return
 	_fading.append({
-		"poly": c.bent_poly(s), "body": _kind_color(c.kind, "color"),
-		"core": _kind_color(c.kind, "core"), "t0": now, "seed": float(c.id * 31 + s),
+		"poly": c.bent_poly(s), "body": line_color(c.kind, "color"),
+		"core": line_color(c.kind, "core"), "t0": now, "seed": float(c.id * 31 + s),
 	})
 
 
@@ -2446,7 +2496,7 @@ func assignment_plan(lines: Array[Contract], released: Contract = null) -> Array
 		# (в одиночке и owner_side, и u.side — 0: отбор ничего не меняет)
 		if u.side != owner_side:
 			continue
-		if world.grid.nearest_foe(u.position, LegionCfg.ASSIGN_BUSY_R, true) != null:
+		if _busy(u):
 			continue
 		var d := _nearest_post_d2(u, buckets[u.kind])
 		if d < INF:
@@ -2483,6 +2533,24 @@ func assignment_plan(lines: Array[Contract], released: Contract = null) -> Array
 			a["path"] = recruit_path(u.position, post["pos"])
 		result.append(a)
 	return result
+
+
+## Свободный занят дракой — раздача его не берёт: ближний враг в ASSIGN_BUSY_R либо в его
+## досягаемости (боец его бьёт, _tick_free), либо в зоне дома, пока поднят флаг «обороны дома»
+## (боец идёт на него, D-0930-70). Прежде хватало одного радиуса: он остался от погони свободных
+## (FREE_AGGRO 60), отменённой D-0925-09, и боец в 35–70 px от проходящего врага стоял — не бил и
+## не шёл в строй. Чаще всего у края карты: там ворота, колонны выходят из-за кадра, натиск
+## уносит бойцов к ним же; линия рядом не брала их, пока колонна шла мимо (Игорь 10.10.2026).
+## Только сужение прежнего правила: кто раньше был свободен для раздачи, свободен и теперь.
+func _busy(u: Legionnaire) -> bool:
+	var f := world.grid.nearest_foe(u.position, LegionCfg.ASSIGN_BUSY_R, true)
+	if f == null:
+		return false
+	var reach := float(u.spec["reach"]) + Legionnaire.body_r(f)
+	if u.position.distance_squared_to(f.position) <= reach * reach:
+		return true
+	return world.home_threat(u.side) and f.position.distance_squared_to(
+		world.cauldron_of(u.side)) < LegionCfg.HOME_GUARD_R * LegionCfg.HOME_GUARD_R
 
 
 ## Ключ очереди раздачи: квадрат расстояния до ближайшего места своего вида в радиусе — без

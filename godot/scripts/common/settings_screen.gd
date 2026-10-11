@@ -145,12 +145,8 @@ func _ready() -> void:
 
 	# v17: «Управление: рогатка» — снято — классика (ПКМ только щелчок, без натяжки)
 	var sling_check := CheckBox.new()
-	sling_check.text = "Рывок оттяжкой ПКМ (рогатка)"
-	sling_check.tooltip_text = (
-		"Включено: зажмите правую кнопку на линии с бойцами,\n"
-		+ "оттяните от врага и отпустите — бойцы рванут к нему.\n"
-		+ "Выключено: щелчок правой кнопкой сразу выпускает\n"
-		+ "бойцов по стрелке линии.")
+	sling_check.name = "SlingScheme"
+	_sling_texts(sling_check)
 	sling_check.button_pressed = Settings.control_scheme() == Settings.SCHEME_SLING
 	sling_check.toggled.connect(func(on: bool) -> void: Settings.set_control_scheme(
 		Settings.SCHEME_SLING if on else Settings.SCHEME_CLASSIC))
@@ -158,6 +154,33 @@ func _ready() -> void:
 	sling_check.add_theme_font_size_override("font_size", 18)
 	_style_check(sling_check)
 	content.add_child(sling_check)
+
+	# B-448: режим левши — ЛКМ↔ПКМ в бою; подпись рогатки выше называет кнопку заново
+	var lefty_check := CheckBox.new()
+	lefty_check.name = "LeftHanded"
+	lefty_check.text = "Режим левши (кнопки мыши в бою наоборот)"
+	lefty_check.tooltip_text = (
+		"Чертить договор — правой кнопкой, рогатка и натиск — левой.\n"
+		+ "Кнопки меню и окон остаются на левой.")
+	lefty_check.button_pressed = Settings.is_left_handed()
+	lefty_check.toggled.connect(func(on: bool) -> void:
+		Settings.set_left_handed(on)
+		_sling_texts(sling_check))
+	lefty_check.add_theme_font_override("font", ThemeDB.fallback_font)
+	lefty_check.add_theme_font_size_override("font_size", 18)
+	_style_check(lefty_check)
+	content.add_child(lefty_check)
+
+	# B-448: у колеса одно действие (вид договора по кругу) — переназначать некуда, только направление
+	var wheel_check := CheckBox.new()
+	wheel_check.name = "WheelInvert"
+	wheel_check.text = "Колесо: вид договора в обратную сторону"
+	wheel_check.button_pressed = Settings.is_wheel_inverted()
+	wheel_check.toggled.connect(func(on: bool) -> void: Settings.set_wheel_inverted(on))
+	wheel_check.add_theme_font_override("font", ThemeDB.fallback_font)
+	wheel_check.add_theme_font_size_override("font_size", 18)
+	_style_check(wheel_check)
+	content.add_child(wheel_check)
 	_build_bindings(content)
 
 	# slow/intuit: советы боя — когда жать Ку/Дубль-вэ/Е, «щёлкни золотой», «сорви пружину»
@@ -240,6 +263,16 @@ func _close() -> void:
 			and _focus_before.is_inside_tree():
 		_focus_before.grab_focus()
 	closed.emit()
+
+
+## Подпись рогатки называет её кнопку (B-448): у левши это ЛКМ — пересчёт при каждом переключении.
+static func _sling_texts(check: CheckBox) -> void:
+	check.text = Controls.text("Рывок оттяжкой {mouse:sling} (рогатка)")
+	check.tooltip_text = Controls.text(
+		"Включено: зажмите {mouse:sling} на линии с бойцами,\n"
+		+ "оттяните от врага и отпустите — бойцы рванут к нему.\n"
+		+ "Выключено: щелчок {mouse:sling} сразу выпускает\n"
+		+ "бойцов по стрелке линии.")
 
 
 func _capture_input(event: InputEvent) -> void:

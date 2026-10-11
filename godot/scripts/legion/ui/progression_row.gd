@@ -16,6 +16,8 @@ signal pressed(id: StringName)
 signal activated(id: StringName)
 
 const ROW_H := 56.0
+## Толщина обводки фокуса клавиатуры на рамке строки (выделение — 3).
+const FOCUS_BORDER := 4
 
 var amendment_id: StringName = &""
 var _btn: Button = null
@@ -25,11 +27,17 @@ var _plate_style: StyleBoxFlat = null
 var _accent := Color.WHITE
 var _selected := false
 var _hover := false
+var _focused := false
 
 
 ## Кнопка строки — наружу для тестов и экранов (фокус, disabled, connect).
 func button() -> Button:
 	return _btn
+
+
+## Рамка строки — цель щелчка целиком (вместе с кнопкой-заголовком внутри, B-489).
+func hit_area() -> Control:
+	return _plate
 
 
 func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> ProgressionRow:
@@ -69,7 +77,11 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 	button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	button.add_theme_stylebox_override("hover", StyleBoxEmpty.new())
 	button.add_theme_stylebox_override("pressed", StyleBoxEmpty.new())
-	button.add_theme_stylebox_override("focus", _focus_style(tag_color))
+	# Обводка фокуса — на всей рамке (_restyle), а не на кнопке-заголовке: рамка вокруг одной
+	# верхней полосы подсказывала «кликабелен только верх» (B-489). Фокус и Enter — у кнопки.
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	button.focus_entered.connect(func() -> void: _set_focused(true))
+	button.focus_exited.connect(func() -> void: _set_focused(false))
 	button.focus_mode = Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if interactive \
 		else Control.CURSOR_ARROW
@@ -177,8 +189,16 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 		# ловят — двойной щелчок слушает вся рамка строки.
 		plate.mouse_filter = Control.MOUSE_FILTER_STOP
 		plate.gui_input.connect(on_double)
-		button.mouse_entered.connect(func() -> void: _set_hover(true))
-		button.mouse_exited.connect(func() -> void: _set_hover(false))
+		# B-489: вся рамка — одна цель щелчка. Кнопка покрывает только строку-заголовок, а чипы и
+		# раскрытые детали ниже ловила рамка — и выделения по ним не было. Рамка ведёт себя как
+		# кнопка: фокус и pressed на отпускании внутри, activated — на нажатии двойного (выше).
+		plate.gui_input.connect(func(ev: InputEvent) -> void: _plate_click(ev))
+		# Наведение — по рамке целиком: курсор, ушедший с заголовка в детали той же строки, её не
+		# гасит. Переход кнопка↔рамка шлёт exited/entered в разном порядке, поэтому каждый сигнал
+		# просто сверяет курсор с прямоугольником рамки.
+		for sig: Signal in [plate.mouse_entered, plate.mouse_exited, button.mouse_entered,
+				button.mouse_exited]:
+			sig.connect(_sync_hover)
 	elif interactive:
 		button.pressed.connect(func() -> void: pressed.emit(amendment_id))
 		button.focus_entered.connect(func() -> void: details.visible = true)
@@ -186,6 +206,22 @@ func configure(id: StringName, data: Dictionary, action := "", opts := {}) -> Pr
 		button.focus_exited.connect(func() -> void: details.visible = false)
 		button.mouse_exited.connect(func() -> void: details.visible = false)
 	return self
+
+
+## Щелчок по рамке мимо кнопки-заголовка — то же, что щелчок по кнопке: отпускание ЛКМ внутри
+## рамки даёт фокус строке и pressed. Нажатие двойного здесь не трогаем (его ловит on_double), а
+## отпускание после него тоже шлёт pressed — как кнопка, у которой activated идёт до pressed
+## (PrepPanel гасит этот pressed по _swallow).
+func _plate_click(ev: InputEvent) -> void:
+	var mb := ev as InputEventMouseButton
+	if mb == null or mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT or _btn.disabled:
+		return
+	if not Rect2(Vector2.ZERO, _plate.size).has_point(mb.position):
+		return
+	_plate.accept_event()
+	if _btn.focus_mode != Control.FOCUS_NONE:
+		_btn.grab_focus()
+	pressed.emit(amendment_id)
 
 
 ## Строка деталей (раскрытие под строкой) — видима только у выбранной/наведённой строки.
@@ -205,6 +241,15 @@ func set_selected(on: bool) -> void:
 	_restyle()
 
 
+func _sync_hover() -> void:
+	_set_hover(_plate.get_global_rect().has_point(_plate.get_global_mouse_position()))
+
+
+func _set_focused(on: bool) -> void:
+	_focused = on
+	_restyle()
+
+
 func _set_hover(on: bool) -> void:
 	_hover = on
 	_restyle()
@@ -221,6 +266,10 @@ func _restyle() -> void:
 	elif _hover:
 		st.bg_color = Color(0.11, 0.095, 0.145, 0.97)
 		st.border_color = Color(_accent, 0.8)
+	# Фокус клавиатуры — толще выделения, чтобы был виден и на выделенной строке.
+	if _focused:
+		st.border_color = Color(_accent, 1.0)
+		st.set_border_width_all(FOCUS_BORDER)
 	_plate.add_theme_stylebox_override("panel", st)
 
 

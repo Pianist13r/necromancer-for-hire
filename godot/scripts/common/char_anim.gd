@@ -372,11 +372,13 @@ func set_direction(direction: Vector2) -> void:
 	if not direction.is_finite() or direction.is_zero_approx():
 		return
 	_direction = direction.normalized()
-	if _current_state not in ["idle", "walk"]:
+	# трек оптимизации 10.10: зовётся каждый шаг на каждого идущего — без литерала массива и
+	# копии String(animation) на каждый вызов (сравнение StringName со String — по содержимому)
+	if _current_state != "idle" and _current_state != "walk":
 		return
 	_shown_sector = direction_sector(_direction)
 	var target := _animation_for(_current_state)
-	if target == String(animation):
+	if animation == target:
 		return
 	var phase := cycle_phase()
 	var was_playing := is_playing()
@@ -420,8 +422,9 @@ func death_pose(ground: float, facing: float) -> Transform2D:
 
 ## CharView зеркалит вокруг ступней своей трансформацией; здесь только выбор зеркала.
 func facing_sign() -> float:
-	if String(animation) != _current_state:
-		return -1.0 if _shown_sector in [3, 4, 5] else 1.0
+	# сравнение StringName со String — по содержимому, без копии строки (трек оптимизации 10.10)
+	if animation != _current_state:
+		return -1.0 if _shown_sector >= 3 and _shown_sector <= 5 else 1.0
 	return -1.0 if _direction.x < 0.0 else 1.0
 
 

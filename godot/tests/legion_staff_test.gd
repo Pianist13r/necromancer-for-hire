@@ -294,12 +294,14 @@ func _test_menu() -> void:
 	var m := w.plot_menu
 	var p1: Dictionary = w.staff.plots[0]
 	var pos: Vector2 = p1["pos"]
-	w.souls = 50
+	# B-364: Проходная 50 душ — проверяем на 45: Бытовка (40) доступна, Проходная (50) и
+	# Бухгалтерия (60) серые
+	w.souls = 45
 	_click(pos + Vector2(10, 10))
 	_check(m.is_open() and m.plot == p1, "tap у участка открывает меню")
 	var btns := m.buttons()
 	_check(btns.size() == 3 and not btns[0].disabled and btns[1].disabled and btns[2].disabled,
-		"меню: три вида; на 50 душ Бытовка доступна, Проходная/Бухгалтерия серые")
+		"меню: три вида; на 45 душ Бытовка доступна, Проходная/Бухгалтерия серые")
 	var n0 := w.contracts.contracts.size()
 	var mana0 := w.contracts.mana
 	_click(Vector2(640, 600))
@@ -326,7 +328,7 @@ func _test_menu() -> void:
 	_click(pos)
 	m.buttons()[0].pressed.emit()
 	var b: LegionBuilding = p1["building"]
-	_check(not m.is_open() and b != null and b.kind == LegionCfg.KIND_LABORER and w.souls == 10,
+	_check(not m.is_open() and b != null and b.kind == LegionCfg.KIND_LABORER and w.souls == 5,
 		"кнопка «Бытовка» строит и закрывает меню")
 	w.souls = 200
 	_click(pos)
@@ -347,11 +349,11 @@ func _test_bot_builds() -> void:
 	_fresh(0)
 	var bot := LegionBot.new()
 	bot.setup(w, &"selective", w.map)
-	w.souls = 50
+	w.souls = 40
 	bot._build_step()
 	var top: Dictionary = w.staff.plots[0]
-	_check(top["building"] == null and w.souls == 50, "бот копит на участок с высшим приоритетом")
-	w.souls = 60
+	_check(top["building"] == null and w.souls == 40, "бот копит на участок с высшим приоритетом")
+	w.souls = 50
 	bot._build_step()
 	_check(top["building"] != null and (top["building"] as LegionBuilding).kind == LegionCfg.KIND_GUARD,
 		"бот ставит первый вид из preferred_kinds (Проходная на p1)")

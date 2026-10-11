@@ -22,6 +22,13 @@ const TOAST_MAX := 4
 ## Верх столбика тостов, когда сверху ничего нет: под плашкой статов (5 + 40) с зазором.
 const TOAST_TOP := 56.0
 const TOAST_FONT := 18
+## Холст тостов: над меню участка и плашкой урока (6), под экраном загрузки земли (8).
+const TOAST_LAYER := 7
+## B-010: тост в обход открытого меню участка — зазор до меню и соседей, отступ от краёв кадра,
+## снизу — место панели навыков и карточек видов (их тост не закрывает).
+const TOAST_GAP := 6.0
+const TOAST_EDGE := 8.0
+const TOAST_BOTTOM := 90.0
 
 var world: LegionWorld = null
 var pause_button: Button
@@ -44,6 +51,10 @@ var _stats: Label
 var _plate: LegionTopPlate
 var _threat: LegionThreatEdge
 var _toasts: VBoxContainer
+## B-010: тосты, поставленные мимо открытого меню участка (свободная раскладка), и очередь
+## тостов, которым места не нашлось, — [raw, kind, time]; показываются, когда меню закроется.
+var _toasts_free: Control
+var _toast_queue: Array[Array] = []
 var _pause: Label
 var _result: PanelContainer
 var _result_text: Label
@@ -94,7 +105,20 @@ func setup(w: LegionWorld) -> void:
 	_toasts.offset_right = -LegionCfg.TOAST_SIDE_MARGIN
 	_toasts.add_theme_constant_override("separation", 6)
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_toasts)
+	# B-010: тосты — на своём холсте выше меню участка (PlotMenu, слой 6). Новые тосты встают мимо
+	# открытого меню (_free_spot); холст выше — страховка, если меню всё же легло на висящий
+	# тост (ниже места не было). Мышь тосты не ловят — кнопки меню под ними нажимаются.
+	var toast_layer := CanvasLayer.new()
+	toast_layer.name = "ToastLayer"
+	toast_layer.layer = TOAST_LAYER
+	add_child(toast_layer)
+	toast_layer.add_child(_toasts)
+	_toasts_free = Control.new()
+	_toasts_free.name = "ToastsFree"
+	_toasts_free.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast_layer.add_child(_toasts_free)
+	# холст-ребёнок не наследует видимость HUD: меню мира и режиссёр прячут hud.visible
+	visibility_changed.connect(func() -> void: toast_layer.visible = visible)
 	_build_pause()
 	_build_result()
 	_build_preview()
@@ -212,6 +236,10 @@ func _sync_pvp() -> void:
 	pvp_result = PvpResult.new()
 	add_child(pvp_result)
 	pvp_result.again.connect(func() -> void: world.restart())
+	# B-332: «Ещё раз на новом поле» — как «Ещё раз» (уровень, сторона, режим те же), но сид новый
+	pvp_result.again_new.connect(func() -> void:
+		world.map_id = PvpFieldSelect.random_map_id()
+		world.restart())
 	pvp_result.menu.connect(_pvp_to_menu)
 
 
@@ -269,11 +297,65 @@ func set_toast_floor(y: float) -> void:
 ## Прямоугольники видимых тостов (экранные) — тест обучения проверяет, что они не лезут на плашку.
 func toast_rects() -> Array[Rect2]:
 	var out: Array[Rect2] = []
-	for c in _toasts.get_children():
-		var l := c as Control
-		if l != null and l.visible and not l.is_queued_for_deletion():
-			out.append(l.get_global_rect())
+	for l in _toast_nodes():
+		out.append(l.get_global_rect())
 	return out
+
+
+## Живые тосты столбика и вынесенные из него (B-010: в обход открытого меню участка).
+func _toast_nodes() -> Array[Control]:
+	var out: Array[Control] = []
+	for holder: Control in [_toasts, _toasts_free]:
+		for c in holder.get_children():
+			var l := c as Control
+			if l != null and l.visible and not l.is_queued_for_deletion():
+				out.append(l)
+	return out
+
+
+## Сколько тостов ждут закрытия меню участка (тест).
+func queued_toasts() -> int:
+	return _toast_queue.size()
+
+
+## Прямоугольник открытого меню участка на экране; пустой — меню закрыто.
+func _plot_menu_rect() -> Rect2:
+	if world == null or world.plot_menu == null or not world.plot_menu.is_open():
+		return Rect2()
+	return world.plot_menu.panel_rect()
+
+
+## B-010: пока открыто меню участка, новый тост не ложится на него — встаёт ниже меню, выше,
+## сбоку или в обычный столбик, если тот мимо меню. Места нет — null (тост ждёт закрытия).
+## Порядок: столбик (привычное место) → под меню → над меню → слева → справа.
+func _free_spot(panel: Control, menu: Rect2) -> Variant:
+	var view := Vector2(LegionCfg.WORLD_SIZE)
+	var size := panel.get_combined_minimum_size()
+	var taken: Array[Rect2] = []
+	var column_y := _toasts.offset_top
+	for l in _toast_nodes():
+		if l == panel:
+			continue
+		taken.append(l.get_global_rect())
+		if l.get_parent() == _toasts:
+			column_y = maxf(column_y, l.get_global_rect().end.y + TOAST_GAP)
+	var mid_x := clampf(menu.get_center().x - size.x * 0.5, TOAST_EDGE, view.x - size.x - TOAST_EDGE)
+	var spots: Array[Vector2] = [
+		Vector2(view.x * 0.5 - size.x * 0.5, column_y),
+		Vector2(mid_x, menu.end.y + TOAST_GAP),
+		Vector2(mid_x, menu.position.y - TOAST_GAP - size.y),
+		Vector2(menu.position.x - TOAST_GAP - size.x, column_y),
+		Vector2(menu.end.x + TOAST_GAP, column_y),
+	]
+	for at in spots:
+		var r := Rect2(at, size)
+		if r.position.x < TOAST_EDGE or r.end.x > view.x - TOAST_EDGE \
+				or r.position.y < TOAST_TOP or r.end.y > view.y - TOAST_BOTTOM:
+			continue
+		if r.intersects(menu) or taken.any(func(t: Rect2) -> bool: return t.intersects(r)):
+			continue
+		return at
+	return null
 
 
 ## Тост-бумажка: бланк по ширине текста (длинный — переносится), рамка по виду сообщения —
@@ -302,11 +384,26 @@ func toast(raw: String, kind: StringName, time := -1.0) -> void:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD
 		l.custom_minimum_size.x = LegionCfg.HUD_TOAST_MAX_W
 	panel.add_child(l)
-	_toasts.add_child(panel)
-	while _toasts.get_child_count() > TOAST_MAX:
-		var old := _toasts.get_child(0)
-		_toasts.remove_child(old)
-		old.queue_free()
+	var menu := _plot_menu_rect()
+	if menu.has_area():
+		# B-010: меню участка открыто — тост встаёт мимо него или ждёт закрытия меню
+		_toasts_free.add_child(panel)
+		var size := panel.get_combined_minimum_size()
+		var at: Variant = null
+		if _toasts_free.get_child_count() <= TOAST_MAX:
+			at = _free_spot(panel, menu)
+		if at == null:
+			panel.queue_free()
+			_toast_queue.append([raw, kind, time])
+			return
+		panel.position = at
+		panel.size = size
+	else:
+		_toasts.add_child(panel)
+		while _toasts.get_child_count() > TOAST_MAX:
+			var old := _toasts.get_child(0)
+			_toasts.remove_child(old)
+			old.queue_free()
 	# Tween живёт на самом тосте: если его раньше убрал вытеснитель или очистка мира, таймер
 	# умирает вместе с ним. Лямбда на таймере дерева держала захват освобождённой метки, и
 	# движок писал «Lambda capture was freed». PAUSE_PROCESS — тост гаснет и во время паузы.
@@ -347,14 +444,28 @@ func hide_result() -> void:
 ## (тот же текст, что был на брифинге) под ним давал стопку из двух плашек поверх верхней дороги
 ## (corr 29.09, находка 9): его гасит legion_tutorial.gd, когда встаёт урок начала боя.
 func drop_toasts() -> void:
-	for c in _toasts.get_children():
-		c.queue_free()
+	for holder: Control in [_toasts, _toasts_free]:
+		for c in holder.get_children():
+			c.queue_free()
+	_toast_queue.clear()
+
+
+## B-010: меню участка закрылось — отложенные тосты встают на обычное место; срок жизни тоста
+## отсчитывается с показа (тот же toast()). HUD живёт и на паузе — очередь тоже.
+func _process(_dt: float) -> void:
+	if _toast_queue.is_empty() or _plot_menu_rect().has_area():
+		return
+	var queued := _toast_queue.duplicate()
+	_toast_queue.clear()
+	for q: Array in queued:
+		toast(String(q[0]), StringName(q[1]), float(q[2]))
 
 
 ## Кино-режим записи (см. `cinematic`): включить — тосты и превью волны прочь, выключить — вернуть.
 func set_cinematic(on: bool) -> void:
 	cinematic = on
 	_toasts.visible = not on
+	_toasts_free.visible = not on
 	_preview.visible = not on and not world.pvp
 
 
@@ -417,6 +528,12 @@ func _press_call() -> void:
 ## сама мышь не ловит, — карточке вида или «Вызвать». true — щелчок разобран (не tap площадки).
 ## act=false — только проверить попадание (ничего не нажимать).
 func ui_tap(screen: Vector2, act := true) -> bool:
+	# B-273: щелчок по тосту убирает его (тост мышь не ловит — штрих через него чертится)
+	for t in _toast_nodes():
+		if t.get_global_rect().has_point(screen):
+			if act:
+				t.queue_free()
+			return true
 	if _kind_bar != null and _kind_bar.tap(screen, act):
 		return true
 	if _call != null and _call.is_visible_in_tree() and _call.get_global_rect().has_point(screen):

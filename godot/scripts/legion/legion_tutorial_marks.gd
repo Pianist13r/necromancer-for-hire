@@ -143,7 +143,7 @@ func _draw_rmb(hit: Dictionary, pulse: float, bob: float) -> void:
 	var icon := at + Vector2(0.0, lift + bob)
 	draw_line(icon - Vector2(0.0, signf(lift) * MOUSE_SIZE.y * 0.5),
 		at + Vector2(0.0, signf(lift) * RING_R), Color(COLOR, 0.7), 2.0, true)
-	_draw_mouse(icon, MOUSE_BUTTON_RIGHT, pulse)
+	_draw_mouse(icon, MouseBind.physical(&"sling"), pulse)   # B-448: у левши горит левая
 
 ## Клавиша над целью; у верхнего края — под ней (там плашка и тосты).
 func _key_above(at: Vector2, bob: float) -> Vector2:
@@ -211,7 +211,7 @@ func _draw_runner(at: Vector2) -> void:
 	# мышь едет НАД линией (не на ней — закрыла бы пунктир), от начала к концу
 	draw_line(at, at + Vector2(0.0, -GHOST_MOUSE_LIFT + MOUSE_SIZE.y * 0.5),
 		Color(1.0, 1.0, 1.0, 0.6), 2.0, true)
-	_draw_mouse(at + Vector2(0.0, -GHOST_MOUSE_LIFT), MOUSE_BUTTON_LEFT, 1.0)
+	_draw_mouse(at + Vector2(0.0, -GHOST_MOUSE_LIFT), MouseBind.physical(&"draw"), 1.0)
 
 ## Стрелка: дуга со стрелками на концах вокруг середины договора, по обе стороны от его
 ## стрелки — «её можно вертеть». Саму стрелку отряда рисует ContractField.

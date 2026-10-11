@@ -64,6 +64,7 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		box.get_node("PanelHeading").add_child(stars_label)
 
 	box.add_child(_stats_block(stats))
+	_add_record_line(box, stats.get("record", {}))
 	# Полная ширина сохраняет три строки разбора даже с длинными названиями подходов.
 	# Он не растягивает ни статистику, ни награду до высоты соседней панели.
 	shell["body"].add_child(_debrief_panel(stats.get("debrief", {})))
@@ -108,6 +109,11 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		_add_secondary(nav, again)
 	if show_collect:
 		_add_secondary(nav, _make_button("В коллекцию", func() -> void: collect_pressed.emit()))
+	# в нижней строке кнопок, перед главным действием: подвал над ней отнимал высоту у итога
+	var share := _share_link()
+	nav.add_child(share)
+	if main_button != null:
+		nav.move_child(share, main_button.get_index())
 	ModalFocus.contain.call_deferred(self)
 	if main_button != null:
 		main_button.grab_focus.call_deferred()
@@ -225,6 +231,22 @@ func _stats_block(stats: Dictionary) -> Control:
 		if icon == "hud_cauldron":
 			box.add_child(_health_bar(stats))
 	return box
+
+
+## Личный рекорд карты на этой сложности (LegionRecords.record_run): «Новый личный рекорд!»
+## золотом, иначе «Личный рекорд: HP 180 · 3:07». Рекорда нет (первое поражение, забег) —
+## строки нет.
+func _add_record_line(box: VBoxContainer, record: Dictionary) -> void:
+	var best: Dictionary = record.get("best", {})
+	if best.is_empty():
+		return
+	var is_new := bool(record.get("is_new", false))
+	var text := "Новый личный рекорд! " if is_new else "Личный рекорд: "
+	var line := UiStyle.label(text + LegionRecords.short_text(best), 20,
+		UiStyle.FONT_TITLE if is_new else UiStyle.FONT_TEXT,
+		UiStyle.GOLD if is_new else UiStyle.TEXT_DIM)
+	line.name = "PersonalRecord"
+	box.add_child(line)
 
 
 func _health_bar(stats: Dictionary) -> ProgressBar:
@@ -369,6 +391,26 @@ static func rank_up_text(before: int, after: int) -> String:
 	if not parts.is_empty():
 		out += " — " + "; ".join(parts)
 	return out
+
+
+## B-467: одна тихая строка-ссылка в чат игры. Живёт в ряду навигации (не оверлеем): ничего не
+## перекрывает, высоту у итога не отнимает и не крадёт фокус у главного действия.
+func _share_link() -> Button:
+	var link := Button.new()
+	link.name = "ShareChat"
+	link.text = "Поделиться впечатлением — чат в Telegram"
+	link.flat = true
+	link.focus_mode = Control.FOCUS_ALL
+	link.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	link.tooltip_text = ReleaseInfo.TELEGRAM_CHAT_URL
+	link.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	link.add_theme_font_override("font", UiStyle.FONT_TEXT)
+	link.add_theme_font_size_override("font_size", 16)
+	link.add_theme_color_override("font_color", UiStyle.TEXT_DIM)
+	link.add_theme_color_override("font_hover_color", UiStyle.GOLD)
+	link.add_theme_color_override("font_focus_color", UiStyle.GOLD)
+	link.pressed.connect(func() -> void: ReleaseInfo.open_url(ReleaseInfo.TELEGRAM_CHAT_URL))
+	return link
 
 
 func _make_button(text: String, on_pressed: Callable) -> Button:

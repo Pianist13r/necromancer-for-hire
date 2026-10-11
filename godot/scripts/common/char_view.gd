@@ -439,14 +439,17 @@ func set_direction(direction: Vector2) -> void:
 
 
 func _sync_facing() -> void:
+	# горячо (трек оптимизации 10.10): StringName со String — по содержимому, без копии строки
 	_facing = _legacy_facing
-	if _anim != null and String(_anim.animation) != _anim.current_state():
+	if _anim != null and _anim.animation != _anim.current_state():
 		_facing = _anim.facing_sign()
 	if not _face_set:
 		_face_set = true
 		_face_cur = _facing
 		_apply_pivot()
-	_sprite.flip_h = _legacy_facing < 0.0
+	var flip := _legacy_facing < 0.0
+	if _sprite.flip_h != flip:
+		_sprite.flip_h = flip
 	_refresh_clip_layout()
 
 

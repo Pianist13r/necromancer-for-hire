@@ -23,6 +23,10 @@ const SEC_VIDEO := "video"
 const SEC_CONTROLS := "controls"
 const SCHEME_SLING := "sling"
 const SCHEME_CLASSIC := "classic"
+## B-448: режим левши (ЛКМ↔ПКМ в бою) и инверсия колеса (вид договора по кругу в обратную
+## сторону). По умолчанию выключены — для текущих игроков ничего не меняется. Раздел — controls.
+const KEY_LEFTY := "left_handed"
+const KEY_WHEEL_INVERT := "wheel_invert"
 
 ## v20 (26.09.2026, B-053/B-054): «Графика: полная/экономная». Экономная выключает слой
 ## эффектов LegionFx с фоновой жизнью карт, тени CharShadows и процедурную «живость» CharView
@@ -38,6 +42,11 @@ const KEY_DIFFICULTY := "difficulty"
 ## Подсказки боя (slow/intuit): когда жать Ку/Дубль-вэ/Е, «щёлкни золотой», «сорви пружину».
 ## По умолчанию включены. Золото, метка пружины и оглушённых — не советы, видны всегда.
 const KEY_HINTS := "hints"
+## «Схватка» с ботом (B-331): уровень бота (ключ LegionCfg.PVP_BOT_LEVELS) и сторона человека
+## (0 — левая половина, 1 — правая). Предпочтение игрока, как сложность, — здесь, не в legion.cfg.
+const SEC_PVP := "pvp"
+const KEY_PVP_BOT := "bot_level"
+const KEY_PVP_SIDE := "side"
 
 static var _cfg: ConfigFile = null
 ## Файл настроек. Тест переключателя сложности ставит свой (в user://settings.cfg владельца
@@ -53,6 +62,12 @@ static var scheme_override := ""
 static var economy_override := ""
 ## Подсказки только в памяти: "" — как в файле, "on"/"off" — перекрывает (тесты, агентный прогон).
 static var hints_override := ""
+## Мышь только в памяти (B-448): "" — как в файле, "on"/"off" — перекрывает (тесты, агентный
+## прогон с настоящим файлом — см. set_left_handed).
+static var lefty_override := ""
+static var wheel_invert_override := ""
+## «Схватка» с ботом в памяти агентного прогона (как difficulty_override): {"bot_level", "side"}.
+static var pvp_override := {}
 
 
 static func is_screen_shake_enabled() -> bool:
@@ -182,6 +197,37 @@ static func set_control_scheme(s: String) -> void:
 	set_value(SEC_CONTROLS, "scheme", SCHEME_CLASSIC if s == SCHEME_CLASSIC else SCHEME_SLING)
 
 
+## Режим левши (B-448): в бою физическая ПКМ — перо, ЛКМ — рогатка/натиск (MouseBind).
+static func is_left_handed() -> bool:
+	if lefty_override != "":
+		return lefty_override == "on"
+	return bool(get_value(SEC_CONTROLS, KEY_LEFTY, false))
+
+
+## Галочка «Режим левши». Агентный прогон с настоящим файлом — только в память (как set_hints).
+## Тексты с «ЛКМ»/«ПКМ» и токенами {mouse:…} пересчитываются через Controls.revision.
+static func set_left_handed(on: bool) -> void:
+	if is_agent_run() and path == PATH:
+		lefty_override = "on" if on else "off"
+	else:
+		set_value(SEC_CONTROLS, KEY_LEFTY, on)
+	Controls.revision += 1
+
+
+## Инверсия колеса (B-448): прокрутка вверх/вниз листает вид договора в обратную сторону.
+static func is_wheel_inverted() -> bool:
+	if wheel_invert_override != "":
+		return wheel_invert_override == "on"
+	return bool(get_value(SEC_CONTROLS, KEY_WHEEL_INVERT, false))
+
+
+static func set_wheel_inverted(on: bool) -> void:
+	if is_agent_run() and path == PATH:
+		wheel_invert_override = "on" if on else "off"
+		return
+	set_value(SEC_CONTROLS, KEY_WHEEL_INVERT, on)
+
+
 ## «Экономная» графика (по умолчанию — «полная», false).
 static func is_economy_graphics() -> bool:
 	if economy_override != "":
@@ -238,6 +284,48 @@ static func set_hints(on: bool) -> void:
 		hints_override = "on" if on else "off"
 		return
 	set_value(SEC_GAME, KEY_HINTS, on)
+
+
+## Уровень бота «Схватки». Агентный прогон с настоящим файлом выбор владельца не наследует (как
+## difficulty): серии и тесты играют с ботом по умолчанию, пока сами не выберут.
+static func pvp_bot_level() -> String:
+	if pvp_override.has(KEY_PVP_BOT):
+		return _pvp_level(String(pvp_override[KEY_PVP_BOT]))
+	if is_agent_run() and path == PATH:
+		return LegionCfg.PVP_BOT_LEVEL_DEFAULT
+	return _pvp_level(String(get_value(SEC_PVP, KEY_PVP_BOT,
+		LegionCfg.PVP_BOT_LEVEL_DEFAULT)))
+
+
+## Выбор на экране «Схватки». Агентный прогон с настоящим файлом — только в память.
+static func set_pvp_bot_level(id: String) -> void:
+	var v := _pvp_level(id)
+	if is_agent_run() and path == PATH:
+		pvp_override[KEY_PVP_BOT] = v
+		return
+	set_value(SEC_PVP, KEY_PVP_BOT, v)
+
+
+## Ключ уровня из LegionCfg (PvpBot.valid_level без зависимости настроек от класса бота).
+static func _pvp_level(id: String) -> String:
+	return id if LegionCfg.PVP_BOT_LEVELS.has(id) else LegionCfg.PVP_BOT_LEVEL_DEFAULT
+
+
+## Сторона человека в «Схватке» с ботом: 0 — левая половина, 1 — правая.
+static func pvp_side() -> int:
+	if pvp_override.has(KEY_PVP_SIDE):
+		return int(pvp_override[KEY_PVP_SIDE])
+	if is_agent_run() and path == PATH:
+		return 0
+	return clampi(int(get_value(SEC_PVP, KEY_PVP_SIDE, 0)), 0, 1)
+
+
+static func set_pvp_side(side: int) -> void:
+	var v := clampi(side, 0, 1)
+	if is_agent_run() and path == PATH:
+		pvp_override[KEY_PVP_SIDE] = v
+		return
+	set_value(SEC_PVP, KEY_PVP_SIDE, v)
 
 
 ## Применить сохранённое при старте (LegionMain._ready). Записанные ключи + полный экран по

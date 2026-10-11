@@ -400,7 +400,8 @@ func _scan_door() -> void:
 		for f in _foes:
 			if f.type_id == "signer" and not f.ghost \
 					and f.position.distance_to(b.entry) <= IntuitCfg.DOOR_SIGNER_R:
-				_offer(&"door", -1, b.position, IntuitCfg.HINT_DOOR)
+				# B-273: плашкой HUD, а не подписью над постройкой — та лежала на поле боя у Котла
+				_offer(&"door", -1, Vector2.INF, IntuitCfg.HINT_DOOR)
 				return
 
 
@@ -577,6 +578,7 @@ func _unit_near(p: Vector2) -> bool:
 
 
 ## Совет типа type — подпись на поле, если советы включены и тип молчал HINT_CD секунд боя.
+## at = Vector2.INF — не подпись у места, а плашка в полосе тостов HUD.
 func _offer(type: StringName, slot: int, at: Vector2, text: String) -> void:
 	if not Settings.hints_enabled() or muted(type):
 		return   # плашка урока говорит сама — совет молчит и не тратит лимит (см. muted)
@@ -584,6 +586,12 @@ func _offer(type: StringName, slot: int, at: Vector2, text: String) -> void:
 		return   # уже умеет или трижды сказали — дальше не надоедаем
 	var t := world.now
 	if _last.has(type) and t - float(_last[type]) < IntuitCfg.HINT_CD:
+		return
+	if at == Vector2.INF:
+		# совет без места на поле (B-273) — плашкой HUD: место в полосе тостов, гаснет по времени
+		_last[type] = t
+		_shown[type] = hints_shown(type) + 1
+		world.toast(text, &"warn")
 		return
 	if _labels.size() >= IntuitCfg.HINT_MAX:
 		return   # один совет на поле; тип не «сгорает» — предложится на следующем скане

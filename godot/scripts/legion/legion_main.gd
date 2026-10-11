@@ -371,6 +371,7 @@ func show_hero(on_back: Callable) -> void:
 
 func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 	if PvpFlow.swallows_match_end(self):   # итог «Схватки» — экран PvpResult, не кампании
+		PvpFlow.record_result(self, victory, stats)
 		return
 	# D-0927-162: переигровка из коллекции — своя ветка, тоже раньше кампании/забега (флаг ставит
 	# только LegionCollectionFlow.start_battle(), кампания/забег его не видят).
@@ -390,6 +391,9 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 	var ratio := clampf(float(stats.get("hp", 0.0)) / max_hp, 0.0, 1.0)
 	Campaign.begin_update()
 	var stars := Campaign.record_result(map_id, victory, ratio)
+	# Личный рекорд — в той же транзакции, что звёзды и награда (B-442).
+	var record := LegionRecords.record_run(LegionRecords.MODE_CAMPAIGN, map_id, victory, stats,
+		stars)
 	# meta (задание meta п.1, п.3): kills_rewardable — статистика боя пакета staff (штрафует
 	# убийства свиты Прораба, которая душ/опыта/премии не даёт, DESIGN_V15 §12 п.4); нет ключа —
 	# берём обычный kills, как велит задание, пока staff его не добавил.
@@ -419,6 +423,7 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 		"releases_manual": int(stats.get("releases_manual", 0)),
 		"debrief": stats.get("debrief", {}),
 		"time": float(stats.get("t", 0.0)),
+		"record": record,
 	}
 	# Победа на последней карте кампании (следующей нет) — отдельный текст итога (ревью, п.7),
 	# а не общий «Договор исполнен»; кнопка «Дальше» всё равно скрыта (has_next = false).

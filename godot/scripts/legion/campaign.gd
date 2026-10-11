@@ -321,6 +321,15 @@ static func map(id: String) -> Dictionary:
 	return (_maps_by_id.get(id, {}) as Dictionary).duplicate(true)
 
 
+## Название карты, которая открывает ключ stat() key (поле `unlocks` её JSON), или "" — такой
+## карты нет (B-490: подпись «фигура откроется на карте …»).
+static func unlock_map_title(key: String) -> String:
+	for m in _catalog():
+		if (m.get("unlocks", []) as Array).has(key):
+			return String(m.get("title", ""))
+	return ""
+
+
 ## Явная перезагрузка нужна редактору/тестам; сохранение прогресса каталог не инвалидирует.
 static func clear_map_cache() -> void:
 	_maps_cache = []

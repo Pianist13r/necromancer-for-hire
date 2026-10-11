@@ -9,12 +9,25 @@ extends Control
 ## Экран без ссылок на LegionMain: сессия (NetSession) живёт у PvpFlow и переживает экран, матч
 ## запускает PvpFlow по сигналу сессии match_start.
 ##
+## Без тупиков (slow/lobby-ux): строка состояния — словами этого экрана по стадии сессии
+## («Подключаемся…», «Открытых комнат нет», «Ждём соперника · 0:37»), отказ — красным до
+## следующего действия игрока. Сервер недоступен или соперника нет дольше
+## LegionCfg.LOBBY_BOT_OFFER_S — кнопка «Никого нет — сыграть с ботом» (сама матч не начинает).
+##
 
 signal back
+## «Никого нет — сыграть с ботом»: поле своей комнаты («pvp:duel» / «gen:…») или «Дуэль».
+## Свою комнату лобби уже закрыло (cancel_room); соединение закрывает PvpFlow.
+signal play_bot(map: String)
 
 const CARD_W := 640.0
 const CFG := "user://net.cfg"
 const MAP_TITLES := {"pvp:duel": "Дуэль", "gen:": "Случайное поле"}
+const BOT_TEXT := "Никого нет — сыграть с ботом"
+const SERVER_DOWN := "Сервер недоступен — проверьте адрес или играйте с ботом"
+## Отказы, которые присылает сам сервер: их слова точнее, чем «сервер недоступен».
+const SERVER_CODES: Array[String] = ["proto", "full", "rate_limit", "idle_timeout", "build",
+	"busy", "no_room"]
 
 var session: NetSession
 
@@ -35,6 +48,21 @@ var _address_pending := false
 var _address_at_request := ""
 var _url_revision := 0
 var _revision_at_request := 0
+var _bot_btn: Button
+## Отказ (красным) — держится до следующего действия игрока или нового слова сессии.
+var _note := ""
+var _note_shown := false
+## Последнее слово сессии (загрузка матча и т. п.) — для стадий, которые экран сам не называет.
+var _session_text := ""
+## Подключение доходило до лобби: обрыв после этого — «связь потеряна», а не «сервер недоступен».
+var _reached_lobby := false
+var _had_failure := false
+## По последнему списку: чужих открытых комнат и поле своей ожидающей ("" — своей нет).
+var _foreign_rooms := 0
+var _my_room_map := ""
+## Секунд в лобби без чужих комнат (порог предложения бота) и в ожидании в своей комнате.
+var _alone_t := 0.0
+var _wait_t := 0.0
 
 
 func setup(s: NetSession) -> NetLobby:
@@ -93,9 +121,16 @@ func _ready() -> void:
 	_connect_btn.pressed.connect(_on_connect)
 	box.add_child(_connect_btn)
 	_status = UiStyle.label("", 18, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+	_status.name = "LobbyStatus"
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_status)
+	_bot_btn = _btn(BOT_TEXT, 400.0)
+	_bot_btn.name = "LobbyBot"
+	_bot_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_bot_btn.visible = false
+	_bot_btn.pressed.connect(_on_bot)
+	box.add_child(_bot_btn)
 	_online = UiStyle.label("", 16, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
 	_online.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_online.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -109,7 +144,9 @@ func _ready() -> void:
 	box.add_child(_create_row)
 	for map: String in ["pvp:duel", "gen:"]:
 		var b := _btn("Открыть: %s" % MAP_TITLES[map], 280.0)
-		b.pressed.connect(func() -> void: session.create_room(map))
+		b.pressed.connect(func() -> void:
+			_note = ""
+			session.create_room(map))
 		_create_row.add_child(b)
 	_code_row = HBoxContainer.new()
 	_code_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -121,21 +158,27 @@ func _ready() -> void:
 	_code_edit.max_length = 8
 	_code_row.add_child(_code_edit)
 	var join := _btn("Войти", 120.0)
-	join.pressed.connect(func() -> void: session.join_room(_code_edit.text))
+	join.pressed.connect(func() -> void:
+		_note = ""
+		session.join_room(_code_edit.text))
 	_code_row.add_child(join)
 	LegionUi.nav_bar(self, "← Назад", func() -> void: back.emit())
+	# status раньше не был подключён вовсе: «Подключение…» и код своей комнаты не показывались
+	session.status.connect(_on_status)
 	session.failed.connect(_on_failed)
 	session.lobby.connect(_on_lobby)
+	_reached_lobby = session.is_online() or session.last_error != ""   # из матча — уже были в лобби
 	_refresh_mode()
+	# в лобби строку состояния соберёт _process по стадии сессии
 	if session.last_error != "":
 		_on_failed(session.last_error)
 		session.last_error = ""
-	elif session.is_online():
-		_status.text = "Вы в лобби как «%s»" % session.my_name
-	elif _name_edit.text == "":
-		_name_edit.grab_focus.call_deferred()
-	else:
-		_connect_btn.grab_focus.call_deferred()
+	elif not session.is_online():
+		if _name_edit.text == "":
+			_name_edit.grab_focus.call_deferred()
+		else:
+			_connect_btn.grab_focus.call_deferred()
+	_process(0.0)
 
 
 func _exit_tree() -> void:
@@ -166,8 +209,15 @@ func _on_connect() -> void:
 	cfg.set_value("net", "name", _name_edit.text.strip_edges())
 	cfg.set_value("net", "url", _url_edit.text.strip_edges())
 	cfg.save(CFG)
+	# новое подключение — с чистого листа (отказ сессии может прийти прямо из connect_lobby)
+	_note = ""
+	_had_failure = false
+	_reached_lobby = false
+	_foreign_rooms = 0
+	_my_room_map = ""
 	session.connect_lobby(_url_edit.text, _name_edit.text)
 	_refresh_mode()
+	_process(0.0)
 
 
 func _on_update_address() -> void:
@@ -235,15 +285,63 @@ func _on_direct(on: bool) -> void:
 func _on_status(text: String) -> void:
 	if session.stage != NetSession.Stage.IDLE:
 		_cancel_address_update()
-	_status.text = text
-	_status.add_theme_color_override("font_color", UiStyle.TEXT_DIM)
+	_session_text = text
+	_note = ""
 	_refresh_mode()
 
 
+## Отказ: транспортный до входа в лобби — «сервер недоступен» с выходом на бота; отказ самого
+## сервера (версия, занят, нет комнаты) и обрыв уже из лобби — словами сессии.
 func _on_failed(text: String) -> void:
-	_status.text = text
-	_status.add_theme_color_override("font_color", UiStyle.BAD)
+	_had_failure = true
+	_note = SERVER_DOWN if not _reached_lobby and not _server_text(text) else text
 	_refresh_mode()
+	_process(0.0)
+
+
+static func _server_text(text: String) -> bool:
+	for code in SERVER_CODES:
+		if text == NetSession._error_text(code):
+			return true
+	return text.begins_with(NetSession._error_text("").get_slice(":", 0))
+
+
+## Каждый кадр: часы ожидания, порог предложения бота и строка состояния.
+func _process(delta: float) -> void:
+	var in_lobby := session.is_online() and session.stage == NetSession.Stage.LOBBY
+	_reached_lobby = _reached_lobby or in_lobby
+	_alone_t = _alone_t + delta if in_lobby and _foreign_rooms == 0 else 0.0
+	_wait_t = _wait_t + delta if in_lobby and _my_room_map != "" else 0.0
+	var dead := _had_failure and not session.is_online() and session.stage == NetSession.Stage.IDLE
+	_bot_btn.visible = dead or (in_lobby and _alone_t >= LegionCfg.LOBBY_BOT_OFFER_S)
+	var bad := _note != ""
+	_status.text = _note if bad else _live_status()
+	if bad != _note_shown:
+		_note_shown = bad
+		_status.add_theme_color_override("font_color", UiStyle.BAD if bad else UiStyle.TEXT_DIM)
+
+
+func _live_status() -> String:
+	match session.stage:
+		NetSession.Stage.IDLE:
+			return ""
+		NetSession.Stage.CONNECTING:
+			return "Подключаемся…"
+		NetSession.Stage.LOBBY:
+			if _my_room_map != "":
+				return "Ждём соперника · %d:%02d" % [floori(_wait_t / 60.0), int(_wait_t) % 60]
+			if _foreign_rooms == 0:
+				return "Открытых комнат нет"
+			return "Вы в лобби как «%s»" % session.my_name
+	return _session_text   # загрузка матча — словами сессии («Соперник — …, загрузка…»)
+
+
+## «Никого нет — сыграть с ботом»: свою комнату закрываем как «Закрыть», поле — её же.
+func _on_bot() -> void:
+	var map := _my_room_map if _my_room_map != "" else PvpMaps.DUEL
+	if _my_room_map != "" and session.is_online():
+		session.cancel_room()
+	play_bot.emit(map)
 
 
 func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
@@ -255,6 +353,8 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 	for c in _rooms_box.get_children():
 		c.queue_free()
 	var waiting_mine := false
+	_foreign_rooms = 0
+	_my_room_map = ""
 	for r: Variant in rooms:
 		if not (r is Dictionary):
 			continue
@@ -264,18 +364,20 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 			else map)
 		if bool(room.get("mine", false)):
 			waiting_mine = true
-			var row := _room_row("Ваша комната · %s — ждём соперника" % map_title, "Закрыть")
-			(row.get_child(1) as Button).pressed.connect(session.cancel_room)
+			_my_room_map = map if map != "" else PvpMaps.DUEL
+			# код — чтобы позвать знакомого («Код комнаты» у него); время ожидания — в строке состояния
+			var my_code := String(room.get("code", session.room_code))
+			var row := _room_row("Ваша комната %s · %s" % [my_code, map_title], "Закрыть")
+			(row.get_child(1) as Button).pressed.connect(func() -> void:
+				_note = ""
+				session.cancel_room())
 			continue
+		_foreign_rooms += 1
 		var host := String(room.get("host", "?"))
 		var code := String(room.get("code", ""))
 		var row2 := _room_row("«%s» · %s" % [host, map_title], "Играть")
 		(row2.get_child(1) as Button).pressed.connect(func() -> void: session.join_room(code))
-	if rooms.is_empty():
-		var empty := UiStyle.label("Открытых комнат нет — откройте свою", 16, UiStyle.FONT_TEXT,
-			UiStyle.TEXT_DIM)
-		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_rooms_box.add_child(empty)
+	# пустой список называет строка состояния («Открытых комнат нет»)
 	_create_row.visible = session.is_online() and not waiting_mine
 
 

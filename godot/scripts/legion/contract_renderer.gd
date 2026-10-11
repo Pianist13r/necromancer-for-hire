@@ -67,11 +67,11 @@ func _draw() -> void:
 	field._sync_vis(eco)
 	field.drawn_lines = 0
 	if field._drawing and field._draft.size() >= 2 and field.match_refresh(field._draft).is_empty():
-		_draw_recruit_preview(field._kind_color(field.current_kind, "color"))
+		_draw_recruit_preview(field.line_color(field.current_kind, "color"))
 	var ink := _ink_look()
 	for c in field.contracts:
-		var body := _inked(field._kind_color(c.kind, "color"), ink)
-		var core := field._kind_color(c.kind, "core")
+		var body := _inked(field.line_color(c.kind, "color"), ink)
+		var core := field.line_color(c.kind, "core")
 		for p in c.posts:
 			if not p["dead"] and p["unit"] == null:
 				field.draw_circle(p["pos"], 1.8, Color(core, 0.35))
@@ -109,8 +109,8 @@ func _draw_overlay() -> void:
 	var ink := _ink_look()
 	var gild := _gild_look()
 	for c in field.contracts:
-		var body := _inked(field._kind_color(c.kind, "color"), ink)
-		var core := field._kind_color(c.kind, "core")
+		var body := _inked(field.line_color(c.kind, "color"), ink)
+		var core := field.line_color(c.kind, "core")
 		# 1) контур руны: прогонами одного возраста (обычно весь договор одной ломаной),
 		# прогнутый давкой участок — отдельно
 		var r := 0
@@ -341,7 +341,7 @@ func _draw_sling() -> void:
 	# тетива: концы участка → точка, оттянутая назад до упора (не на долю оттяжки — сила полная)
 	var poly := c.seg_polys[seg]
 	var bend := center - dir * LegionCfg.SLING_BOW_BEND
-	var body := field._kind_color(c.kind, "color")
+	var body := field.line_color(c.kind, "color")
 	var string_pts := PackedVector2Array([poly[0], bend, poly[poly.size() - 1]])
 	field.overlay.draw_polyline(string_pts, Color(0, 0, 0, 0.55), 6.0, true)
 	field.overlay.draw_polyline(string_pts, Color(body, 0.95), 3.0, true)
@@ -398,7 +398,7 @@ func _draw_pick_halo() -> void:
 		return
 	var c: Contract = h["contract"]
 	var seg := int(h["seg"])
-	var col := field._kind_color(c.kind, "core").lerp(Color.WHITE, LegionCfg.PICK_HALO_WHITE)
+	var col := field.line_color(c.kind, "core").lerp(Color.WHITE, LegionCfg.PICK_HALO_WHITE)
 	# Фигура выбирается ЦЕЛИКОМ (D-1002 §5): подсвечивается весь её контур, а не участок под
 	# курсором, — игрок видит, что рогатка возьмёт именно эту группу, а соседняя не уйдёт.
 	var shaped := c.shaped()
@@ -675,7 +675,7 @@ func _draw_preview_caption() -> void:
 ## подпись «Оцепление» у курсора — ДО отпускания видно, что выйдет кольцо, а не линия.
 func _draw_ring_draft() -> void:
 	var body := field.RING_COLOR
-	_draw_glow(field.overlay, field._draft, field._kind_color(field.current_kind, "color"), body, 0.95)
+	_draw_glow(field.overlay, field._draft, field.line_color(field.current_kind, "color"), body, 0.95)
 	var first := field._draft[0]
 	var last := field._draft[field._draft.size() - 1]
 	field.overlay.draw_dashed_line(last, first, Color(body, 0.9), 2.5, 6.0, true)
@@ -806,7 +806,7 @@ func _draw_figures() -> void:
 	for c in field.contracts:
 		if c.figure == &"" or not c.alive():
 			continue
-		var col := field.fig_color(c.figure)
+		var col := field.fig_line_color(c.figure)
 		var pulse := Juice.flash_alpha(0.5 + 0.5 * sin(field.now * 5.0))
 		# контур фигуры поверх строя: плотный строй закрывает линию под ногами целиком (кадр 26.09)
 		var outline := c.points
@@ -854,8 +854,8 @@ func _draw_charge_ring(at: Vector2, frac: float, col: Color, charged: bool, puls
 ## Черновик-фигура: штрих цвета фигуры, пунктир замыкания, стрелки мест (восьмёрка — к центру
 ## чужой петли, треугольник — к центру, квадрат — наружу) и подпись у курсора с именем и сутью.
 func _draw_fig_draft() -> void:
-	var col := field.fig_color(field._draft_fig)
-	_draw_glow(field.overlay, field._draft, field._kind_color(field.current_kind, "color"), col, 0.95)
+	var col := field.fig_line_color(field._draft_fig)
+	_draw_glow(field.overlay, field._draft, field.line_color(field.current_kind, "color"), col, 0.95)
 	var first := field._draft[0]
 	var last := field._draft[field._draft.size() - 1]
 	field.overlay.draw_dashed_line(last, first, Color(col, 0.9), 2.5, 6.0, true)

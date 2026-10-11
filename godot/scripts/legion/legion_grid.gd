@@ -28,6 +28,11 @@ var _u_head := PackedInt32Array()
 var _u_next := PackedInt32Array()
 var _f_head := PackedInt32Array()
 var _f_next := PackedInt32Array()
+## press_scan: кандидаты-куски одного врага (квадрат расстояния до рамки, кусок, участок) —
+## общие на весь скан, чтобы не аллоцировать на каждого врага.
+var _cand_d := PackedFloat64Array()
+var _cand_c := PackedInt32Array()
+var _cand_s := PackedInt32Array()
 
 
 func setup(w: LegionWorld) -> LegionGrid:
@@ -224,6 +229,15 @@ func count_foes_near(p: Vector2, r: float) -> int:
 ## участку, если его центр ближе band к линии участка (иначе враг у стыка давил бы оба и короткий
 ## хвост линии прорывался от троих). Пишет c.press_mass[s] и c.press_sum[s] (Σ позиция × масса).
 ## Вставший нотариус (holding) стоит поодаль и не давит.
+##
+## Трек оптимизации 10.10 (B-036): результат побайтно прежний (tests/legion_press_scan_test.gd —
+## сверка с дословной копией старого скана). Прежде точное расстояние считалось до КАЖДОГО
+## отрезка ломаной всех участков, чья раздутая рамка накрывает врага (~40 вызовов Geometry2D на
+## врага у линии). Теперь кандидаты — куски участков (Contract.ensure_press_chunks): берутся
+## от ближней рамки к дальней, и кусок, чья рамка дальше уже найденного лучшего, отсекается
+## вместе со всеми следующими. Порядок обхода другой, поэтому ничья решается явно: как в
+## прежнем «d2 <= best» по возрастанию (s, k), выигрывает больший (s, k) — итог тот же.
+## Порядок врагов (и сложения масс во float32) не тронут.
 func press_scan(c: Contract, band: float) -> void:
 	var n_seg := c.seg_count()
 	c.press_mass.resize(n_seg)
@@ -232,11 +246,19 @@ func press_scan(c: Contract, band: float) -> void:
 	c.press_sum.fill(Vector2.ZERO)
 	if c.points.is_empty():
 		return
-	var box := Rect2(c.points[0], Vector2.ZERO)
-	for p in c.points:
-		box = box.expand(p)
-	box = box.grow(band)
+	c.ensure_press_chunks()
+	var box := c.press_box.grow(band)
 	var band2 := band * band
+	var slack := LegionCfg.PRESS_CHUNK_SLACK
+	var seg_box := c.seg_press_box
+	var polys := c.seg_polys
+	var cbox := c.press_chunk_box
+	var ck := c.press_chunk_k
+	var c0 := c.press_seg_chunk
+	if _cand_d.size() < c0[n_seg]:
+		_cand_d.resize(c0[n_seg])
+		_cand_c.resize(c0[n_seg])
+		_cand_s.resize(c0[n_seg])
 	for gy in range(_gy(box.position.y), _gy(box.end.y) + 1):
 		for gx in range(_gx(box.position.x), _gx(box.end.x) + 1):
 			var i := _f_head[gy * _gw + gx]
@@ -247,21 +269,52 @@ func press_scan(c: Contract, band: float) -> void:
 				if not f.is_active() or f.ghost or f.holding or f.stun_t > 0.0 \
 						or not box.has_point(f.position):
 					continue
-				var best := band2
-				var best_s := -1
-				var best_q := Vector2.ZERO
+				var pos := f.position
+				var px := pos.x
+				var py := pos.y
+				# кандидаты: куски живых участков, чья рамка не дальше полосы давки
+				var n_c := 0
 				for s in n_seg:
 					# рамка участка — отсев до точной дистанции (замер verifier 26.09: без него
 					# давка при 300 врагах — 6,7 мс из 11 мс шага мира)
-					if not c.seg_alive(s) or not c.seg_press_box[s].has_point(f.position):
+					if not c.seg_alive(s) or not seg_box[s].has_point(pos):
 						continue
-					var poly := c.seg_polys[s]
-					for k in range(1, poly.size()):
-						var q := Geometry2D.get_closest_point_to_segment(f.position, poly[k - 1], poly[k])
-						var d2 := q.distance_squared_to(f.position)
-						if d2 <= best:
+					for ch in range(c0[s], c0[s + 1]):
+						var b := ch * 4
+						var dx := maxf(maxf(cbox[b] - px, px - cbox[b + 2]), 0.0)
+						var dy := maxf(maxf(cbox[b + 1] - py, py - cbox[b + 3]), 0.0)
+						var bd := dx * dx + dy * dy
+						if bd > band2 * slack:
+							continue
+						_cand_d[n_c] = bd
+						_cand_c[n_c] = ch
+						_cand_s[n_c] = s
+						n_c += 1
+				var best := band2
+				var best_s := -1
+				var best_k := -1
+				var best_q := Vector2.ZERO
+				while n_c > 0:
+					var j := 0
+					for t in range(1, n_c):
+						if _cand_d[t] < _cand_d[j]:
+							j = t
+					if _cand_d[j] > best * slack:
+						break   # ближайшая из оставшихся рамок дальше лучшего — и все прочие
+					var ch := _cand_c[j]
+					var s := _cand_s[j]
+					n_c -= 1
+					_cand_d[j] = _cand_d[n_c]
+					_cand_c[j] = _cand_c[n_c]
+					_cand_s[j] = _cand_s[n_c]
+					var poly := polys[s]
+					for k in range(ck[ch * 2], ck[ch * 2 + 1]):
+						var q := Geometry2D.get_closest_point_to_segment(pos, poly[k - 1], poly[k])
+						var d2 := q.distance_squared_to(pos)
+						if d2 < best or (d2 == best and (s > best_s or (s == best_s and k > best_k))):
 							best = d2
 							best_s = s
+							best_k = k
 							best_q = q
 				if best_s < 0:
 					continue

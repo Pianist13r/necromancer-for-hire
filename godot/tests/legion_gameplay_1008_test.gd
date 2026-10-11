@@ -1,5 +1,7 @@
 extends SceneTree
 ## B-344: дальний резерв идёт в нарисованный игроком строй без транспортных линий.
+## D-1011-AM1: «дальний» — дальше ближнего набора RECRUIT_R, но в пределе автомарша AUTOMARCH_R
+## (500): линии стоят на x = 560, в 400 px от резерва у Котла (прежде x = 800 — 640 px).
 
 const SAVE := "user://legion_gameplay_1008_test.cfg"
 var w: LegionWorld
@@ -33,15 +35,15 @@ func _run() -> void:
 	w.contracts.human_input = true
 	w.contracts.mana = 1000.0
 	# Настоящий жест: ЛКМ, протяжка, отпускание. Поле, не тест, создаёт договор.
-	button(Vector2(800, 260), true)
+	button(Vector2(560, 260), true)
 	for y in range(280, 401, 20):
 		var ev := InputEventMouseMotion.new()
-		ev.position = root.get_final_transform() * Vector2(800, y)
+		ev.position = root.get_final_transform() * Vector2(560, y)
 		ev.global_position = ev.position
 		ev.button_mask = MOUSE_BUTTON_MASK_LEFT
 		Input.parse_input_event(ev)
 		Input.flush_buffered_events()
-	button(Vector2(800, 400), false)
+	button(Vector2(560, 400), false)
 	check(w.contracts.contracts.size() == 1, "живой ввод создал линию")
 	if w.contracts.contracts.is_empty():
 		finish()
@@ -140,7 +142,7 @@ func test_bot() -> void:
 	w.contracts.mana = 1000
 	var bot := LegionBot.new()
 	bot.setup(w, LegionBot.SELECTIVE, {})
-	var points := PackedVector2Array([Vector2(800, 260), Vector2(800, 340)])
+	var points := PackedVector2Array([Vector2(560, 260), Vector2(560, 340)])
 	var preview := Contract.new().build(points, 1, w.terrain.walkable, LegionCfg.KIND_LABORER)
 	for i in 5:
 		w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(160, 300 + i * 10))
@@ -174,14 +176,14 @@ func test_rear() -> void:
 	w.contracts.mana = 1000
 	var bot := LegionBot.new()
 	bot.setup(w, LegionBot.SELECTIVE, {})
-	var points := PackedVector2Array([Vector2(800, 260), Vector2(800, 340)])
+	var points := PackedVector2Array([Vector2(560, 260), Vector2(560, 340)])
 	var template := Contract.new().build(points, 1, w.terrain.walkable, LegionCfg.KIND_LABORER)
 	var rear := {"role": "rear", "kind": LegionCfg.KIND_LABORER, "pts": points,
 		"template": template, "side": 1, "contracts": [], "dir": Vector2.RIGHT, "min_units": 3}
 	for i in 5:
 		w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(160, 300 + i * 10))
-	w.spawn_foe_on_path("zombie", PackedVector2Array([Vector2(880, 300), Vector2(100, 300)]),
-		Vector2(880, 300))
+	w.spawn_foe_on_path("zombie", PackedVector2Array([Vector2(640, 300), Vector2(100, 300)]),
+		Vector2(640, 300))
 	w.grid.rebuild()
 	bot._observe()
 	bot._tick_slot(rear)

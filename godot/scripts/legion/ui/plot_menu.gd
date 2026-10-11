@@ -209,7 +209,36 @@ func _rebuild() -> void:
 	if at.x + size.x > LegionCfg.WORLD_SIZE.x - MARGIN:
 		at.x = _anchor.x - size.x - MARGIN * 2.0
 	at.y = clampf(at.y, MARGIN, LegionCfg.WORLD_SIZE.y - size.y - MARGIN)
-	_panel.position = at
+	_panel.position = _below_toasts(Rect2(at, size))
+
+
+## Экранный прямоугольник открытой карточки (LegionHud ставит новые тосты мимо неё, B-010).
+func panel_rect() -> Rect2:
+	if not is_open() or _panel == null:
+		return Rect2()
+	return Rect2(_panel.position, _panel.size.max(_panel.get_combined_minimum_size()))
+
+
+## B-010: у верхней кромки карточка ложилась на столбик тостов HUD. Висящие тосты она обходит
+## снизу (если ниже есть место); тосты, пришедшие позже, HUD ставит мимо карточки или держит в
+## очереди до её закрытия (LegionHud._free_spot).
+func _below_toasts(rect: Rect2) -> Vector2:
+	if world.hud == null:
+		return rect.position
+	var toasts := world.hud.toast_rects()
+	var moved := rect
+	# сдвиг вниз может задеть следующий тост столбика — повторяем, пока карточка не свободна
+	for i in toasts.size():
+		var floor_y := -INF
+		for t in toasts:
+			if t.intersects(moved):
+				floor_y = maxf(floor_y, t.end.y + MARGIN)
+		if floor_y == -INF:
+			break
+		moved.position.y = floor_y
+	if moved.end.y > LegionCfg.WORLD_SIZE.y - MARGIN:
+		return rect.position   # ниже места нет — тост и так рисуется над меню
+	return moved.position
 
 
 func _title(text: String) -> void:

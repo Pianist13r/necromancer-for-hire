@@ -5,15 +5,16 @@
 **Рисуешь мышью договор — скелеты-подрядчики встают в строй и держат проверяющих из Ада на подходе
 к Котлу Душ.** Tower defense, экшен и рогалик в одной игре. Бесплатно, для Windows, macOS и Linux, на русском, 16+.
 
-Скачать: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-Windows.exe) ·
-[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-macOS.zip) ·
-[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-Linux.tar.gz) ·
+Скачать: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-Windows.exe) ·
+[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-macOS.zip) ·
+[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-Linux.tar.gz) ·
 [Сайт игры](https://necromancer-for-hire.ru) (открывается в России без VPN) ·
 [Все сборки](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
+[Telegram: новости](https://t.me/necromancer_for_hire) и [обсуждение](https://t.me/necromancer_for_hire_chat) ·
 [Оставить отзыв](https://forms.yandex.ru/u/6ac606b3f47e73002a8eaf4e)
 
-**Альфа-версия 0.3.2-alpha.** Сделано на Godot 4.7.2.
+**Альфа-версия 0.3.3-alpha.** Сделано на Godot 4.7.2.
 
 | Рисуешь договор | Колдуешь | «Схватка» |
 |---|---|---|
@@ -31,13 +32,42 @@
 
 Кадры и ролики сняты в самой игре, из записей живых партий; в роликах добавлены титры и музыка игры.
 
-## Что нового в версии 0.3.2-alpha
+## Что нового в версии 0.3.3-alpha
+
+**Бойцы у края карты идут к линии рядом.** Скелеты, стоявшие у края карты, часто не шли к договору, нарисованному прямо возле них, и уходили только к следующей линии. Теперь боец считается занятым врагом, только если враг действительно в досягаемости (или у дома), — линия рядом его забирает.
+
+**Резерв больше не ходит через полкарты.** Свободные бойцы из резерва у дома сами идут к пустым местам договора только в пределах разумной дальности (в «Схватке» чуть дальше). К далёкой линии бойцов приводят линия, нарисованная рядом с ними, или «Сбор».
+
+**Меньше подвисаний.** Убран рывок в момент, когда на поле впервые появляется новый вид врага (охранник, писарь, юрист): игра заранее подгружает всех персонажей.
+
+**Фигуры рисуются легче.** Рукописный пятиугольник («Комиссия») больше не превращается в «Оцепление», а «D» («Неустойка») узнаётся почти всегда. Если фигура ещё не открыта по кампании, линия ложится с подписью у пера, где она откроется.
+
+**Карточка поправки.** Поправку к договору можно выбрать щелчком по любой части карточки, а не только по её заголовку.
+
+**Режим левши.** В настройках «Режим левши» меняет кнопки мыши в бою местами (чертить договор — правой, рогатка и натиск — левой; кнопки меню остаются на левой), а «Колесо: вид договора в обратную сторону» переворачивает колесо. Подсказки называют ваши кнопки.
+
+**Личные рекорды.** Лучший результат на каждой карте: строка на экране итога, подпись на карточке карты и вкладка «Рекорды» в «Досье».
+
+**«Схватка».** Линии соперника отличаются оттенком — свои и чужие договоры больше не путаются. В лобби «По сети», если никого нет, можно сразу «сыграть с ботом»; у бота три уровня — «Стажёр», «Подрядчик», «Прораб», — можно выбрать свою сторону, а случайное поле перебросить кнопкой «Другое поле» (на итоге — «Ещё раз на новом поле»). Лобби теперь показывает «Подключение…» и код вашей комнаты.
+
+**Обучение.** Урок рогатки переехал с «Прораба» на «Архив» — сразу после восьмёрки.
+
+**Баланс.** «Проходная» дешевле (50 душ вместо 60) и вместительнее (8 / 12 / 16 мест вместо 6 / 9 / 12).
+
+**Меню и подсказки.** В меню и на экране итога — ссылки на Telegram-канал, чат и сайт игры. Подсказка про нотариуса приходит плашкой, а не поверх поля; всплывающие сообщения больше не прячутся под меню участка.
+
+**Онлайн.** Боевая симуляция изменилась: «Схватка» между 0.3.2 и 0.3.3 невозможна — обновитесь обе стороны. Онлайн-«Схватка», статистика и комментарии временно недоступны — инцидент Яндекс Облака 11.10; после восстановления сервер обновится и онлайн 0.3.3 заработает (с 0.3.2 по сети несовместима).
+
+<details>
+<summary>Прежний выпуск: что нового в версии 0.3.2-alpha</summary>
 
 **Обучение: клавиша звучит там, где о ней говорят.** Голос урока называет вашу текущую клавишу (и переназначенную тоже) прямо в инструкции — «…зажмите и отпустите клавишу способности. Е. Строй станет быстрее…», — а не после всей фразы.
 
 **Статистика.** Вопрос, можно ли отправлять анонимную статистику (версия, система, число сеансов и минуты боя), теперь задаётся в главном меню при первом запуске, а не после первого боя. «Позже», Esc и крестик ничего не записывают; «Нет, спасибо» — отказ. Изменить выбор можно в настройках.
 
 **Онлайн.** Боевая симуляция не менялась: «Схватка» между 0.3.1 и 0.3.2 работает.
+
+</details>
 
 <details>
 <summary>Прежний выпуск: что нового в версии 0.3.1-alpha</summary>
@@ -144,15 +174,16 @@
 
 
 [**Сайт игры — скачать и оставить отзыв**](https://necromancer-for-hire.ru) (в России
-открывается без VPN) · [страница на itch.io](https://pianist13r.itch.io/necromancer-for-hire).
+открывается без VPN) · [страница на itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
+[Telegram-канал](https://t.me/necromancer_for_hire).
 Для игры не нужно устанавливать Git или скачивать исходники.
 
 | Система | Файл | Как запустить |
 |---|---|---|
-| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
-| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
-| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
-| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.2-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
+| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
+| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
+| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
+| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.3-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
 
 Windows и Linux: x86_64, видеокарта и драйвер с поддержкой Vulkan.
 macOS: универсальная сборка для Intel и Apple Silicon, графика с поддержкой Metal.

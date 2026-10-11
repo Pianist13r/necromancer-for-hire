@@ -65,6 +65,9 @@ const CONTRACT_PROPS: Array[String] = [
 ]
 const CONTRACT_REFS: Array[String] = ["posts"]
 const CONTRACT_SKIP: Array[String] = [
+	# куски участков для скана давки (трек оптимизации 11.10, B-036): абсолютные координаты, в
+	# зеркальном бою не отражаются; ensure_press_chunks() строит их лениво из points при первом скане
+	"press_chunk_box", "press_chunk_k", "press_seg_chunk", "press_box",
 	# угол, вставший в воду или скалу: у ЗАКЛЮЧЁННОГО договора всегда пуст — фигура с таким
 	# углом не заключается вовсе (ContractField._create возвращает null)
 	"blocked_tips",

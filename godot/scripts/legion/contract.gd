@@ -87,6 +87,16 @@ var release_causes: Dictionary = {}
 var seg_polys: Array[PackedVector2Array] = []
 ## v18: рамка каждого участка, раздутая на полосу давки, — дешёвый отсев врагов в press_scan.
 var seg_press_box: Array[Rect2] = []
+## Трек оптимизации 10.10 (B-036): участки нарезаны кусками по LegionCfg.PRESS_CHUNK отрезков
+## ломаной, у каждого куска рамка — press_scan считает точное расстояние только до кусков, чья
+## рамка ближе уже найденного. Строятся лениво первым сканом (шаблонам и превью бота не нужны),
+## build() их сбрасывает. press_chunk_box — x0, y0, x1, y1 на кусок; press_chunk_k — k0, k1:
+## отрезки seg_polys[s][k - 1]..[k] при k0 ≤ k < k1; press_seg_chunk[s] — первый кусок участка
+## s, [seg_count()] — всего кусков; press_box — рамка всей линии (раньше считалась каждый шаг).
+var press_chunk_box := PackedFloat64Array()
+var press_chunk_k := PackedInt32Array()
+var press_seg_chunk := PackedInt32Array()
+var press_box := Rect2()
 
 var _seg_centers := PackedVector2Array()
 
@@ -126,6 +136,9 @@ func build(
 	dir = side_normal(chord_dir(points), side)
 	seg_polys.clear()
 	seg_press_box.clear()
+	press_seg_chunk.clear()
+	press_chunk_box.clear()
+	press_chunk_k.clear()
 	for s in n_seg:
 		var d0 := s * LegionCfg.SEG_LEN
 		var d1 := minf(length, d0 + LegionCfg.SEG_LEN)
@@ -493,6 +506,37 @@ func mana_per_px() -> float:
 
 func seg_count() -> int:
 	return seg_age.size()
+
+
+## Куски участков для press_scan (см. press_chunk_box); уже построены — сразу выход. Рамка
+## куска раздута на LegionCfg.PRESS_CHUNK_GROW: ближайшая точка отрезка, посчитанная во float32,
+## может выйти за точную рамку на округление — отсев по рамке не должен её потерять.
+func ensure_press_chunks() -> void:
+	if not press_seg_chunk.is_empty() or points.is_empty():
+		return
+	press_box = Rect2(points[0], Vector2.ZERO)
+	for p in points:
+		press_box = press_box.expand(p)
+	var g := LegionCfg.PRESS_CHUNK_GROW
+	for s in seg_polys.size():
+		press_seg_chunk.append(press_chunk_k.size() / 2)
+		var poly := seg_polys[s]
+		var k := 1
+		while k < poly.size():
+			var k1 := mini(k + LegionCfg.PRESS_CHUNK, poly.size())
+			var lo := poly[k - 1]
+			var hi := lo
+			for j in range(k, k1):
+				lo = lo.min(poly[j])
+				hi = hi.max(poly[j])
+			press_chunk_box.append(lo.x - g)
+			press_chunk_box.append(lo.y - g)
+			press_chunk_box.append(hi.x + g)
+			press_chunk_box.append(hi.y + g)
+			press_chunk_k.append(k)
+			press_chunk_k.append(k1)
+			k = k1
+	press_seg_chunk.append(press_chunk_k.size() / 2)
 
 
 func segment_at(dist: float) -> int:

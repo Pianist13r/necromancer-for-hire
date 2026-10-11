@@ -96,9 +96,6 @@ const NET_DT := 1.0 / 60.0
 const NET_DEV_KEEP := ["gfx", "noview", "intuit", "fx", "save"]
 
 const TEX_CAULDRON := preload("res://assets/img/cauldron.png")
-const ALL_CHARS := [
-	"skeleton", "necromancer", "zombie", "beetle", "signer", "ghost", "mimic", "boss",
-]
 ## Серые цвета отладочной земли (пока нет TerrainView пакета MAPS).
 const C_GROUND := Color(0.20, 0.21, 0.19)
 const C_ROAD := Color(0.30, 0.28, 0.24)
@@ -301,6 +298,10 @@ var amendment_runtime: AmendmentRuntime = null
 ## RunProgression.preparation_mods() ДО старта боя. Эти моды НЕ в active_mods; складываются сюда же,
 ## в camp_stat(), чтобы выживать последующие пересчёты маны (артефакты не убирают купленную ману).
 var battle_preparation: Dictionary = {}
+## Замер шага мира по разделам (стенд tests/legion_perf_bench.gd, трек оптимизации 10.10): в игре
+## prof_on = false, и цена — одна проверка на раздел. prof — раздел → мкс нарастающим итогом.
+var prof_on := false
+var prof: Dictionary = {}
 
 ## Сторона 0: хранит поля одиночки (cauldron_hp, souls… — свойства выше читают её).
 var _pvp_item_stage := 0
@@ -360,6 +361,7 @@ var _bench_tick_us := 0
 ## --fixed-fps кадр мира всегда 1/60 с, реальная цена кадра видна только по стенным часам.
 var _bench_ticks := PackedInt32Array()
 var _bench_wall0 := 0
+var _prof_t := 0
 var _shot_path := ""
 var _shot_frame := 90
 var _base_seed := 1
@@ -409,7 +411,11 @@ func _ready() -> void:
 		# Суффикс test отличает одноразовые прогоны от сохранений игрока.
 		Campaign.set_save_path(Campaign.STANDALONE_PATH.replace(".cfg", "_test.cfg"))
 		Campaign.reset()
-	CharView.warm(ALL_CHARS)
+	# кадры ВСЕХ персонажей CfgAnim.CHARS. Трек оптимизации 10.10: список здесь был ручной
+	# (ALL_CHARS) и отстал — «охранник», «писарь» и «юрист» читали ~325 кадров с диска при
+	# первом появлении прямо в шаге мира: стоп-кадр 0,9 с в exe, 6–8 с из редактора
+	# (регресс tests/legion_hitch_test.gd)
+	CharView.warm(CfgAnim.CHARS.keys())
 	_build()
 	if not embedded:
 		start_map(String(args.get("map", LegionCfg.DEFAULT_MAP)))
@@ -766,6 +772,11 @@ func start_map(id: String, map_data: Dictionary = {}) -> void:
 		return
 	rng.seed = _base_seed
 	_pvp_flip = false
+	# Часы боя — с нуля на каждой карте: мир один на сеанс («Ещё раз», следующая карта, серии на
+	# одном мире), и остаток вербовки прошлого боя сдвигал расписание — бой расходился со свежим
+	# миром с шага ~120 (tests/legion_world_restart_test.gd). Трасса — та же причина для логов.
+	_assign_t = 0.0
+	_trace_t = 0.0
 	world_size = LegionTerrain.map_size(map)
 	visible = true   # go_to_menu прячет мир «Схватки» под экранами меню
 	_apply_view()
@@ -976,16 +987,23 @@ func _setup_pvp_bots() -> void:
 			s.contracts.human_input = s.index == local_side
 		return
 	var all := args.has("pvp_bots") or String(args.get("bot", "off")) != "off"
+	# B-331: уровень бота — --dev pvp_bot_level=<уровень> (всем ботам) или «<сторона 0>,<сторона 1>»
+	# (серия уровень против уровня); «Схватку» из меню ставит PvpFlow по настройкам игрока
+	var levels := String(dev.get("pvp_bot_level", "")).split(",", false)
 	for s in sides:
 		s.bot = null
 		s.contracts.human_input = s.index == 0
 		if dev.has("pvp_nobot") or (s.index == 0 and not all):
 			continue
+		var level := LegionCfg.PVP_BOT_LEVEL_DEFAULT
+		if not levels.is_empty():
+			level = PvpBot.valid_level(levels[mini(s.index, levels.size() - 1)].strip_edges())
 		var b := PvpBot.new()
-		b.setup(self, s.index)
+		b.setup(self, s.index, level)
 		s.bot = b
 		s.contracts.human_input = false
-		s.ability_mana_reserve = LegionCfg.BOT_MANA_RESERVE   # как у бота одиночки
+		# запас как у бота одиночки (у «Подрядчика» — BOT_MANA_RESERVE), у уровней — свой
+		s.ability_mana_reserve = float(PvpBot.level_params(level)["mana_reserve"])
 
 
 ## Поле договоров, которому принадлежит договор c.
@@ -1129,8 +1147,7 @@ func start_net_match(map_id: String, seed_value: int, side: int) -> void:
 	net_tick = 0
 	net_applying = false
 	_base_seed = seed_value
-	_assign_t = 0.0   # часы вербовки переживают бой — у клиентов с разной историей они разные
-	_net_starting = true
+	_net_starting = true   # часы вербовки и трассы сбрасывает сам start_map
 	start_map(map_id)
 	_net_starting = false
 	# номера договоров — с 1 у обоих клиентов, какая бы история ни была у мира (B-363; ветка
@@ -1722,9 +1739,13 @@ func _process(delta: float) -> void:
 		# v17: Отсрочка (натяжка рогатки) — масштаб dt мира, НЕ Engine.time_scale: меню, звук и
 		# интерфейс идут в реальном времени. Hit-stop удара натиска — пропуск шага мира на
 		# CHARGE_HITSTOP реальных секунд (симуляция просто стоит, числа боя не меняются).
+		if prof_on:
+			_prof_t = Time.get_ticks_usec()
 		var scale := contracts.real_tick(delta)
 		for i in range(1, sides.size()):
 			sides[i].contracts.real_tick(delta)
+		if prof_on:
+			_prof_mark(&"field_real_tick")
 		if not net_mode:   # сетевой матч шагает сессия (net_step), а не кадр
 			_hitstop_gap -= delta
 			if _hitstop_left > 0.0:
@@ -1735,15 +1756,27 @@ func _process(delta: float) -> void:
 	if ability_aim != null and not paused:
 		ability_aim.tick(delta)
 	if not no_view:
+		if prof_on:
+			_prof_t = Time.get_ticks_usec()
 		_fx.queue_redraw()
 		hud.tick(delta)
+		if prof_on:
+			_prof_mark(&"hud")
 	if _bench_s > 0.0:
 		_bench_tick(delta, Time.get_ticks_usec() - t0)
 	if _shot_path != "" and _frames >= _shot_frame and _shot_due():
 		_take_shot()
 
 
+func _prof_mark(key: StringName) -> void:
+	var t := Time.get_ticks_usec()
+	prof[key] = int(prof.get(key, 0)) + t - _prof_t
+	_prof_t = t
+
+
 func _step(dt: float) -> void:
+	if prof_on:
+		_prof_t = Time.get_ticks_usec()
 	now += dt
 	staff.tick(dt)
 	for i in range(1, sides.size()):
@@ -1751,11 +1784,15 @@ func _step(dt: float) -> void:
 	for s in sides:
 		s.items.tick(dt)
 	_tick_breach_marks(dt)
+	if prof_on:
+		_prof_mark(&"staff")
 	wave_runner.tick(dt)
 	if pvp:
 		_tick_pvp_carriers()
 	if tutorial != null:
 		tutorial.tick(dt)
+	if prof_on:
+		_prof_mark(&"waves")
 	# поправки-правила (A1): раньше hero.tick — эхо-разряд должен сработать до хода героя в этом
 	# же шаге (а не отстать на кадр); helper без подписок (standalone/PvP) возвращается сразу.
 	if amendment_runtime != null:
@@ -1767,9 +1804,13 @@ func _step(dt: float) -> void:
 	for i in range(1, sides.size()):
 		if sides[i].hero != null:
 			sides[i].hero.tick(dt)
+	if prof_on:
+		_prof_mark(&"hero")
 	# сетку — до бота: бот спрашивает её о давлении пехоты, а прошлокадровые индексы уже
 	# указывают мимо массива после уборки мёртвых
 	grid.rebuild()
+	if prof_on:
+		_prof_mark(&"grid")
 	if bot != null:
 		bot.tick(dt)
 	# PvP: кто ходит в шаге позже, видит ход другого в том же шаге (боец замечает вошедшего в
@@ -1783,19 +1824,29 @@ func _step(dt: float) -> void:
 			var s := sides[sides.size() - 1 - k] if flip else sides[k]
 			if s.bot is PvpBot:
 				(s.bot as PvpBot).tick(dt)
+	if prof_on:
+		_prof_mark(&"bot")
 	contracts.tick(dt, now)
 	for i in range(1, sides.size()):
 		sides[i].contracts.tick(dt, now)
+	if prof_on:
+		_prof_mark(&"contracts")
 	_assign_t -= dt
 	if _assign_t <= 0.0:
 		_assign_t = LegionCfg.ASSIGN_INTERVAL
 		_assign_free()
 		for i in range(1, sides.size()):
 			_assign_free(sides[i].contracts)
+	if prof_on:
+		_prof_mark(&"assign")
 	var n := foes.size()
 	for i in n:
 		foes[i].tick(dt)
+	if prof_on:
+		_prof_mark(&"foes")
 	_tick_press(dt)
+	if prof_on:
+		_prof_mark(&"press")
 	# после хода врагов (они уже сделали шаг к Котлу) и до хода бойцов, которые флаг читают
 	_scan_home_threats()
 	if flip:
@@ -1806,16 +1857,26 @@ func _step(dt: float) -> void:
 			u.tick(dt)
 	if not _pvp_hits.is_empty():
 		_flush_pvp_hits()
+	if prof_on:
+		_prof_mark(&"units")
 	# после бойцов: «Сверхурочные» и усиление обряда
 	figures.tick(dt)
+	if prof_on:
+		_prof_mark(&"figures")
 	grid.separate()
+	if prof_on:
+		_prof_mark(&"separate")
 	projectiles.tick(dt)
 	if pvp:
 		_flush_carrier_hits()
 	for crypt in crypts:
 		crypt.tick(dt)
 	_track_damage(_damage_hp, dt)
+	if prof_on:
+		_prof_mark(&"proj")
 	_cleanup(dt)
+	if prof_on:
+		_prof_mark(&"cleanup")
 	_track_pace(dt)
 	_tick_impacts(dt)
 	if combo > 0 and now - _combo_hit_t > LegionCfg.COMBO_WINDOW:
@@ -1829,6 +1890,8 @@ func _step(dt: float) -> void:
 		_check_pvp_end()
 	elif cauldron_hp <= 0.0 and phase == Phase.BATTLE:
 		_end(false)
+	if prof_on:
+		_prof_mark(&"tail")
 
 
 func _input(event: InputEvent) -> void:

@@ -319,8 +319,17 @@ func is_rock(p: Vector2) -> bool:
 
 
 ## Проходимость для пеших (бойцы и вся пехота, кроме призрака). По сетке: дёшево в кадре.
+## Трек оптимизации 10.10: это _flag_walkable(_flags_at(p)) с развёрнутыми вызовами (те же
+## выражения, итог тот же) — зовётся сотни раз за шаг (ход врагов, расталкивание, бойцы), а
+## цепочка из трёх вызовов стоила ~2,4 мкс на вызов (замер пробой на 109 врагах, bridge t≈150).
 func walkable(p: Vector2) -> bool:
-	return _flag_walkable(_flags_at(p))
+	if p.x < 0.0 or p.y < 0.0 or p.x >= size.x or p.y >= size.y:
+		return true   # за краем экрана (ворота) — чистое поле, как в _flags_at
+	var cx := int(p.x / LegionCfg.CELL)
+	if mirror_x and p.x > size.x * 0.5:
+		cx = cols - 1 - int((size.x - p.x) / LegionCfg.CELL)
+	var f := _flags[clampi(int(p.y / LegionCfg.CELL), 0, rows - 1) * cols + clampi(cx, 0, cols - 1)]
+	return (f & F_ROCK) == 0 and ((f & F_WATER) == 0 or (f & F_BRIDGE) != 0)
 
 
 func speed_mult(p: Vector2) -> float:

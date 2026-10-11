@@ -76,10 +76,12 @@ static func act(t: LegionTutorial) -> void:
 			else:
 				_fire_charged(t)
 		&"figure_slung":
-			if not t.bot_done:
+			# B-414: в «Архиве» урок идёт следом за восьмёркой — фигура уже стоит, вторую
+			# поверх не чертим, сразу рогатка
+			if not t.bot_done and not t.figure_standing():
 				_draw_figure(t)
 			else:
-				_sling_charged(t)
+				_sling_manned(t)
 
 
 ## Начертить фигуру урока настоящим штрихом через поле (распознавание — как у мыши).
@@ -123,9 +125,16 @@ static func _fire_charged(t: LegionTutorial) -> void:
 			return
 
 
-## Сорвать заряженную фигуру рогаткой — выпуск по общей оси оттяжки (одна группа).
-static func _sling_charged(t: LegionTutorial) -> void:
-	var c := _charged_figure(t)
+## Сорвать фигуру урока рогаткой, как только на ней хоть кто-то стоит, — выпуск по общей оси
+## оттяжки (одна группа). Заряда не ждём: урок зачитывает любую рогатку по фигуре, а у восьмёрки
+## («Архив», B-414) заряда нет вовсе (charge_need 0) — бот ждал бы вечно.
+static func _sling_manned(t: LegionTutorial) -> void:
+	var want := String(t.lesson().get("arg", ""))
+	var c: Contract = null
+	for k in t.world.contracts.contracts:
+		if k.alive() and k.figure != &"" and k.posted_posts() > 0 \
+				and (c == null or String(k.figure) == want):
+			c = k
 	if c == null:
 		return
 	for s in c.seg_count():

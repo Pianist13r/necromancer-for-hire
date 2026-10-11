@@ -124,6 +124,7 @@ func kind_unlocked(kind: StringName) -> bool:
 ## released — черновик, который ещё не создан: его создание снимет удержание у бойцов рядом
 ## (release_held), поэтому в прогнозе они не удержаны.
 ## D-1009-C1: дальний резерв — только бойцы у дома (in_reserve), ближние к пустому месту первыми.
+## D-1011-AM1: и только к местам в пределах automarch_r по прямой — дальше не идёт никто.
 static func deployment_plan(field: ContractField, lines: Array[Contract],
 		released: Contract = null) -> Array[Dictionary]:
 	var plan := field.assignment_plan(lines, released)
@@ -152,6 +153,8 @@ static func deployment_plan(field: ContractField, lines: Array[Contract],
 				vac_cid.append(c.id)
 	if vacant.is_empty():
 		return plan
+	var cap := automarch_r(field.world)
+	var cap2 := cap * cap
 	# Очередь резерва: ближний к любому пустому месту своего вида — первым (по прямой, без путей;
 	# равные — по порядку рождения). Прежде шли по порядку рождения, и единственное место
 	# занимал первый рождённый с другого края дома (Игорь 09.10: «не те скелеты идут»).
@@ -162,7 +165,9 @@ static func deployment_plan(field: ContractField, lines: Array[Contract],
 		var near := INF
 		for i in vac_pos.size():
 			if vac_kind[i] == u.kind and vac_cid[i] != u.no_return_id:
-				near = minf(near, u.position.distance_squared_to(vac_pos[i]))
+				var d := u.position.distance_squared_to(vac_pos[i])
+				if d <= cap2:
+					near = minf(near, d)
 		if near < INF:
 			order.append({"unit": u, "d": near, "i": order.size()})
 	order.sort_custom(func(x: Dictionary, y: Dictionary) -> bool:
@@ -190,7 +195,7 @@ static func deployment_plan(field: ContractField, lines: Array[Contract],
 						or skip.has(i):
 					continue
 				var d := u.position.distance_squared_to(vac_pos[i])
-				if d < pick_d:
+				if d < pick_d and d <= cap2:
 					pick = i
 					pick_d = d
 			if pick < 0:
@@ -208,6 +213,11 @@ static func deployment_plan(field: ContractField, lines: Array[Contract],
 			used[best] = 1
 			left -= 1
 	return plan
+
+
+## Предел автомарша стороны (D-1011-AM1): «Схватка» — поле 1600 и фронт дальше от дома.
+static func automarch_r(w: LegionWorld) -> float:
+	return LegionCfg.AUTOMARCH_R_PVP if w.pvp else LegionCfg.AUTOMARCH_R
 
 
 static func _can_deploy(u: Legionnaire, field: ContractField, released: Contract = null) -> bool:

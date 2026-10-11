@@ -93,7 +93,8 @@ const EIGHT_CROSS_MIN := 0.44
 ##  · замкнут (как восьмёрка: FIG_GAP_*), перелёт конца за начало срезается (trim_overshoot);
 ##  · длина не меньше POLY_MIN_LEN;
 ##  · штрих упрощается Рамером–Дугласом–Пейкером с допуском POLY_RDP_K · длина (≥ POLY_RDP_MIN
-##    px): у круга остаётся ≥ 6 отрезков, у многоугольника — его рёбра и срезы углов;
+##    px): у круга остаётся ≥ 6 отрезков, у многоугольника — его рёбра и срезы углов; начало
+##    штриха посреди ребра из упрощения убирается (_drop_flat, B-490);
 ##  · отрезки короче POLY_MERGE_K · длина — срез угла: соседние изломы сливаются в одну вершину,
 ##    её поворот — сумма, сама вершина — пересечение прямых соседних рёбер;
 ##  · вершина — излом от CORNER_MIN (~50°); изломы мягче POLY_BEND_MAX (~30°) — изгиб ребра;
@@ -125,6 +126,11 @@ const POLY_EDGE_RATIO := 0.35
 ## Пятиугольник: внешний поворот вершины не больше этого (у ровного 72°, ~2,44 рад = 140° —
 ## дальше это уже не выпуклый пятиугольник, а вырожденная звезда).
 const PENTA_TIP_MAX := 2.44
+## …и не меньше этого (~55°; общий TIP_MIN ~65° резал почти половину рукописных пятиугольников с
+## внутренними углами руки 100–125°, и is_ring забирал их кольцом, B-490). Плотный круг рукой от
+## этого пятиугольником не становится (у дуги на 1/5 круга прогиб ~16 % хорды); круг из 6–12 точек
+## на оборот — ~0,4 % против ~0,03 % (замер 11.10, tests/legion_figures_hand_test.gd).
+const PENTA_TIP_MIN := 0.96
 ## Допуск «равенства» в выборе углов «Комиссии» (choose_corners), мировые px: расстояния и
 ## координаты, разошедшиеся меньше этого, считаются равными — тай-брейк (y, x) решает выбор,
 ## а не дрожь руки.
@@ -149,29 +155,36 @@ const SIZE_NORMAL := &"normal"
 const SIZE_NONE := &""
 
 ## ── «Неустойка» — замкнутый полукруг (форма «D») ────────────────────────────────────────────
-## Признаки (все разом): штрих замкнут; длина не меньше D_MIN_LEN; среди рёбер упрощения есть
-## РОВНО ОДНО длинное (≥ D_STRAIGHT_MIN периметра) и прямое (прогиб точек штриха от его хорды не
-## больше max(D_STRAIGHT_DEV_MIN, D_STRAIGHT_DEV_K·длина)); на обоих его концах угол ≥ D_CORNER_MIN;
-## все прочие рёбра КРИВЫЕ (прогиб ≥ D_ARC_DEV_K их длины) — дуга, а не рёбра многоугольника;
-## оставшаяся дуга занимает не меньше D_ARC_MIN периметра. Так «D» не путается ни с кругом (у
-## того нет длинного прямого ребра при таком допуске), ни с треугольником/квадратом/пятиугольником
-## (их берёт polygon_kind раньше — там все рёбра прямые), ни с шестиугольником (у него рёбра
-## прямые — D_ARC_DEV_K не проходит).
+## Признаки (все разом; штрих без одиночных рывков мыши — D_SPIKE_RATIO): замкнут; длина не меньше
+## D_MIN_LEN; самое длинное ребро упрощения, продлённое по штриху, пока точки на его прямой, —
+## прямая сторона: ≥ D_STRAIGHT_MIN периметра, прогиб ≤ max(D_STRAIGHT_DEV_MIN,
+## D_STRAIGHT_DEV_K·длина); на обоих её концах угол ≥ D_CORNER_MIN до точки дуги через
+## D_CORNER_PROBE периметра; прочие заметные рёбра (длиннее D_ARC_FLAT_MAX периметра) КРИВЫЕ
+## (прогиб ≥ D_ARC_DEV_K) — дуга, а не многоугольник; дуга ≥ D_ARC_MIN периметра. Так «D» не
+## путается ни с кругом (нет длинного прямого ребра), ни с треугольником/квадратом/пятиугольником
+## (их берёт polygon_kind раньше), ни с шестиугольником (его рёбра прямые и длиннее 12 %).
+## B-490 (Игорь 11.10: «Буква D сложно рисуется»): по рёбрам упрощения как есть рукописная «D»
+## признавалась в ~50 %: начало посреди стороны рвало её надвое, скруглённый угол срезался
+## хордой и сторона кончалась, не дойдя до угла, хорда зазора считалась «прямым ребром дуги».
 const D_MIN_LEN := 240.0
 const D_MIN_LEN_MINI := 150.0
 const D_RDP_K := 0.02
 const D_RDP_MIN := 4.0
 const D_STRAIGHT_MIN := 0.24
-## Прогиб «прямого» ребра — доля его длины. У хорды круга прогиб L/(8R), а хорда тут не короче
-## четверти периметра (~1,26R), то есть ≈0,157·L — втрое выше этого допуска; у настоящей прямой
-## стороны прогиб даёт только дрожь руки. Поэтому K строгий, а MIN — запас на дрожь.
-const D_STRAIGHT_DEV_K := 0.05
+## Прогиб стороны — доля её длины. У хорды круга на ≥ 1/4 периметра прогиб ≈0,157 хорды — вдвое
+## выше допуска; у прямой руки — прогиб до 3 % и дрожь (было 0,05: каждая пятая «D» — кольцо).
+const D_STRAIGHT_DEV_K := 0.075
 const D_STRAIGHT_DEV_MIN := 3.0
 const D_CORNER_MIN := 0.87
+const D_CORNER_PROBE := 0.08
+## Рывок мыши — точка, путь через которую длиннее хорды соседей в столько раз (угол острее ~77°;
+## у угла «D» ~90° — не больше 1,41): иначе рывок на круге становился «углом», а хорда между
+## двумя рывками — «прямой стороной» (2 % «кругов с рывками» были бы «D»).
+const D_SPIKE_RATIO := 1.6
 const D_ARC_DEV_K := 0.03
+const D_ARC_FLAT_MAX := 0.12
 const D_ARC_MIN := 0.45
-## Больше этого числа рёбер упрощения «D» не бывает: прямая сторона плюс 1–4 хорды дуги. Шести- и
-## восьмиугольники дают столько же рёбер, но их отсекает D_ARC_DEV_K (рёбра прямые).
+## Больше этого числа рёбер упрощения «D» не бывает: прямая сторона плюс 1–4 хорды дуги.
 const D_MAX_EDGES := 8
 
 
@@ -572,14 +585,16 @@ static func polygon_tips(pts: PackedVector2Array, count: int, mini := false) -> 
 	return fit["tips"]
 
 
-## Углы и пропорции под вид: каждая вершина ≥ TIP_MIN (~65°), у квадрата ещё и ≤ SQUARE_TIP_MAX,
-## у пятиугольника ≤ PENTA_TIP_MAX; короткое ребро ≥ POLY_EDGE_RATIO длинного.
+## Углы и пропорции под вид: каждая вершина ≥ TIP_MIN (~65°; у пятиугольника ≥ PENTA_TIP_MIN),
+## у квадрата ещё и ≤ SQUARE_TIP_MAX, у пятиугольника ≤ PENTA_TIP_MAX; короткое ребро
+## ≥ POLY_EDGE_RATIO длинного.
 static func _kind_ok(fit: Dictionary, count: int) -> bool:
 	var tips: PackedVector2Array = fit["tips"]
 	var turns: PackedFloat32Array = fit["turns"]
+	var tip_min := PENTA_TIP_MIN if count == 5 else TIP_MIN
 	for t in turns:
 		var a := absf(t)
-		if a < TIP_MIN or (count == 4 and a > SQUARE_TIP_MAX) \
+		if a < tip_min or (count == 4 and a > SQUARE_TIP_MAX) \
 				or (count == 5 and a > PENTA_TIP_MAX):
 			return false
 	var e_min := INF
@@ -603,7 +618,8 @@ static func polygon_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 		return {}
 	var loop := closed(stroke)
 	var total := poly_len(loop)
-	var keep := _rdp_closed(loop, maxf(POLY_RDP_MIN, POLY_RDP_K * total))
+	var eps := maxf(POLY_RDP_MIN, POLY_RDP_K * total)
+	var keep := _drop_flat(loop, _rdp_closed(loop, eps), eps)
 	var m := keep.size()
 	if m < 3:
 		return {}
@@ -724,7 +740,7 @@ static func is_d_shape(pts: PackedVector2Array, mini := false) -> bool:
 static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	if pts.size() < POLY_MIN_POINTS:
 		return {}
-	var stroke := trim_overshoot(pts)
+	var stroke := trim_overshoot(_despike(pts))
 	var length := poly_len(stroke)
 	if length < (D_MIN_LEN_MINI if mini else D_MIN_LEN) or _fig_gap(stroke, length) < 0.0:
 		return {}
@@ -732,22 +748,24 @@ static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	var total := poly_len(loop)
 	if total <= 0.0:
 		return {}
-	var keep := _rdp_closed(loop, maxf(D_RDP_MIN, D_RDP_K * total))
+	var d_eps := maxf(D_RDP_MIN, D_RDP_K * total)
+	# начало посреди прямой стороны делило её надвое (B-490) — см. _drop_flat
+	var keep := _drop_flat(loop, _rdp_closed(loop, d_eps), d_eps)
 	var m := keep.size()
 	if m < 3 or m > D_MAX_EDGES:
 		return {}
 	var n := loop.size() - 1   # loop замыкается повтором первой точки
-	var edges: Array = []      # [первый индекс, последний индекс (может быть > n), длина, прогиб]
+	var edges: Array = []      # [первый, последний индекс (бывает > n — брать % n), длина, прогиб]
 	for q in m:
 		var i0 := int(keep[q])
 		var i1 := int(keep[(q + 1) % m])
 		if (q + 1) % m == 0:
 			i1 += n
 		var a := loop[i0]
-		var b := loop[i1 % loop.size()]
+		var b := loop[i1 % n]
 		var dev := 0.0
 		for k in range(i0 + 1, i1):
-			var p := loop[k % loop.size()]
+			var p := loop[k % n]
 			dev = maxf(dev, p.distance_to(Geometry2D.get_closest_point_to_segment(p, a, b)))
 		edges.append([i0, i1, a.distance_to(b), dev])
 	# прямая сторона — самое длинное ребро; оно должно быть прямым и заметным
@@ -755,21 +773,33 @@ static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	for q in m:
 		if float(edges[q][2]) > float(edges[si][2]):
 			si = q
-	var side := float(edges[si][2])
-	if side < D_STRAIGHT_MIN * total \
-			or float(edges[si][3]) > maxf(D_STRAIGHT_DEV_MIN, D_STRAIGHT_DEV_K * side):
+	# сторона продлевается по штриху, пока точки ближе d_eps к её прямой (B-490): у скруглённого
+	# рукой угла упрощение срезает угол хордой, и ребро кончалось посреди стороны — угол «на
+	# конце» был ~10°. Допуск — упрощения, а не прямизны: тот пускал продление на дугу
+	var s0 := _extend_side(loop, int(edges[si][0]), int(edges[si][1]), -1, d_eps)
+	var s1 := _extend_side(loop, int(edges[si][1]), s0, 1, d_eps)
+	if s1 <= s0:
 		return {}
-	# остальные рёбра КРИВЫЕ — дуга, а не рёбра многоугольника (шестиугольник и т.п.)
+	var p0 := loop[posmod(s0, n)]
+	var p1 := loop[posmod(s1, n)]
+	var side := p0.distance_to(p1)
+	var dev := 0.0
+	for k in range(s0 + 1, s1):
+		var p := loop[posmod(k, n)]
+		dev = maxf(dev, p.distance_to(Geometry2D.get_closest_point_to_segment(p, p0, p1)))
+	if side < D_STRAIGHT_MIN * total or dev > maxf(D_STRAIGHT_DEV_MIN, D_STRAIGHT_DEV_K * side):
+		return {}
+	# остальные заметные рёбра КРИВЫЕ — дуга, а не рёбра многоугольника (шестиугольник и т.п.);
+	# короткое прямое ребро — зазор, срез угла или плоский участок руки (D_ARC_FLAT_MAX)
 	for q in m:
-		if q != si and float(edges[q][3]) < D_ARC_DEV_K * float(edges[q][2]):
+		if q != si and float(edges[q][2]) > D_ARC_FLAT_MAX * total \
+				and float(edges[q][3]) < D_ARC_DEV_K * float(edges[q][2]):
 			return {}
 	if side > (1.0 - D_ARC_MIN) * total:
 		return {}
-	# углы на обоих концах прямой стороны
-	var p0 := loop[int(edges[si][0])]
-	var p1 := loop[int(edges[si][1]) % loop.size()]
-	var before := loop[int(edges[(si - 1 + m) % m][0])]
-	var beyond := loop[int(edges[(si + 1) % m][1]) % loop.size()]
+	# углы на обоих концах прямой стороны — до точек дуги через D_CORNER_PROBE периметра
+	var before := _walk(loop, s0, -D_CORNER_PROBE * total)
+	var beyond := _walk(loop, s1, D_CORNER_PROBE * total)
 	var d_in := (p0 - before).normalized()
 	var d_side := (p1 - p0).normalized()
 	var d_out := (beyond - p1).normalized()
@@ -778,6 +808,61 @@ static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	if absf(d_in.angle_to(d_side)) < D_CORNER_MIN or absf(d_side.angle_to(d_out)) < D_CORNER_MIN:
 		return {}
 	return {"corners": PackedVector2Array([p0, p1]), "share": side / total}
+
+
+## Штрих без одиночных рывков мыши (D_SPIKE_RATIO); концы штриха не трогаются.
+static func _despike(pts: PackedVector2Array) -> PackedVector2Array:
+	var out := PackedVector2Array([pts[0]])
+	for i in range(1, pts.size() - 1):
+		var prev := out[out.size() - 1]
+		var gap := prev.distance_to(pts[i + 1])
+		if prev.distance_to(pts[i]) + pts[i].distance_to(pts[i + 1]) > D_SPIKE_RATIO * gap \
+				and gap > 0.0:
+			continue
+		out.append(pts[i])
+	out.append(pts[pts.size() - 1])
+	return out
+
+
+## Конец прямой стороны «D», продлённый по штриху: от индекса from шагом step (±1), пока точка
+## ближе tol к прямой стороны (from → other) и уходит дальше вдоль неё. Индексы — без свёртки
+## (могут выйти за n; брать posmod), продление не заходит на другой конец стороны.
+static func _extend_side(loop: PackedVector2Array, from: int, other: int, step: int,
+		tol: float) -> int:
+	var n := loop.size() - 1
+	var a := loop[posmod(other, n)]
+	var b := loop[posmod(from, n)]
+	var dir := (b - a).normalized()
+	if dir == Vector2.ZERO:
+		return from
+	var reach := (b - a).dot(dir)
+	var at := from
+	var span := absi(from - other)
+	for k in range(1, n - span):
+		var p := loop[posmod(from + step * k, n)]
+		var along := (p - a).dot(dir)
+		if absf((p - a).cross(dir)) > tol or along <= reach:
+			break
+		reach = along
+		at = from + step * k
+	return at
+
+
+## Точка замкнутой ломаной loop (последняя = первой) на расстоянии |dist| по контуру от индекса
+## from: dist > 0 — вперёд, < 0 — назад.
+static func _walk(loop: PackedVector2Array, from: int, dist: float) -> Vector2:
+	var n := loop.size() - 1
+	var step := 1 if dist > 0.0 else -1
+	var i := posmod(from, n)
+	var left := absf(dist)
+	for k in n:
+		var j := posmod(i + step, n)
+		var seg := loop[i].distance_to(loop[j])
+		if seg > 0.0 and seg >= left:
+			return loop[i].lerp(loop[j], left / seg)
+		left -= seg
+		i = j
+	return loop[i]
 
 
 ## Два угла «неустойки» по штриху (пусто — не «D»).
@@ -845,6 +930,31 @@ static func _rdp_closed(loop: PackedVector2Array, eps: float) -> PackedInt32Arra
 	for i in n:
 		if keep[i] != 0:
 			out.append(i)
+	return out
+
+
+## Убрать из упрощения начало штриха, если RDP его не оставил бы: все точки штриха между
+## соседними оставленными точками ближе eps к их хорде. RDP оставляет начало всегда, даже посреди
+## ребра. Начатый с середины ребра пятиугольник (B-490) делил ребро на два куска по ~10 %
+## периметра — короче POLY_MERGE_K, и оба соседних угла сливались через «срез» в одну вершину
+## ~145°: четыре угла, рёбра «кривые», и штрих уходил в кольцо. «D», начатая посреди прямой
+## стороны, теряла её (половина короче D_STRAIGHT_MIN). Вторую обязательную точку RDP (самую
+## далёкую от начала) не трогаем: у выпуклой фигуры это вершина, а общая чистка всех «плоских»
+## точек сдвигала распознавание редких кругов (замер 11.10).
+static func _drop_flat(loop: PackedVector2Array, keep: PackedInt32Array,
+		eps: float) -> PackedInt32Array:
+	var m := keep.size()
+	var n := loop.size() - 1   # loop замкнут повтором первой точки
+	if m <= 3 or keep[0] != 0:
+		return keep
+	var a := loop[keep[m - 1]]
+	var b := loop[keep[1]]
+	for i in range(keep[m - 1] + 1, n + keep[1]):
+		var p := loop[i % n]
+		if p.distance_to(Geometry2D.get_closest_point_to_segment(p, a, b)) > eps:
+			return keep
+	var out := keep.duplicate()
+	out.remove_at(0)
 	return out
 
 

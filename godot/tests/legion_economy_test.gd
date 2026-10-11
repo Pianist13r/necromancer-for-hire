@@ -182,9 +182,9 @@ func _test_bot() -> void:
 	_kill(b, 1)
 	var price := need * LegionCfg.RUSH_HIRE_PRICE[LegionCfg.KIND_LABORER]
 	# резерв — самая дорогая плановая покупка: пустые площадки есть, вне кампании открыты все
-	# виды — Проходная/Бухгалтерия 60; улучшение Бытовки — тоже 60
+	# виды — Бухгалтерия 60 (Проходная 50 с B-364); улучшение Бытовки — тоже 60
 	var reserve := 60
-	_check(LegionStaff.build_price(LegionCfg.KIND_GUARD) == reserve
+	_check(LegionStaff.build_price(LegionCfg.KIND_CLERK) == reserve
 		and LegionStaff.upgrade_price(b) == reserve and w.staff.kind_unlocked(LegionCfg.KIND_GUARD),
 		"бот: резерв на самую дорогую плановую покупку — 60")
 	w.souls = price + reserve - 1

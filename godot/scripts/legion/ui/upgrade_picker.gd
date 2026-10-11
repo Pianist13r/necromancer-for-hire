@@ -115,6 +115,14 @@ func offer(options: Array) -> void:
 			{"together": true, "select_mode": true, "note": RunProgression.unseen_note(id)})
 		row.pressed.connect(func(rid: StringName) -> void: select(rid))
 		row.activated.connect(func(rid: StringName) -> void: choose(rid))
+		# Первый щелчок двойного запоминаем и по заголовку, и по рамке ниже него (B-489): иначе
+		# второй щелчок после сдвига строк не узнаёт свою строку в _input.
+		var hit := row.hit_area()
+		hit.gui_input.connect(func(event: InputEvent) -> void:
+			var mouse := event as InputEventMouseButton
+			if mouse != null and mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+				_clicked_row = id
+				_clicked_position = hit.get_global_transform() * mouse.position)
 		row.button().gui_input.connect(func(event: InputEvent) -> void:
 			var mouse := event as InputEventMouseButton
 			if mouse != null and mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:

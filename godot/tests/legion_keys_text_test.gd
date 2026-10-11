@@ -421,6 +421,8 @@ func _banner_text(tut: LegionTutorial) -> String:
 func _test_lessons() -> void:
 	print("— уроки после переназначения")
 	for map_id: String in LESSON_MAPS:
+		if LegionTutorial.parse(LegionWorld.load_map(map_id)).is_empty():
+			continue   # «Прораб» уроков не ведёт (B-414); состав уроков сверяет legion_lessons_test
 		var tut := await _start(map_id)
 		if tut == null:
 			_check(false, "%s: уроки не стартовали" % map_id)
@@ -461,7 +463,7 @@ func _test_banner_refresh() -> void:
 func _test_figure_marks() -> void:
 	print("— TU-02: шаблон фигуры на поле")
 	for pair in [["maze", &"pentagon"], ["maze", &"mini"], ["swamp", &"square"],
-			["bridge", &"triangle"], ["boss", &"sling_one"]]:
+			["bridge", &"triangle"], ["archive", &"sling_one"]]:
 		var tut := await _start(pair[0])
 		tut.force_lesson(pair[1])
 		await _frames(1)

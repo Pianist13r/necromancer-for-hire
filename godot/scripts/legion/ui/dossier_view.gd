@@ -3,7 +3,8 @@ extends VBoxContainer
 ##
 ## Одно «Досье» вместо трёх имён (D-1007-P2): шапка «Досье» с разрядом и опытом, две вкладки —
 ## «Поправки» (полоса трёх слотов, что откроет следующий разряд, каталог колоды по трём ветвям) и
-## «Артефакты (N)» (карточки артефактов текущего раздела и синергии). Один виджет на два входа:
+## «Артефакты (N)» (карточки артефактов текущего раздела и синергии); третья — «Рекорды»
+## (RecordsTable, slow/records 10.10). Один виджет на два входа:
 ## экран меню HeroScreen (по умолчанию «Поправки») и оверлей паузы LegionItemDossier (по
 ## умолчанию «Артефакты» — в бою важнее срабатывания). В бою артефакты — живой инвентарь мира со
 ## счётчиками за бой; из меню — Campaign.run_items() без счётчиков.
@@ -11,6 +12,8 @@ extends VBoxContainer
 
 const TAB_UPGRADES := "upgrades"
 const TAB_ITEMS := "items"
+## Личные рекорды (LegionRecords, slow/records 10.10) — таблица строится в RecordsTable.
+const TAB_RECORDS := "records"
 const STYLE_NAMES := {&"hr": "Кадры", &"law": "Договоры", &"warlock": "Некромантия"}
 
 var _inventory: LegionItems = null
@@ -38,6 +41,7 @@ func configure(inventory: LegionItems = null, tab := TAB_UPGRADES) -> DossierVie
 	head.add_child(spacer)
 	_add_tab(head, "TabUpgrades", TAB_UPGRADES, "Поправки")
 	_add_tab(head, "TabItems", TAB_ITEMS, "Артефакты (%d)" % _item_ids().size())
+	_add_tab(head, "TabRecords", TAB_RECORDS, "Рекорды")
 	var meter := ProgressionUi.experience_meter(Campaign.hero_xp())
 	# В досье полезен и общий опыт. Это единственная строка разряда, над его полосой.
 	(meter.get_node("ExperienceCaption") as Label).text = rank_text()
@@ -97,6 +101,8 @@ func show_tab(id: String) -> void:
 	_scroll.scroll_vertical = 0
 	if id == TAB_ITEMS:
 		_build_items()
+	elif id == TAB_RECORDS:
+		_body.add_child(RecordsTable.build())
 	else:
 		_build_upgrades()
 

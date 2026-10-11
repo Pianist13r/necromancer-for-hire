@@ -91,6 +91,9 @@ static func on_match_ended(main: LegionMain, victory: bool, stats: Dictionary) -
 	LegionCollection.record_replay(map_id, {
 		"victory": victory, "hp_ratio": ratio, "kills": int(stats.get("kills", 0)),
 	})
+	# Личный рекорд карты коллекции — в транзакции итога мира (LegionWorld._end, B-442).
+	var record := LegionRecords.record_run(LegionRecords.MODE_COLLECTION, map_id, victory, stats,
+		0, String(main.world.map.get("title", map_id)))
 	Campaign.use_campaign_scope()
 	var view_stats := {
 		"map_title": String(main.world.map.get("title", map_id)),
@@ -101,6 +104,7 @@ static func on_match_ended(main: LegionMain, victory: bool, stats: Dictionary) -
 		"charges": int(stats.get("charges", 0)),
 		"refreshes": int(stats.get("refreshes", 0)),
 		"time": float(stats.get("t", 0.0)),
+		"record": record,
 	}
 	main._teardown_screen()
 	var r := LegionResult.new()

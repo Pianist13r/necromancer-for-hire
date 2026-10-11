@@ -6,8 +6,8 @@ extends RefCounted
 ## срыв». Играет ТОЛЬКО через API команд стороны (PvpCmd, LegionWorld.command) — теми же
 ## действиями, что сеть и человек; читает только то, что видно на поле (позиции, свои договоры).
 ##
-## Раздумье раз в THINK_MIN…THINK_MAX с (реакция человека, как у LegionBot). Свой ГСЧ, засеянный
-## сидом боя и стороной: бот одной стороны не сдвигает случайности другой и мира.
+## Раздумье раз в think_min…think_max с уровня (реакция человека, как у LegionBot). Свой ГСЧ,
+## засеянный сидом боя и стороной: бот одной стороны не сдвигает случайности другой и мира.
 ##
 ## Оборона: рубеж поперёк каждой дороги волн у своего Котла (стрелка — к воротам) и рубеж
 ## «лицом к стыку» (стрелка — к сопернику); держатся подрисовкой, прогнутый давкой участок
@@ -19,8 +19,6 @@ extends RefCounted
 
 enum Stage { IDLE, MARCH, CHARGE, SIEGE }
 
-const THINK_MIN := 0.3
-const THINK_MAX := 0.55
 ## Рубеж обороны: на таком расстоянии от конца дороги (у Котла), длина, отступ «лица к стыку».
 const DEF_ALONG := 120.0
 const DEF_LEN := 90.0
@@ -31,12 +29,11 @@ const ROAD_HOME_R := 160.0
 const REFRESH_LEAD := 2.5
 ## Прогиб давкой, с которого участок срывается пружиной.
 const SPRING_AT := 0.6
-## Наступление: сколько свободных нужно для перебежки, радиус группы, длина прыжка линии.
-const ASSAULT_MIN := 8
-## На своей половине (ближе к своему Котлу, чем к чужому) перебежка — только кулаком не меньше
-## ASSAULT_BIG: мелкие наскоки вязнут в чужой обороне по одному, а павшие у соперника
-## возрождаются у его Котла, прямо в драке. «Сбор» тем временем подтягивает резерв к кулаку.
-const ASSAULT_BIG := 30
+## Наступление: сколько свободных нужно для перебежки — assault_min уровня
+## (LegionCfg.PVP_BOT_LEVELS); на своей половине (ближе к своему Котлу, чем к чужому) — только
+## кулаком не меньше assault_big: мелкие наскоки вязнут в чужой обороне по одному, а павшие у
+## соперника возрождаются у его Котла, прямо в драке. «Сбор» тем временем подтягивает резерв к
+## кулаку. Ниже — радиус группы и прыжок линии.
 const HOME_R := 260.0
 const GROUP_R := 260.0
 ## «Сбор» отставших: точка — на STRAY_PULL ближе к группе (в радиусе RALLY_R от отставшего);
@@ -82,6 +79,9 @@ var stage := Stage.IDLE
 var sink: Callable
 ## Счётчики для серий и тестов: перебежек, осад, срывов обороны, отказов API.
 var counts := {"leaps": 0, "sieges": 0, "springs": 0, "rejects": 0, "defense_lines": 0}
+## Уровень (B-331): ключ LegionCfg.PVP_BOT_LEVELS. Запас маны уровня ставит стороне мир
+## (_setup_pvp_bots → PvpSide.ability_mana_reserve), остальное читает бот из _lv.
+var level_id := LegionCfg.PVP_BOT_LEVEL_DEFAULT
 
 var _rng := RandomNumberGenerator.new()
 var _think_t := 0.0
@@ -92,16 +92,30 @@ var _stage_t := 0.0
 ## Осада: HP чужого Котла, когда он в последний раз падал, и когда (время стадии).
 var _siege_hp := INF
 var _siege_hit_t := 0.0
+## Числа уровня level_id (словарь из LegionCfg.PVP_BOT_LEVELS).
+var _lv: Dictionary = LegionCfg.PVP_BOT_LEVELS[LegionCfg.PVP_BOT_LEVEL_DEFAULT]
 
 
-func setup(w: LegionWorld, side_index: int) -> void:
+## Известный уровень или «по умолчанию» (неизвестное имя из настроек или --dev не ломает бой).
+static func valid_level(id: String) -> String:
+	return id if LegionCfg.PVP_BOT_LEVELS.has(id) else LegionCfg.PVP_BOT_LEVEL_DEFAULT
+
+
+## Числа уровня (заголовок, темп, запас маны, кулаки).
+static func level_params(id: String) -> Dictionary:
+	return LegionCfg.PVP_BOT_LEVELS[valid_level(id)]
+
+
+func setup(w: LegionWorld, side_index: int, level := LegionCfg.PVP_BOT_LEVEL_DEFAULT) -> void:
 	world = w
 	side = side_index
+	level_id = valid_level(level)
+	_lv = level_params(level_id)
 	stage = Stage.IDLE
 	_assault_id = -1
 	_stage_t = 0.0
 	_rng.seed = hash([w._base_seed, side_index, "pvp_bot"])
-	_think_t = _rng.randf_range(THINK_MIN, THINK_MAX)
+	_think_t = _rng.randf_range(float(_lv["think_min"]), float(_lv["think_max"]))
 	_defense.clear()
 	var home := _me().cauldron_pos
 	for r: Dictionary in world.map.get("roads", []):
@@ -213,7 +227,7 @@ func tick(dt: float) -> void:
 	_think_t -= dt
 	if _think_t > 0.0:
 		return
-	_think_t = _rng.randf_range(THINK_MIN, THINK_MAX)
+	_think_t = _rng.randf_range(float(_lv["think_min"]), float(_lv["think_max"]))
 	if not _me().alive():
 		return
 	_build_step()
@@ -233,7 +247,7 @@ func _consolidate() -> void:
 	for u in world.units:
 		if u.side == side and u.alive and u.state == Legionnaire.State.FREE and not u.is_stunned():
 			free.append(u)
-	if free.size() < ASSAULT_MIN:
+	if free.size() < int(_lv["assault_min"]):
 		return
 	var enemy := _enemy_pos()
 	if enemy == Vector2.INF:
@@ -247,7 +261,7 @@ func _consolidate() -> void:
 		for a in free:
 			var closer := goal == Vector2.INF \
 				or a.position.distance_to(enemy) < goal.distance_to(enemy)
-			if closer and _group_at(free, a.position).size() >= ASSAULT_MIN:
+			if closer and _group_at(free, a.position).size() >= int(_lv["assault_min"]):
 				goal = a.position
 	if goal == Vector2.INF:
 		return
@@ -428,7 +442,7 @@ func _set_stage(s: Stage) -> void:
 
 
 ## Группа для перебежки — самая продвинутая достаточная кучка свободных: в поле хватает
-## ASSAULT_MIN (остатки прошлого натиска идут дальше), у своего Котла — ASSAULT_BIG (из дома —
+## assault_min (остатки прошлого натиска идут дальше), у своего Котла — assault_big (из дома —
 ## только большой волной: мелкие наскоки вязнут в чужой обороне по одному). Линия — впереди
 ## группы по пути к чужому Котлу; у него — осада. Отставших подберёт вербовка новой линии.
 func _try_leap() -> void:
@@ -449,7 +463,7 @@ func _try_leap() -> void:
 			continue
 		var near := _group_at(free, anchor.position)
 		var own_half := anchor.position.distance_to(home) < d
-		var need := ASSAULT_BIG if own_half else ASSAULT_MIN
+		var need := int(_lv["assault_big"] if own_half else _lv["assault_min"])
 		if near.size() >= need:
 			best_d = d
 			group = near

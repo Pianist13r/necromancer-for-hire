@@ -42,13 +42,15 @@ func _run() -> void:
 	finish()
 
 
-func fresh() -> Contract:
+## x — линия по вертикали; с 11.10 автомарш ограничен LegionCfg.AUTOMARCH_R (500 px), поэтому
+## линии для резерва из дома стоят в пределах него (D-1011, legion_automarch_cap_test).
+func fresh(x := 1100.0) -> Contract:
 	w.start_map("_gray", MAP)
 	w.terrain = LegionTerrain.new().setup({"size": [1280, 720]})
 	w.souls = 1000
 	w.contracts.mana = 1000.0
 	return w.contracts.add_contract(PackedVector2Array([
-		Vector2(1100, 300), Vector2(1100, 380)]), 1, true, LegionCfg.KIND_LABORER)
+		Vector2(x, 300), Vector2(x, 380)]), 1, true, LegionCfg.KIND_LABORER)
 
 
 ## Главная жалоба: боец, которого игрок оставил в поле (после натиска, Сбора, растаявшей линии),
@@ -65,7 +67,7 @@ func test_field_veteran_stays() -> void:
 
 
 func test_home_reserve_marches() -> void:
-	var c := fresh()
+	var c := fresh(480.0)
 	var home := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(160, 360))
 	var b := w.staff.build(w.staff.plots[0], LegionCfg.KIND_LABORER)
 	var at_door := w.spawn_unit(LegionCfg.KIND_LABORER, b.entry + Vector2(20, 10), b)
@@ -79,10 +81,11 @@ func test_home_reserve_marches() -> void:
 
 ## Мест меньше, чем резерва: идёт ближний к линии, а не первый по порядку рождения.
 func test_nearest_reserve_first() -> void:
-	var c := fresh()
+	var c := fresh(480.0)
 	for i in range(1, c.posts.size()):
 		c.posts[i]["dead"] = true
-	var far := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(40, 360))     # родился первым
+	# оба в резерве у Котла и в пределе автомарша (383 и 250 px), дальний родился первым
+	var far := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(100, 250))
 	var near := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(230, 360))
 	w.grid.rebuild()
 	w._assign_free()
@@ -110,7 +113,7 @@ func test_crypt_is_home() -> void:
 	var b: LegionBuilding = w.crypts[0].building
 	b.frozen = false
 	w.contracts.add_contract(PackedVector2Array([
-		Vector2(1100, 300), Vector2(1100, 380)]), 1, true, LegionCfg.KIND_LABORER)
+		Vector2(700, 300), Vector2(700, 380)]), 1, true, LegionCfg.KIND_LABORER)
 	var at_crypt := w.spawn_unit(LegionCfg.KIND_LABORER, b.entry, b)
 	var corner := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(40, 40))
 	w.grid.rebuild()
@@ -146,12 +149,12 @@ func test_preview_counts_reserve() -> void:
 	w.contracts.human_input = true
 	w.contracts.mana = 1000.0
 	var home := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(160, 360))
-	var vet := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(600, 200))
+	var vet := w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(900, 200))
 	w.grid.rebuild()
 	await process_frame
-	button(Vector2(1000, 260), true)
+	button(Vector2(480, 260), true)
 	for y in range(280, 401, 20):
-		motion(Vector2(1000, y))
+		motion(Vector2(480, y))
 	w.contracts.update_preview()
 	var plan := w.contracts._preview_plan.map(func(a: Dictionary) -> Object: return a["unit"])
 	check(plan.has(home), "превью отмечает резерв из дома, который придёт")
@@ -161,7 +164,7 @@ func test_preview_counts_reserve() -> void:
 		if w.contracts.has_method("preview_caption") else ""
 	print("DIARY caption: %s" % caption)
 	check(caption.contains("из дома"), "подпись превью называет идущих из дома")
-	button(Vector2(1000, 400), false)
+	button(Vector2(480, 400), false)
 	check(w.contracts.contracts.size() == 1, "живой ввод создал линию")
 	w.grid.rebuild()
 	w._assign_free()

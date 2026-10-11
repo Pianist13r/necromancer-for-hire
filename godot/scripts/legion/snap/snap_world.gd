@@ -86,6 +86,8 @@ const WORLD_SKIP: Array[String] = [
 	"hud_follows_camera",
 	# замеры, кадры, трасса (--trace печатает, бой не читает)
 	"_trace_t", "_frames", "_bench_s", "_bench_el", "_bench_n", "_bench_tick_us",
+	# разделы шага мира (трек оптимизации 11.10, D-1010-P1): в игре выключено, бой не читает
+	"prof_on", "prof", "_prof_t",
 	"_bench_ticks", "_bench_wall0", "_shot_path", "_shot_frame",
 ]
 const SIDE_SAVED: Array[String] = [

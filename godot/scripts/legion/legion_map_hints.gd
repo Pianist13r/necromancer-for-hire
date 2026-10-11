@@ -18,6 +18,10 @@ extends Node
 ## Склеп: подсказка приходит не сразу — вводный тост карты (LegionCfg.TOAST_TIME) уже сошёл.
 const CRYPT_HINT_AT := 3.5
 const CRYPT_HINT_TIME := 7.0
+## B-273: первый нотариус на поле — плашка дольше обычного тоста: две мысли (кто бьёт и что делать).
+const SIGNER_HINT := ("Нотариус бьёт печатью издалека по толпе бойцов (оранжевый круг — замах). "
+	+ "Сорвите строй на него или сбейте печать {key:cast_q}.")
+const SIGNER_HINT_TIME := 6.0
 
 var world: LegionWorld = null
 
@@ -28,8 +32,10 @@ func setup(w: LegionWorld) -> void:
 
 
 func _process(_dt: float) -> void:
-	if world == null or world.map_id == LegionTutorial.WASTELAND_MAP_ID \
-			or world.phase != LegionWorld.Phase.BATTLE:
+	if world == null or world.phase != LegionWorld.Phase.BATTLE:
+		return
+	_signer_hint()
+	if world.map_id == LegionTutorial.WASTELAND_MAP_ID:
 		return
 	if not world.crypts.is_empty() and world.now >= CRYPT_HINT_AT:
 		# corr 29.09: подписи склепа («0/8 · 4 с») новичку ничего не говорили; линию рядом со
@@ -46,6 +52,24 @@ func _process(_dt: float) -> void:
 			_fire(&"foe_lawyer", "Юрист идёт к самому людному участку и расторгает его — "
 				+ "бойцы встанут «в отказе». Строй его не трогает: {key:cast_q} сорвёт зачитку, "
 				+ "добейте натиском или «Сбором».")
+
+
+## B-273: про печать нотариуса — в миг, когда первый нотариус вышел на поле, а не после того,
+## как печати у двери уже выкосили бойцов (совет LegionIntuit «door» — поздний, ночь 29.09,
+## находка 5). Плашкой HUD, а не подписью на поле: у Котла она закрывала бой. Это и Пустырь —
+## нотариусы приходят туда в 4-й волне, уже после обучения; пока стоит плашка урока, ждём её
+## ухода, чтобы не класть две плашки стопкой.
+func _signer_hint() -> void:
+	if Campaign.hint_seen(&"foe_signer") or _taught(&"foe_signer") or _lesson_on():
+		return
+	for f: Foe in world.foes:
+		if f.type_id == "signer" and not f.ghost and f.is_active():
+			_fire(&"foe_signer", SIGNER_HINT, SIGNER_HINT_TIME)
+			return
+
+
+func _lesson_on() -> bool:
+	return world.tutorial != null and world.tutorial.active and world.tutorial.step() >= 0
 
 
 func _on_unit_spawned(u: Legionnaire) -> void:
@@ -70,7 +94,7 @@ func _fire(id: StringName, text: String, time := -1.0) -> void:
 ## подсказка его не дублирует. Подсказки о своих видах (вахтёр, счетовод, пакет) — остаются.
 func _taught(id: StringName) -> bool:
 	var when := {&"foe_shield_inspector": "first_foe:shield_inspector",
-		&"foe_lawyer": "first_foe:lawyer"}
+		&"foe_lawyer": "first_foe:lawyer", &"foe_signer": "first_foe:signer"}
 	if not world.in_campaign or not when.has(id):
 		return false
 	return LegionTutorial.map_covers(world.map, String(when[id]))

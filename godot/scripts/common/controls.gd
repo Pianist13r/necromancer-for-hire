@@ -34,9 +34,11 @@ const PROSE := {"Ку": &"cast_q", "Дубль-вэ": &"cast_w", "Е": &"cast_e"
 ## и не превратится обратно. Порядок: токен; пара «Ку (Q)» (слово и буква одного действия —
 ## одна клавиша, KB-05); «F (или N)»; «1/2/3»; склонённые «Пробелом»/«Табом» (KB-10); имена;
 ## цифра вида ТОЛЬКО после «нажмите», «линия —», «клавиша(-ей)» (KB-04: «3 души» — не клавиша).
-const _TEXT_PATTERN := ("\\{(?<tok>key\\+?|keys|cap):(?<act>[a-z_]+)\\}"
+## B-448: {mouse:draw|sling} и слова «ЛКМ»/«ПКМ» — кнопка мыши действия (режим левши, MouseBind);
+## в том же проходе, чтобы обмен ЛКМ↔ПКМ не вернулся вторым заменой.
+const _TEXT_PATTERN := ("\\{(?<tok>key\\+?|keys|cap|mouse):(?<act>[a-z_]+)\\}"
 	+ "|(?<![\\p{L}\\p{N}])(?:(?<pw>Дубль-вэ|Ку|Е|Эр|Эф|Дэ) \\((?<pl>[QWERFDЕ])\\)"
-	+ "|F \\(или N\\)|1/2/3|Пробелом|Табом|Дубль-вэ|Пробел|Таб|Ку|Эр|Дэ|Эф|[QWERFПЕ]"
+	+ "|F \\(или N\\)|1/2/3|ЛКМ|ПКМ|Пробелом|Табом|Дубль-вэ|Пробел|Таб|Ку|Эр|Дэ|Эф|[QWERFПЕ]"
 	+ "|(?<=[Нн]ажмите |линия — |[Кк]лавиша |[Кк]лавишей )[123])(?![\\p{L}\\p{N}])")
 static var _text_regex: RegEx = null
 ## Растёт на каждом apply(): открытый текст (плашка урока) сверяет её и пересчитывается, если
@@ -226,6 +228,11 @@ static func _render(hit: RegExMatch) -> String:
 	if tok == "keys":
 		var group: Array = KEY_GROUPS.get(hit.get_string("act"), [])
 		return word if group.is_empty() else _group(group)
+	if tok == "mouse":
+		var mouse_act := StringName(hit.get_string("act"))
+		return MouseBind.label(mouse_act) if MouseBind.ACTIONS.has(mouse_act) else word
+	if word in MouseBind.PROSE:
+		return MouseBind.prose(word)
 	if tok != "":
 		var action := StringName(hit.get_string("act"))
 		if action not in ACTIONS:
