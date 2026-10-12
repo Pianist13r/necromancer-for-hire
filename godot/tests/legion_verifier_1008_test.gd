@@ -147,7 +147,7 @@ func test_plots() -> void:
 
 
 func test_snapshot() -> void:
-	check(NetSession.BUILD == "net-2026-10-11c" and NetSnap.VERSION == 5,
+	check(NetSession.BUILD == "net-2026-10-12-040" and NetSnap.VERSION == 6,
 		"старый сетевой клиент отделён версией сборки и снимка")
 	fresh()
 	w.spawn_unit(LegionCfg.KIND_LABORER, Vector2(300, 400))

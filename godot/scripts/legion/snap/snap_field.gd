@@ -33,6 +33,7 @@ const FIELD_SKIP: Array[String] = [
 	"_paths", "_rings", "_path_terrain", "path_queries",
 	# ввод человека этого клиента (черновик, прицел, рогатка, превью) — не состояние боя
 	"_draft", "_draft_len", "_drawing", "_draft_dir", "_draft_ring", "_draft_fig", "_space",
+	"_draft_shape", "_pen_sample", "_draft_block",
 	"_aim_held", "_wheel_quiet_ms", "_hover", "_hover_dirty", "_pen_wait", "_aim_contract",
 	"_preview", "_preview_plan", "_preview_t", "_pointer", "_draft_cost", "_pressing",
 	"_press_pos", "_press_pts", "_press_eaten", "_grab", "_grab_pos", "_pull", "_slinging",

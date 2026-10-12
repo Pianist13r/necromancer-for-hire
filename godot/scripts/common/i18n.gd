@@ -3,7 +3,8 @@ extends RefCounted
 ## Перевод только представления: ключи сохранений и состояние симуляции остаются прежними.
 
 const CATALOGS := ["res://localization/en_a.json", "res://localization/en_b.json",
-	"res://localization/en_extra.json"]
+	"res://localization/en_extra.json", "res://localization/en_roles.json",
+	"res://localization/en_audit.json"]
 const VOICE_ROOT := "res://assets/legion/voice/"
 static var language := "ru"
 static var _loaded := false

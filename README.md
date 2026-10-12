@@ -10,23 +10,23 @@
 Язык интерфейса, обучения, заставок и озвучки выбирается из главного меню: «Настройки» → Язык / Language.
 Русский язык и прежние сохранения сохраняются; начинать игру заново для смены языка не нужно.
 
-Скачать: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Windows.exe) ·
-[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-macOS.zip) ·
-[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Linux.tar.gz) ·
+Скачать: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.exe) ·
+[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-macOS.zip) ·
+[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Linux.tar.gz) ·
 [Сайт игры](https://necromancer-for-hire.ru) (открывается в России без VPN) ·
 [Все сборки](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
 [Telegram: новости](https://t.me/necromancer_for_hire) и [обсуждение](https://t.me/necromancer_for_hire_chat) ·
 [Оставить отзыв](https://forms.yandex.ru/u/6ac606b3f47e73002a8eaf4e)
 
-**Альфа-версия 0.3.4-alpha.** Сделано на Godot 4.7.2.
+**Альфа-версия 0.4.0-alpha.** Сделано на Godot 4.7.2.
 
 | Рисуешь договор | Колдуешь | «Схватка» |
 |---|---|---|
 | ![Чертишь линию — отряды встают в строй](media/readme/01_drawing.gif) | ![Молния Ку бьёт по цепи от Котла](media/readme/03_lightning.gif) | ![Две армии и два Котла: против бота или по сети](media/readme/04_duel.gif) |
-| Линия тает участками и отпускает бойцов в натиск | Молния по цепи, подъём трупов, «Аврал» | Разрушь Котёл соперника первым |
+| Линия тает участками и отдаёт приказ бойцам | Молния по цепи, подъём трупов, «Аврал» | Разрушь Котёл соперника первым |
 
-Договор истекает участками, и отпущенные бойцы идут в натиск. Форма тоже тактика: круг —
+Договор истекает участками: подрядчики идут в натиск, вахтёры двигают фронт, счетоводы ведут огневой вал. Форма тоже тактика: круг —
 «Оцепление», квадрат — «Каре», треугольник — «Обряд». Кампания на нарисованных картах,
 бесконечный подряд с генератором карт, вызов дня и «Схватка» — против бота или по сети.
 
@@ -36,6 +36,18 @@
 | ![Дуэль на песчаной карте](media/readme/05_duel.jpg) | ![Последняя волна](media/readme/09_last_wave.jpg) |
 
 Кадры и ролики сняты в самой игре, из записей живых партий; в роликах добавлены титры и музыка игры.
+
+## Что нового в версии 0.4.0-alpha
+
+**Три роли — три приказа.** Подрядчики по-прежнему идут в натиск. Вахтёры перемещаются связным фронтом и вытесняют врагов; при отходе назад или по диагонали щиты сохраняют исходное направление защиты. Счетоводы остаются на постах и проводят направленный огневой вал. У вахтёров и счетоводов длина оттяжки задаёт дальность приказа; у подрядчиков сохраняется полная сила натиска.
+
+**Прицел объясняет результат.** Перед отпусканием видны путь и дальность приказа. Перекрытые стеной полосы огня отмечены отдельно; открытые соседние полосы остаются доступными. Золотое окно точного срыва отделено от полного пути.
+
+**Фигуры проще довести до результата.** Восьмёрка и D лучше распознаются при редких движениях мыши. У пера видно, замкнут ли контур, хватает ли маны, открыт ли знак и что получится при отпускании. Исправленная фигура может заменить совпадающую обычную линию; при отказе прежний строй сохраняется. Набор бойцов и заряд фигуры показаны отдельно, ранний выпуск предупреждает об отсутствии специального эффекта. Справка и подсказки обновлены на русском и английском.
+
+**Ограничения альфы.** Некоторые редкие неоднозначные контуры всё ещё становятся обычными линиями; обучение на «Архиве» ещё требует доработки. Изменения не означают, что сложность и интерес уже проверены всеми игроками — отзывы о полезности приказов особенно нужны.
+
+**Онлайн.** Версии до 0.4.0 несовместимы с новым боевым поведением: обоим игрокам и серверу нужна 0.4.0. Доступность сетевых служб проверяется отдельно от номера выпуска.
 
 ## Что нового в версии 0.3.4-alpha
 
@@ -191,10 +203,10 @@
 
 | Система | Файл | Как запустить |
 |---|---|---|
-| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
-| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
-| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
-| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
+| **Windows 10/11** | [**NecromancerForHire-Windows.exe**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.exe) — один файл, установка не нужна | Скачать и запустить. Если Windows покажет «Windows защитила ваш компьютер» (файл без цифровой подписи): «Подробнее» → «Выполнить в любом случае» |
+| Windows, архивом | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.zip) | Распаковать целиком, запустить `Necromancer.exe` (рядом должен лежать `Necromancer.pck`) |
+| **macOS: Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-macOS.zip) | Распаковать, перенести приложение в «Программы». Сборка с подписью ad-hoc, без нотаризации Apple: при первом запуске разрешить открытие в «Системные настройки» → «Конфиденциальность и безопасность» → «Открыть в любом случае» |
+| **Linux** x86_64 | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Linux.tar.gz) | `tar -xzf NecromancerForHire-Linux.tar.gz` и запустить `./Necromancer/Necromancer.x86_64` |
 
 Windows и Linux: x86_64, видеокарта и драйвер с поддержкой Vulkan.
 macOS: универсальная сборка для Intel и Apple Silicon, графика с поддержкой Metal.
@@ -232,7 +244,7 @@ wss://51-250-12-39.sslip.io
 ## Управление
 
 - **ЛКМ, протяжка** — начертить договор; **колесо / 1–3** — выбрать вид.
-- **ПКМ по строю** — выпустить бойцов; оттяжка ПКМ — направленный натиск.
+- **ПКМ по строю** — отдать приказ по роли: натиск пехоты, перевод щитов или огневой вал с постов. Оттяжка задаёт направление, а для вахтёров и счетоводов — ещё и дальность.
 - **Пробел или зажатое колесо** — задать стрелку; **Таб** — стереть участок.
 - **Q / W / E** — навыки: зажать для прицеливания, отпустить для применения.
 - **R** — сбор к курсору, **F** — вызвать следующую волну, **D** — Касса в одиночке.

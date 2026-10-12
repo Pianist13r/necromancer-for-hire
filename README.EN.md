@@ -8,22 +8,22 @@ English · [Русский](README.md)
 
 Choose the language from the main menu in **Settings → Language / Язык**. The setting covers the interface, tutorials, cutscenes and spoken instructions. You can keep your existing saves when switching languages.
 
-Download: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Windows.exe) ·
-[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-macOS.zip) ·
-[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Linux.tar.gz) ·
+Download: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.exe) ·
+[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-macOS.zip) ·
+[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Linux.tar.gz) ·
 [Game website](https://necromancer-for-hire.ru/en/) · [All releases](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
 [Telegram news](https://t.me/necromancer_for_hire) · [Community chat](https://t.me/necromancer_for_hire_chat) ·
 [Feedback form](https://forms.yandex.ru/u/6ac606b3f47e73002a8eaf4e)
 
-**Alpha version 0.3.4-alpha.** Made with Godot 4.7.2.
+**Alpha version 0.4.0-alpha.** Made with Godot 4.7.2.
 
 | Draw contracts | Cast spells | Skirmish |
 |---|---|---|
 | ![Draw a line and troops form up](media/readme/en/01_drawing.gif) | ![Chain lightning from the Cauldron](media/readme/en/03_lightning.gif) | ![Two armies and two Cauldrons in Skirmish](media/readme/en/04_duel.gif) |
-| The line melts segment by segment, releasing troops to charge | Chain lightning, raised corpses and Crunch Time | Destroy your opponent's Cauldron first |
+| The line melts segment by segment, issuing troop orders | Chain lightning, raised corpses and Crunch Time | Destroy your opponent's Cauldron first |
 
-Contracts expire in segments; the released troops charge. Shape is a tactic too: a circle is a **Cordon**, a square is a **Square Formation**, and a triangle is a **Ritual**. Play a campaign on hand-designed maps, an Endless Contract with generated maps, the Daily Challenge, or Skirmish against a bot or another player online.
+Contracts expire in segments: contractors charge, guards move the front, and clerks fire a rolling barrage. Shape is a tactic too: a circle is a **Cordon**, a square is a **Square Formation**, and a triangle is a **Ritual**. Play a campaign on hand-designed maps, an Endless Contract with generated maps, the Daily Challenge, or Skirmish against a bot or another player online.
 
 | | |
 |---|---|
@@ -31,6 +31,18 @@ Contracts expire in segments; the released troops charge. Shape is a tactic too:
 | ![Two opposing armies in Skirmish](media/readme/en/05_duel.jpg) | ![A Ritual formation faces the inspectors](media/readme/en/09_last_wave.jpg) |
 
 Screenshots and silent GIFs are captured from gameplay in the English version.
+
+## What's new in 0.4.0-alpha
+
+**Three roles, three orders.** Contractors still charge. Guards move as a cohesive front and push enemies back; retreating backwards or diagonally keeps their shields facing the original direction. Clerks stay at their posts and fire a directional rolling barrage. Pull distance controls the reach of guard and clerk orders; contractor charges keep their full power.
+
+**The preview explains the order.** See the path and reach before releasing. Walls mark only the blocked firing lanes, leaving neighbouring clear lanes available. The gold perfect-release window is separate from the full path.
+
+**Shapes are easier to complete.** Figure eights and D shapes are recognised more reliably with sparse mouse movements. The pen shows closure, mana, unlock requirements and the expected result. A corrected shape can replace a matching ordinary line; a rejected replacement preserves the previous formation. Staffing and charge are shown separately, and an early release warns that the special effect is not ready. How to Play and hints are updated in English and Russian.
+
+**Alpha limitations.** Some sparse, ambiguous outlines still become ordinary lines, and the Archives tutorial needs more work. Player difficulty and enjoyment still need feedback, particularly on whether orders produce useful results.
+
+**Online compatibility.** Versions before 0.4.0 are incompatible with the new battle behaviour. Both players and the server need 0.4.0. Service availability is checked separately from the release version.
 
 ## What's new in 0.3.4-alpha
 
@@ -132,10 +144,10 @@ You do not need Git or the source code to play. Archives include English and Rus
 
 | System | Download | Launch |
 |---|---|---|
-| **Windows 10/11, 64-bit** | [**Single executable**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Windows.exe) | Download and run; no installation. It is unsigned. If Windows shows “Windows protected your PC”, and you trust this download, choose More info → Run anyway. |
-| Windows archive | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Windows.zip) | Extract the whole archive and run `Necromancer.exe`. Keep `Necromancer.pck` beside it with that exact name. |
-| **macOS, Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-macOS.zip) | Double-click the ZIP to extract it with Archive Utility, then move the .app to Applications. It is ad-hoc signed and not notarized by Apple. If you trust it, permit this app through System Settings → Privacy & Security → Open Anyway. |
-| **Linux, x86_64** | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.3.4-alpha/NecromancerForHire-Linux.tar.gz) | Run `tar -xzf NecromancerForHire-Linux.tar.gz`, then `./Necromancer/Necromancer.x86_64`. |
+| **Windows 10/11, 64-bit** | [**Single executable**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.exe) | Download and run; no installation. It is unsigned. If Windows shows “Windows protected your PC”, and you trust this download, choose More info → Run anyway. |
+| Windows archive | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.zip) | Extract the whole archive and run `Necromancer.exe`. Keep `Necromancer.pck` beside it with that exact name. |
+| **macOS, Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-macOS.zip) | Double-click the ZIP to extract it with Archive Utility, then move the .app to Applications. It is ad-hoc signed and not notarized by Apple. If you trust it, permit this app through System Settings → Privacy & Security → Open Anyway. |
+| **Linux, x86_64** | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Linux.tar.gz) | Run `tar -xzf NecromancerForHire-Linux.tar.gz`, then `./Necromancer/Necromancer.x86_64`. |
 
 Windows and Linux require a Vulkan-capable graphics card and driver. The macOS universal build requires Metal-capable graphics. The macOS package has been checked structurally but not run on a physical Mac. Linux launch has been checked headlessly on Ubuntu 24.04; desktop support remains alpha.
 
@@ -158,7 +170,7 @@ Join another room with Play or open your own. Windows, macOS and Linux can play 
 ## Default controls
 
 - **Drag LMB:** draw a contract. **Wheel / 1–3:** choose contract type.
-- **RMB on a formation:** release troops. Pull back and release for a directed charge opposite to the pull. Release in the gold enemy zone for **Perfect!**; a simple click follows the contract arrow.
+- **RMB on a formation:** issue the role's order: infantry charge, guard advance or a stationary clerk barrage. Pull back and release to aim opposite to the pull; pull distance also controls guard and clerk reach. Release in the gold enemy zone for **Perfect!**; a simple click follows the contract arrow.
 - **Draw over a line:** renew it. **Shift + draw:** place a new line on top.
 - **Hold Space or the wheel:** aim the arrow. **Tab:** erase a section.
 - **Q / W / E:** hold to aim an ability, release to cast.

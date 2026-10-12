@@ -144,6 +144,12 @@ var _draft_ring := false
 ## Восьмёрка/треугольник/квадрат (ContractShape.EIGHT/TRIANGLE/SQUARE) — черновик признан
 ## фигурой, пересчёт на каждой точке, как у кольца; &"" — нет. Кольцо по-прежнему в _draft_ring.
 var _draft_fig: StringName = &""
+## Последняя геометрия до проверки открытий: закрытая фигура видна в подсказке пера.
+var _draft_shape: StringName = &""
+## Последний короткий отсчёт: при повороте сохраняется как угол, на прямой прореживается.
+var _pen_sample := Vector2.INF
+## Причина остановки пера — представление ввода, не состояние боя.
+var _draft_block := ""
 ## Вспышки обряда: {center, tips, r, ms}.
 var _rite_fx: Array[Dictionary] = []
 ## Стрелки «крест-накрест» восьмёрки: {a, b, ms} — от центра петли к центру другой и обратно.
@@ -289,6 +295,10 @@ func setup(w: LegionWorld) -> void:
 	_draft.clear()
 	_drawing = false
 	_draft_ring = false
+	_draft_fig = &""
+	_draft_shape = &""
+	_pen_sample = Vector2.INF
+	_draft_block = ""
 	_ring_fx.clear()
 	_draft_cost = 0.0
 	_pressing = false
@@ -404,7 +414,7 @@ func slots_full() -> bool:
 ## серебро — подновление, серый — новая линия упрётся в лимит (B-345, видно ещё до отпускания),
 ## иначе — цвет вида.
 func draft_color(refresh_like: bool, part: String) -> Color:
-	if not refresh_like and slots_full():
+	if not refresh_like and slots_full() and match_replacement(_draft) == null:
 		return LegionCfg.LIMIT_DRAFT_COLOR
 	if refresh_like and part == "color":
 		return REFRESH_COLOR
@@ -494,6 +504,32 @@ func perfect_fx(at: Vector2) -> void:
 ## Правило: ≥ REFRESH_FRAC точек штриха ближе REFRESH_DIST к ЖИВОМУ участку одного договора
 ## любого вида; при зажатом Шифте (_stack) — всегда {}.
 func match_refresh(stroke: PackedVector2Array) -> Dictionary:
+	var best := _match_stroke(stroke)
+	if not best.is_empty():
+		# Завершённый открытый знак означает фигуру из черновика. Частичный
+		# штрих и повтор того же знака по-прежнему продляют старый договор.
+		var wanted := ContractShape.classify(stroke)
+		var c: Contract = best["contract"]
+		var existing := ContractShape.RING if c.ring else c.figure
+		if wanted != &"" and bool(shapes.get(wanted, true)) and wanted != existing:
+			return {}
+		if c.figure != &"":
+			best["segs"] = _live_segs(c)
+	return best
+
+
+## Правильный знак поверх неудачной обводки заменяет только совпавшую обычную
+## линию. Плата за новый знак полная; замена совершается после проверки _create.
+## Шифт сохраняет явный приказ положить новый договор отдельным слоем.
+func match_replacement(stroke: PackedVector2Array) -> Contract:
+	var hit := _match_stroke(stroke)
+	if hit.is_empty() or (hit["contract"] as Contract).shaped():
+		return null
+	var wanted := ContractShape.classify(stroke)
+	return hit["contract"] if wanted != &"" and bool(shapes.get(wanted, true)) else null
+
+
+func _match_stroke(stroke: PackedVector2Array) -> Dictionary:
 	if stroke.size() < 2:
 		return {}
 	if _stack:
@@ -521,8 +557,6 @@ func match_refresh(stroke: PackedVector2Array) -> Dictionary:
 		if frac >= LegionCfg.REFRESH_FRAC and frac > best_frac:
 			best_frac = frac
 			best = {"contract": c, "segs": segs}
-	if not best.is_empty() and (best["contract"] as Contract).figure != &"":
-		best["segs"] = _live_segs(best["contract"])
 	return best
 
 
@@ -850,13 +884,16 @@ func _net_preview() -> bool:
 func net_stash() -> Array:
 	var keep := [_drawing, _draft, _draft_len, _draft_cost, _draft_ring, _draft_fig, _draft_dir,
 		_pen_wait, _begin_raw, _draft_net, current_kind, _preview, _preview_plan.duplicate(),
-		_preview_t]
+		_preview_t, _draft_shape, _pen_sample, _draft_block]
 	_drawing = false
 	_draft = PackedVector2Array()
 	_draft_len = 0.0
 	_draft_cost = 0.0
 	_draft_ring = false
 	_draft_fig = &""
+	_draft_shape = &""
+	_pen_sample = Vector2.INF
+	_draft_block = ""
 	_draft_dir = Vector2.ZERO
 	_pen_wait = false
 	_begin_raw = Vector2.INF
@@ -879,6 +916,9 @@ func net_restore(keep: Array) -> void:
 	_preview = keep[11]
 	_preview_plan.assign(keep[12])
 	_preview_t = keep[13]
+	_draft_shape = keep[14]
+	_pen_sample = keep[15]
+	_draft_block = keep[16]
 
 
 ## Штрих человека закончен: договор уходит командой STROKE (точки — по правилам PvpCmd), черновик
@@ -1192,7 +1232,8 @@ func _click_release(c: Contract, seg: int) -> void:
 		world.local_cmd(PvpCmd.click(c.id, seg))
 		return
 	if click_gold(c, seg) and contracts.has(c) and c.seg_alive(seg):
-		release_aimed(c, seg, c.seg_dir(seg), 1.0, true)
+		var power := -1.0 if RoleReleasePreview.handles(c.kind) else 1.0
+		release_aimed(c, seg, c.seg_dir(seg), power, true)
 		if world.intuit != null:
 			world.intuit.on_done(&"gold")   # правильное действие сделано — совет больше не нужен
 	else:
@@ -1271,11 +1312,11 @@ func seg_gold(c: Contract, seg: int) -> bool:
 ## Перебором (без сетки слоя подсказок): враг в зоне участка s, и натиск не перехватят.
 ## Приманки — уже упакованы (pack_live_lures).
 func _seg_gold_one(c: Contract, s: int) -> bool:
-	var hit := seg_strike(c, s, 1.0)
+	var hit := seg_strike(c, s, 1.0 if c.kind == LegionCfg.KIND_LABORER else -1.0)
 	if hit.is_empty():
 		return false
 	var center := c.seg_center(s)
-	var half_w := _seg_length(c, s) * 0.5
+	var half_w := float(hit.get("half_w", _seg_length(c, s) * 0.5))
 	if not zone_has_foe(center, hit["dir"], half_w, hit["depth"]):
 		return false
 	# и без приманок — через strike_clear: возьмёт ли кто-то врага зоны (B-086)
@@ -1344,6 +1385,8 @@ func _lure_near_shape(c: Contract, at: Vector2, r: float) -> bool:
 ## приманок ответ был «да» не глядя: пехоту за краем зоны или сбоку от бойцов узкий конус не брал).
 func strike_clear(c: Contract, seg: int, center: Vector2, dir: Vector2, half_w: float,
 		depth: float, zone: Array[Foe]) -> bool:
+	if c.kind != LegionCfg.KIND_LABORER:
+		return LegionRoleRelease.strike_clear(world, c, seg, dir, depth, zone)
 	var n := _lp_pos.size()
 	_pack_lanes(c, seg, center, dir)
 	if not _zone_taken(zone, center, dir):
@@ -1514,6 +1557,10 @@ static func _in_zone(f: Foe, center: Vector2, dir: Vector2, side: Vector2, half_
 func seg_strike(c: Contract, seg: int, power: float) -> Dictionary:
 	if c.figure == ContractShape.TRIANGLE or c.seg_manned(seg) <= 0:
 		return {}
+	if c.kind != LegionCfg.KIND_LABORER:
+		var g := world.role_release_geometry(c, seg, c.seg_dir(seg), power)
+		return {"dir": g["dir"], "depth": float(g["depth"])
+			* world.perfect_zone_frac(owner_side), "run": g["depth"], "half_w": g["half_w"]}
 	var reach := float(LegionCfg.UNIT_KINDS[c.kind]["charge_dist"])
 	var run := reach * lerpf(LegionCfg.SLING_RANGE.x, LegionCfg.SLING_RANGE.y, power)
 	var depth := run * world.perfect_zone_frac(owner_side)
@@ -1535,6 +1582,8 @@ func seg_strike(c: Contract, seg: int, power: float) -> Dictionary:
 
 ## Полдлины участка (ширина зоны удара) — слою подсказок.
 func seg_half_len(c: Contract, seg: int) -> float:
+	if c.kind != LegionCfg.KIND_LABORER:
+		return float(world.role_release_geometry(c, seg, c.seg_dir(seg))["half_w"])
 	return _seg_length(c, seg) * 0.5
 
 
@@ -1622,6 +1671,9 @@ func sling_aim() -> Dictionary:
 	var pull := _pull - _grab_pos
 	var axis := -pull.normalized()
 	var power := 1.0
+	if RoleReleasePreview.handles(c.kind):
+		power = world.role_pull_power(c.kind, pull.length())
+		return RoleReleasePreview.aim(self, c, seg, pull, axis, power)
 	if c.shaped():
 		if c.ring:
 			return ring_aim(c, seg, pull, power)   # кольцо сжимается: стрелка участка к центру/наружу
@@ -1929,10 +1981,14 @@ func _locked_fig(stroke: PackedVector2Array) -> StringName:
 func _locked_bump(at: Vector2, fig: StringName) -> void:
 	if owner_side != world.local_side:
 		return
+	_wall_bump(at, _locked_text(fig), IntuitCfg.LOCKED_FX)
+
+
+static func _locked_text(fig: StringName) -> String:
 	var name := I18n.t(RING_LABEL) if fig == ContractShape.RING else fig_label(fig)
 	var title := Campaign.unlock_map_title("shape_unlocked_" + String(fig))
-	_wall_bump(at, I18n.t(IntuitCfg.LOCKED_LABEL) % name if title.is_empty()
-		else I18n.t(IntuitCfg.LOCKED_MAP_LABEL) % [name, I18n.map_text(title)], IntuitCfg.LOCKED_FX)
+	return I18n.t(IntuitCfg.LOCKED_LABEL) % name if title.is_empty() else \
+		I18n.t(IntuitCfg.LOCKED_MAP_LABEL) % [name, I18n.map_text(title)]
 
 
 # gdlint: disable=max-returns
@@ -1942,6 +1998,22 @@ func extend(to: Vector2) -> void:
 	if _space:
 		aim_at(to)
 		return
+	var last := _draft[_draft.size() - 1]
+	if last.distance_to(to) < LegionCfg.POINT_STEP:
+		_pen_sample = to
+		return
+	var sample := _pen_sample
+	_pen_sample = Vector2.INF
+	if sample != Vector2.INF and last.distance_to(sample) >= FigureCfg.PEN_CORNER_STEP \
+			and sample.distance_to(to) >= FigureCfg.PEN_CORNER_STEP \
+			and absf((sample - last).angle_to(to - sample)) >= FigureCfg.PEN_CORNER_TURN:
+		_extend_ink(sample)
+	_extend_ink(to)
+
+
+## Стены, длина и цена одинаковы для обычной точки и восстановленного поворота.
+# gdlint: disable=max-returns
+func _extend_ink(to: Vector2) -> void:
 	if _begin_raw != Vector2.INF and _draft.size() == 1:
 		_resnap_start(to)
 	var last := _draft[_draft.size() - 1]
@@ -1949,7 +2021,7 @@ func extend(to: Vector2) -> void:
 		if last.distance_to(to) >= LegionCfg.PEN_RETURN_R:
 			return
 		_pen_wait = false
-	if last.distance_to(to) < LegionCfg.POINT_STEP:
+	if last.distance_to(to) < 1.0:
 		return
 	# штрих не проходит сквозь скалу: обрезаем у контура, дальше ждём, пока курсор обойдёт камень
 	var target := world.terrain.segment_clear(last, to)
@@ -1962,13 +2034,16 @@ func extend(to: Vector2) -> void:
 		return
 	# предел — фигуры (FigureCfg.FIG_LEN_MAX); линия длиннее LINE_MAX обрежется в finish()
 	if _draft_len + seg > FigureCfg.FIG_LEN_MAX:
+		_draft_block = "Предел штриха · нарисуй фигуру меньше"
 		return
 	var cost := seg * _kind_price(current_kind)
 	if _draft_net:
 		# сеть: превью без траты — черновик меряется против маны за вычетом уже начерченного
 		if cost > mana - _draft_cost:
+			_draft_block = "Маны мало · дождись запаса или рисуй меньше"
 			return
 	elif cost > mana:
+		_draft_block = "Маны мало · дождись запаса или рисуй меньше"
 		return
 	else:
 		_spend(cost)
@@ -1976,7 +2051,9 @@ func extend(to: Vector2) -> void:
 	_draft.append(target)
 	_draft_len += seg
 	_begin_raw = Vector2.INF
+	_draft_block = ""
 	var fig := ContractShape.classify(_draft)
+	_draft_shape = fig
 	if fig != &"" and not bool(shapes.get(fig, true)):
 		fig = &""   # фигура ещё не открыта кампанией — это обычная линия
 	_draft_ring = fig == ContractShape.RING
@@ -1986,15 +2063,23 @@ func extend(to: Vector2) -> void:
 func finish() -> void:
 	if not _drawing:
 		return
+	if _pen_sample != Vector2.INF:
+		_extend_ink(_pen_sample)
+		_pen_sample = Vector2.INF
 	if _draft_net:
 		_net_finish()
 		return
 	_drawing = false
 	var stroke := _draft
+	var shape_hint := draft_shape_hint()
+	var loop_intent := draft_loop_like()
+	var pen_blocked := not _draft_block.is_empty()
 	var ring := _draft_ring
 	var fig := _draft_fig
 	_draft_ring = false
 	_draft_fig = &""
+	_draft_shape = &""
+	_draft_block = ""
 	_draft = PackedVector2Array()
 	var locked := _locked_fig(stroke) if not ring and fig == &"" else &""
 	if not ring and fig == &"" and _draft_len > LegionCfg.LINE_MAX:
@@ -2007,6 +2092,7 @@ func finish() -> void:
 		_draft_cost -= back
 		_draft_len = _poly_len(stroke)
 	var hit := match_refresh(stroke)
+	var replace := match_replacement(stroke) if ring or fig != &"" else null
 	if not hit.is_empty():
 		var c: Contract = hit["contract"]
 		var actual_cost := _poly_len(stroke) * c.mana_per_px()
@@ -2026,9 +2112,12 @@ func finish() -> void:
 		return
 	if _draft_len < min_len(stroke):
 		_refund(_draft_cost)
-		_short_bump(stroke)
+		if pen_blocked:
+			_wall_bump(stroke[-1], shape_hint, FigureCfg.GUIDE_FX_TIME)
+		else:
+			_short_bump(stroke)
 		return
-	if slots_full():
+	if slots_full() and replace == null:
 		_refund(_draft_cost)
 		if owner_side == world.local_side:
 			# B-345: причина — у пера (взгляд там), тост остаётся для тех, кто смотрит в центр
@@ -2043,15 +2132,15 @@ func finish() -> void:
 	var shape_cost := 0.0
 	if ring or fig != &"":
 		# замыкание зазора — тоже договор: платим за него, как за штрих (verifier 26.09: у предела
-		# длины кольцо бесплатно выходило на ~12 % длиннее любой линии); нечем платить — линия
+		# длины кольцо бесплатно выходило на ~12 % длиннее любой линии); нечем платить — отмена
 		var gap_cost := closing[0].distance_to(closing[closing.size() - 1]) \
 			* _kind_price(current_kind)
 		if gap_cost > mana:
-			ring = false
-			fig = &""
-		else:
-			_spend(gap_cost)
-			shape_cost = gap_cost
+			_refund(_draft_cost)
+			_wall_bump(stroke[-1], "Маны мало · фигура отменена", FigureCfg.GUIDE_FX_TIME)
+			return
+		_spend(gap_cost)
+		shape_cost = gap_cost
 	if poly and fig != &"":
 		var cut := _poly_len(stroke) - _poly_len(closing)
 		if cut > 0.0:
@@ -2067,10 +2156,11 @@ func finish() -> void:
 		if paid < floor:
 			if floor - paid > mana:
 				_refund(paid)
-				_short_bump(stroke)
+				_wall_bump(stroke[-1], "Маны мало · фигура отменена", FigureCfg.GUIDE_FX_TIME)
 				return
 			_spend(floor - paid)
-	var c := _create(stroke, stroke_side(stroke), current_kind, ring, fig)
+			shape_cost += floor - paid
+	var c := _create(stroke, stroke_side(stroke), current_kind, ring, fig, replace)
 	if c == null:
 		# угол фигуры встал в воду или скалу — фигура не заключена, мана вернулась целиком
 		_refund(_draft_cost + shape_cost)
@@ -2090,6 +2180,9 @@ func finish() -> void:
 		c.set_dir(_draft_dir)
 	if locked != &"":
 		_locked_bump(stroke[stroke.size() - 1], locked)
+	elif not ring and c.figure == &"" and (loop_intent or pen_blocked) \
+			and not shape_hint.is_empty():
+		_wall_bump(stroke[-1], shape_hint, FigureCfg.GUIDE_FX_TIME)
 	_draft_dir = Vector2.ZERO
 	_pen_wait = false
 
@@ -2118,6 +2211,9 @@ func cancel() -> void:
 	_draft_net = false
 	_draft_ring = false
 	_draft_fig = &""
+	_draft_shape = &""
+	_pen_sample = Vector2.INF
+	_draft_block = ""
 	_draft_dir = Vector2.ZERO
 	_pen_wait = false
 	_preview = null
@@ -2131,8 +2227,57 @@ func has_draft() -> bool:
 	return _drawing
 
 
+## Помощь у замыкания — только представление. У обычной линии нет требования замкнуться,
+## её приказ не меняется от того, что игрок видел цель начала штриха.
+func draft_loop_like() -> bool:
+	if _draft.size() < 3 or _draft_len < FigureCfg.GUIDE_MIN_LEN:
+		return false
+	var gap := _draft[0].distance_to(_draft[-1])
+	if gap > _draft_len * FigureCfg.GUIDE_GAP_FRAC:
+		return false
+	var box := Rect2(_draft[0], Vector2.ZERO)
+	for p in _draft:
+		box = box.expand(p)
+	return ContractShape.roundness(_draft) >= FigureCfg.GUIDE_ROUNDNESS \
+		or minf(box.size.x, box.size.y) >= ContractShape.MINI_MIN_D * 0.5
+
+
+func draft_closure_radius() -> float:
+	return maxf(ContractShape.FIG_GAP_MIN, ContractShape.FIG_GAP_FRAC * _draft_len)
+
+
+## Что получится на отпускании. Распознавание не подменяется пожеланием игрока; неизвестный
+## контур честно подписан линией, замок виден до расхода маны, а не только после него.
+func draft_shape_hint() -> String:
+	if not _draft_block.is_empty():
+		return I18n.t(_draft_block)
+	if _draft_shape != &"":
+		if not bool(shapes.get(_draft_shape, true)):
+			return _locked_text(_draft_shape)
+		if slots_full() and match_replacement(_draft) == null and match_refresh(_draft).is_empty():
+			return limit_label()
+		var close := ContractShape.trim_overshoot(_draft) \
+			if ContractShape.CORNER_FIGURES.has(_draft_shape) else _draft
+		var price := maxf(float(FigureCfg.PRICE_FLOOR.get(_draft_shape, 0.0)),
+			(ContractShape.poly_len(close) + close[0].distance_to(close[-1])) * _kind_price(current_kind))
+		var available := mana if _draft_net else mana + _draft_cost
+		if price > available + 0.01:
+			return I18n.t("Маны мало · фигура отменится")
+		var label := "%s · отпусти {mouse:draw}" if match_replacement(_draft) == null else \
+			"%s · заменит линию · отпусти {mouse:draw}"
+		return Controls.text(I18n.t(label) %
+			(I18n.t(RING_LABEL) if _draft_ring else fig_label(_draft_shape)))
+	if not draft_loop_like():
+		return ""
+	if ContractShape.size_class(_draft) == ContractShape.SIZE_NONE:
+		return I18n.t("Фигура мала · нарисуй крупнее")
+	if _draft[0].distance_to(_draft[-1]) > draft_closure_radius():
+		return I18n.t("Для фигуры · доведи к началу")
+	return I18n.t("Линия · фигура не распознана")
+
+
 func _create(pts: PackedVector2Array, side: int, kind: StringName, ring := false,
-		fig: StringName = &"") -> Contract:
+		fig: StringName = &"", replace: Contract = null) -> Contract:
 	var c: Contract
 	if ring:
 		c = Contract.new().build_ring(pts, world.terrain.walkable, kind)
@@ -2144,6 +2289,8 @@ func _create(pts: PackedVector2Array, side: int, kind: StringName, ring := false
 		# угол фигуры в воде или скале: фигура не заключается вовсе (D-1002 §2). Молча потерять
 		# угол и считать оставшиеся полным треугольником нельзя — вызывающий вернёт ману.
 		return null
+	if replace != null and contracts.has(replace):
+		dismiss(replace)   # валидация завершена; бойцы освободятся для новой фигуры
 	c.mana_cost_mult = mana_cost_mult   # перк «Мелкий шрифт» — договор несёт множитель сам
 	c.owner_side = owner_side
 	c.id = _next_id
@@ -2467,7 +2614,8 @@ func nearby_kind(at: Vector2, kind: StringName) -> bool:
 ## после него — достройка цепочками: оставшийся без места берёт место соседа, если тот может
 ## перейти на другое. Так на местах не меньше бойцов, чем вообще можно поставить (теорема Берже).
 ## released — ещё не созданный черновик: идущие «Сбором» рядом с ним считаются свободными.
-func assignment_plan(lines: Array[Contract], released: Contract = null) -> Array[Dictionary]:
+func assignment_plan(lines: Array[Contract], released: Contract = null,
+		vacated: Contract = null) -> Array[Dictionary]:
 	var buckets: Dictionary = {}   # вид → {клетка → [места]}
 	var flats: Dictionary = {}     # вид → [места] (для достройки)
 	var serial := 0
@@ -2490,7 +2638,8 @@ func assignment_plan(lines: Array[Contract], released: Contract = null) -> Array
 			serial += 1
 	var order: Array[Dictionary] = []
 	for u in world.units:
-		if not u.alive or not LegionStaff.free_for(u, self, released) or not buckets.has(u.kind):
+		if not u.alive or not LegionStaff.free_for(u, self, released, vacated) \
+				or not buckets.has(u.kind):
 			continue
 		# PvP: поле раздаёт места только бойцам своей стороны, иначе игрок командовал бы чужими
 		# (в одиночке и owner_side, и u.side — 0: отбор ничего не меняет)
@@ -2743,7 +2892,9 @@ func _nearest_assignment(u: Legionnaire, cells: Dictionary, reserved: Dictionary
 func update_preview() -> void:
 	_preview = null
 	_preview_plan.clear()
-	if _draft_len < min_len(_draft) or not match_refresh(_draft).is_empty() or slots_full():
+	var replace := match_replacement(_draft)
+	if _draft_len < min_len(_draft) or not match_refresh(_draft).is_empty() \
+			or (slots_full() and replace == null):
 		return
 	if _draft_ring:
 		_preview = Contract.new().build_ring(_draft, world.terrain.walkable, current_kind)
@@ -2755,10 +2906,11 @@ func update_preview() -> void:
 		_preview = Contract.new().build(line, stroke_side(line), world.terrain.walkable,
 			current_kind)
 	var lines: Array[Contract] = contracts.duplicate()
+	lines.erase(replace)
 	lines.append(_preview)
 	# B-441: тот же план, что раздаст бой, — с резервом из дома; иначе черновик обещал меньше,
 	# чем придёт, и игрок не видел, кого уведёт линия (Игорь 09.10: «не те скелеты идут»)
-	for assignment in LegionStaff.deployment_plan(self, lines, _preview):
+	for assignment in LegionStaff.deployment_plan(self, lines, _preview, replace):
 		if assignment["contract"] == _preview:
 			_preview_plan.append(assignment)
 
@@ -3018,6 +3170,20 @@ static func fig_progress_text(label: String, have: int, need: int) -> String:
 	if need <= 0:
 		return "%s %d" % [label, have]
 	return "%s %d/%d" % [label, mini(have, need), need]
+
+
+## Число занятых мест и заряд — разные состояния. «3/3» ещё не обещает специальный
+## выпуск: подготовка может только начаться или сброситься из-за потери бойца.
+static func figure_status(c: Contract) -> String:
+	var have := c.posted_posts()
+	var need := c.charge_need()
+	if need <= 0:
+		return I18n.t("В строю %d") % have
+	if have < need:
+		return I18n.t("Набор %d/%d") % [have, need]
+	if not c.charge_ready():
+		return I18n.t("Подготовка %d%%") % roundi(clampf(c.charge_t / FigureCfg.CHARGE_TIME, 0, 1) * 100)
+	return Controls.text(I18n.t("Готова · сорви {mouse:sling}"))
 
 
 ## Над строем фигуры (кольца): x центра, y — выше голов верхнего ряда (самое верхнее место или

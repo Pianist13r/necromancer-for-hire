@@ -1,11 +1,20 @@
 NECROMANCER FOR HIRE — Windows
 Death, guaranteed by contract.
-Alpha version 0.3.4-alpha.
+Alpha version 0.4.0-alpha.
+
+NEW IN 0.4.0
+  Contractors charge; guards move a cohesive front and keep their shield facing
+  when retreating; clerks stay at their posts and fire a directional rolling barrage.
+  Pull distance controls the reach of guard and clerk orders.
+  The preview shows the path and obstacles. Shape recognition and pen feedback
+  are improved; staffing and shape charge are shown separately.
+  Some sparse, ambiguous outlines and the Archives tutorial still need work.
+  Online play requires version 0.4.0 for both players and the server.
 English instructions first. Русская инструкция ниже.
 
 Draw a glowing contract with the mouse. Skeleton contractors form up along it
 and hold back inspectors from Hell before they reach the Soul Cauldron. The
-contract expires segment by segment, releasing troops to charge. Upon Expiry
+contract expires segment by segment, issuing orders according to troop role. Upon Expiry
 combines tower defense, action and roguelike progression: a campaign, generated
 endless runs, a Daily Challenge and Skirmish against a bot or another player.
 
@@ -38,12 +47,13 @@ LANGUAGE AND DEFAULT CONTROLS
   LMB means left mouse button; RMB means right mouse button.
 
   Drag LMB              Draw a contract; nearby troops form up along the line.
-  RMB on a segment      Pull back and release to slingshot the squad forward,
-                        opposite to your pull. Power is always full. Release
-                        while an enemy is in the gold zone for “Perfect!”.
-                        Click without pulling to charge along the contract arrow.
-  Draw over a line      Renew the segments you touch. Expired segments release
-                        their troops to charge along their arrows.
+  RMB on a segment      Pull back and release to order troops opposite to the pull:
+                        contractors charge, guards move, clerks fire from their posts.
+                        Pull distance sets guard/clerk reach; contractor power is full.
+                        Release with an enemy in the gold zone for “Perfect!”.
+                        Click without pulling to order along the contract arrow.
+  Draw over a line      Renew the segments you touch. Expired segments issue
+                        each troop role's order along their arrows.
   Hold Space or wheel   Aim the melting arrow while drawing, or turn the arrow
                         of an existing line. Move the mouse to choose direction.
   Tab                   Erase a contract section.
@@ -100,7 +110,16 @@ HELP AND LICENSES
 
 НЕКРОМАНТ ПО НАЙМУ (Necromancer for Hire)
 Смерть с гарантией по договору.
-Альфа-версия 0.3.4-alpha.
+Альфа-версия 0.4.0-alpha.
+
+НОВОЕ В 0.4.0
+  Подрядчики идут в натиск; вахтёры двигают связный фронт, сохраняя направление
+  щитов при отходе; счетоводы остаются на постах и ведут направленный огневой вал.
+  Длина оттяжки задаёт дальность приказа вахтёров и счетоводов.
+  Прицел показывает путь и преграды. Фигуры лучше распознаются; у пера видны
+  замыкание, цена и результат, а набор бойцов отделён от заряда фигуры.
+  Редкие неоднозначные контуры и обучение на «Архиве» ещё требуют доработки.
+  Для сетевой игры обоим игрокам и серверу нужна версия 0.4.0.
 
 СТАТИСТИКА (ДОБРОВОЛЬНО)
   При первом запуске можно разрешить отправку версии, системы и минут активного боя.
@@ -109,10 +128,9 @@ HELP AND LICENSES
 
 Режим «По истечении договора». Некромант открыл ИП и сдаёт скелетов-подрядчиков по
 договорам. Мышью чертишь договор — светящуюся линию, скелеты встают на неё строем и держат
-проверяющих из Ада на подходе к Котлу Душ. Договор истекает участками, и отпущенные бойцы
-идут в натиск. Кампания на картах с извилистыми дорогами, три вида бойцов (подрядчик,
+проверяющих из Ада на подходе к Котлу Душ. Договор истекает участками и отдаёт бойцам приказы по их роли. Кампания на картах с извилистыми дорогами, три вида бойцов (подрядчик,
 вахтёр, счетовод), постройки на участках, способности некроманта; между картами — поправки,
-«Контора» и прокачка героя, в финале — босс «Прораб», которого надо сломать.
+прокачка героя в «Досье», в финале — босс «Прораб», которого надо сломать.
 
 КАК ЗАПУСТИТЬ
   1. Распакуйте архив в любую папку (целиком, не запускайте из архива).
@@ -148,12 +166,13 @@ HELP AND LICENSES
 УПРАВЛЕНИЕ
   ЛКМ (зажать и вести)   — начертить договор; бойцы в радиусе встают на линию строем
   ПКМ по участку: оттянуть назад и отпустить
-                         — рогатка: отряд срывается в натиск в сторону, обратную оттяжке;
-                           сила всегда полная, длина оттяжки её не меняет. Отпустил, когда
-                           враг в золотой зоне, — «Точно!»: удар сильнее. Щелчок ПКМ без оттяжки —
-                           натиск по стрелке договора
-  Подрисовать поверх     — продлить срок задетых участков (растаявший участок сам уходит
-                           в натиск по своей стрелке)
+                         — приказ в сторону, обратную оттяжке: подрядчики идут
+                           в натиск, вахтёры двигают фронт, счетоводы стреляют с мест.
+                           Длина задаёт дальность вахтёров и счетоводов; сила
+                           подрядчиков всегда полная. Враг в золотой зоне — «Точно!».
+                           Щелчок без оттяжки — приказ по стрелке договора.
+  Подрисовать поверх     — продлить срок задетых участков; растаявший участок
+                           отдаёт приказ своего вида по стрелке.
   Пробел (зажать)        — стрелка для таяния: пока чертишь, мышь указывает, куда отряд
                            уйдёт, когда линия растает; над готовой линией — повернуть её
   Таб                    — стереть участок договора

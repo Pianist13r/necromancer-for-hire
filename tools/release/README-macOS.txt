@@ -1,6 +1,15 @@
 NECROMANCER FOR HIRE — macOS
 Death, guaranteed by contract.
-Alpha version 0.3.4-alpha.
+Alpha version 0.4.0-alpha.
+
+NEW IN 0.4.0
+  Contractors charge; guards move a cohesive front and keep their shield facing
+  when retreating; clerks stay at their posts and fire a directional rolling barrage.
+  Pull distance controls the reach of guard and clerk orders.
+  The preview shows the path and obstacles. Shape recognition and pen feedback
+  are improved; staffing and shape charge are shown separately.
+  Some sparse, ambiguous outlines and the Archives tutorial still need work.
+  Online play requires version 0.4.0 for both players and the server.
 English instructions first. Русская инструкция ниже.
 
 CONTENTS
@@ -47,12 +56,13 @@ LANGUAGE AND DEFAULT CONTROLS
   LMB means left mouse button; RMB means right mouse button.
 
   Drag LMB              Draw a contract; nearby troops form up along the line.
-  RMB on a segment      Pull back and release to slingshot the squad forward,
-                        opposite to your pull. Power is always full. Release
-                        while an enemy is in the gold zone for “Perfect!”.
-                        Click without pulling to charge along the contract arrow.
-  Draw over a line      Renew the segments you touch. Expired segments release
-                        their troops to charge along their arrows.
+  RMB on a segment      Pull back and release to order troops opposite to the pull:
+                        contractors charge, guards move, clerks fire from their posts.
+                        Pull distance sets guard/clerk reach; contractor power is full.
+                        Release with an enemy in the gold zone for “Perfect!”.
+                        Click without pulling to order along the contract arrow.
+  Draw over a line      Renew the segments you touch. Expired segments issue
+                        each troop role's order along their arrows.
   Hold Space or wheel   Aim the melting arrow while drawing, or turn the arrow
                         of an existing line. Move the mouse to choose direction.
   Tab                   Erase a contract section.
@@ -109,7 +119,16 @@ HELP AND LICENSES
 
 Некромант по найму (Necromancer for Hire) — сборка для macOS
 =========================================
-Альфа-версия 0.3.4-alpha.
+Альфа-версия 0.4.0-alpha.
+
+НОВОЕ В 0.4.0
+  Подрядчики идут в натиск; вахтёры двигают связный фронт, сохраняя направление
+  щитов при отходе; счетоводы остаются на постах и ведут направленный огневой вал.
+  Длина оттяжки задаёт дальность приказа вахтёров и счетоводов.
+  Прицел показывает путь и преграды. Фигуры лучше распознаются; у пера видны
+  замыкание, цена и результат, а набор бойцов отделён от заряда фигуры.
+  Редкие неоднозначные контуры и обучение на «Архиве» ещё требуют доработки.
+  Для сетевой игры обоим игрокам и серверу нужна версия 0.4.0.
 Добровольная статистика сеансов выключена до вашего согласия; подробности — licenses/PRIVACY.md.
 
 Что внутри

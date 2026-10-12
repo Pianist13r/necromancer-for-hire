@@ -1,6 +1,6 @@
 extends SceneTree
-## Эталон бота обновлён 08.10 A7: автомарш/тактика, два одинаковых прогона.
-## Происхождение новых хешей: docs/dev/audit-1008/gameplay-report.md.
+## Эталон бота обновлён 11.10.2026: новые роли, два одинаковых прогона.
+## Источник: docs/dev/FIGURES_INPUT_1011.md, раздел контрольных трасс.
 ##
 ## Уроки карт кампании v20 (docs/legion/CAMPAIGN_V20.md, D-0926-46; Игорь 26.09: «все эти
 ## элементы постепенно в игре вводились и обучались тоже постепенно… первые два-три уровня»).
@@ -20,7 +20,7 @@ extends SceneTree
 ##    (элитный убит); Таб над линией с бойцами — урок Таба (02.10.2026, просьба Игоря);
 ## 5) урок не повторяется (флаг в сохранении); hold держит волну недолго и не роняет Котёл;
 ## 6) вне кампании уроков нет, и бой бота побайтно прежний: трасса на трёх картах сверяется с
-##    эталоном economy-mana: tests/data/legion_lessons_bot_ref.txt (происхождение — docs/dev/CODEX_MANA.md).
+##    эталоном roles-figures-1011: tests/data/legion_lessons_bot_ref.txt (происхождение — docs/dev/FIGURES_INPUT_1011.md).
 ## Сохранение — временный файл (Campaign.set_save_path). Итог «LEGION LESSONS: N/M OK»; код 1.
 ##
 
@@ -28,7 +28,7 @@ const SAVE := "user://legion_lessons_test.cfg"
 const FPS := 60
 const DRAG_STEPS := 16
 const BOT_REF := "res://tests/data/legion_lessons_bot_ref.txt"
-## Бот вне кампании: карта, сид, шагов по 1/60 с (эталон интегрированного economy-mana).
+## Бот вне кампании: карта, сид, шагов по 1/60 с (эталон интегрированных roles-figures-1011).
 const BOT_RUNS := [["gatehouse", 1, 4800], ["archive", 2, 4800], ["wasteland", 3, 4800]]
 ## Лестница CAMPAIGN_V20: карта → уроки по порядку.
 const EXPECT := {
@@ -891,7 +891,7 @@ func _test_bot_same() -> void:
 		var d := _bot_digest(run[0], run[1], run[2])
 		var key := "%s %d %d" % [run[0], run[1], run[2]]
 		print("  BOTREF %s %s" % [key, d])
-		_check(ref.get(key, "") == d, "бот %s: трасса совпала с эталоном economy-mana" % key)
+		_check(ref.get(key, "") == d, "бот %s: трасса совпала с эталоном roles-figures-1011" % key)
 
 
 # ── 7. Правки проверяющего 27.09: без подарков вне удержания, конец боя, пройденные карты ──

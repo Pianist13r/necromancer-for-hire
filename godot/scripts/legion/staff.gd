@@ -126,8 +126,8 @@ func kind_unlocked(kind: StringName) -> bool:
 ## D-1009-C1: дальний резерв — только бойцы у дома (in_reserve), ближние к пустому месту первыми.
 ## D-1011-AM1: и только к местам в пределах automarch_r по прямой — дальше не идёт никто.
 static func deployment_plan(field: ContractField, lines: Array[Contract],
-		released: Contract = null) -> Array[Dictionary]:
-	var plan := field.assignment_plan(lines, released)
+		released: Contract = null, vacated: Contract = null) -> Array[Dictionary]:
+	var plan := field.assignment_plan(lines, released, vacated)
 	plan = plan.filter(func(a: Dictionary) -> bool:
 		return not _held(a["unit"], field, released))
 	var chosen: Dictionary = {}
@@ -160,7 +160,7 @@ static func deployment_plan(field: ContractField, lines: Array[Contract],
 	# занимал первый рождённый с другого края дома (Игорь 09.10: «не те скелеты идут»).
 	var order: Array[Dictionary] = []
 	for u in field.world.units:
-		if chosen.has(u) or not _can_deploy(u, field, released):
+		if chosen.has(u) or not _can_deploy(u, field, released, vacated):
 			continue
 		var near := INF
 		for i in vac_pos.size():
@@ -220,8 +220,9 @@ static func automarch_r(w: LegionWorld) -> float:
 	return LegionCfg.AUTOMARCH_R_PVP if w.pvp else LegionCfg.AUTOMARCH_R
 
 
-static func _can_deploy(u: Legionnaire, field: ContractField, released: Contract = null) -> bool:
-	if not u.alive or u.side != field.owner_side or not free_for(u, field, released) \
+static func _can_deploy(u: Legionnaire, field: ContractField, released: Contract = null,
+		vacated: Contract = null) -> bool:
+	if not u.alive or u.side != field.owner_side or not free_for(u, field, released, vacated) \
 			or u.is_stunned() or _held(u, field, released):
 		return false
 	var w := field.world
@@ -254,17 +255,25 @@ static func in_reserve(w: LegionWorld, u: Legionnaire) -> bool:
 
 ## Свободен для раздачи: FREE, либо идёт «Сбором», а черновик released его освободит
 ## (release_held переводит такого в FREE при создании линии) — иначе превью недосчитывало бы.
-static func free_for(u: Legionnaire, field: ContractField, released: Contract) -> bool:
+static func free_for(u: Legionnaire, field: ContractField, released: Contract,
+		vacated: Contract = null) -> bool:
 	if u.state == Legionnaire.State.FREE:
+		return true
+	if u.role_command_active() and released != null and _releases(field, released, u):
+		return true
+	# Прогноз замены линии: её стоящие/идущие участники освободятся атомарно
+	# после проверки нового знака. Сам прогноз бойцов не меняет.
+	if vacated != null and u.contract == vacated \
+			and u.state in [Legionnaire.State.POSTED, Legionnaire.State.MARCH]:
 		return true
 	return u.state == Legionnaire.State.RALLY and released != null and u.held_t > 0.0 \
 			and _releases(field, released, u)
 
 
-## Удержан ли боец ручным «Сбором»; released — ещё не созданный черновик, который снимет
-## удержание у своих рядом (как release_held при создании).
+## Ручной Сбор и конечная роль запрещают старую автовербовку. Роль оставляет защиту дома.
+## released — новый черновик, который снимет удержание у своих рядом.
 static func _held(u: Legionnaire, field: ContractField, released: Contract) -> bool:
-	if u.held_t <= 0.0:
+	if u.held_t <= 0.0 and u.role_recruit_hold_t <= 0.0:
 		return false
 	return not (released != null and _releases(field, released, u))
 
@@ -279,9 +288,10 @@ static func _releases(field: ContractField, c: Contract, u: Legionnaire) -> bool
 static func release_held(w: LegionWorld, c: Contract) -> void:
 	var field := w.sides[c.owner_side].contracts
 	for u in w.units:
-		if u.held_t > 0.0 and _releases(field, c, u):
+		if (u.held_t > 0.0 or u.role_recruit_hold_t > 0.0) and _releases(field, c, u):
 			u.held_t = 0.0
-			if u.state == Legionnaire.State.RALLY:
+			u.role_recruit_hold_t = 0.0
+			if u.state == Legionnaire.State.RALLY or u.role_command_active():
 				u.set_free()
 
 

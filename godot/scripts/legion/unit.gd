@@ -38,6 +38,9 @@ var state := State.FREE
 var auto_march := false
 ## Ручной Сбор/оттяжка важнее автоматического набора до нового приказа или срока.
 var held_t := 0.0
+## После конечной роли старые договоры не отзывают бойца; локальная защита дома остаётся.
+## Отдельно от ручного Сбора: тот запрещает и самовольный уход из указанной точки.
+var role_recruit_hold_t := 0.0
 var kind: StringName = LegionCfg.KIND_LABORER
 ## Параметры вида (ссылка на словарь LegionCfg.UNIT_KINDS[kind]; только чтение).
 var spec: Dictionary = LegionCfg.UNIT_KINDS[LegionCfg.KIND_LABORER]
@@ -162,6 +165,7 @@ func tick(dt: float) -> void:
 
 func _tick_state(dt: float) -> void:
 	held_t = maxf(0.0, held_t - dt)
+	role_recruit_hold_t = maxf(0.0, role_recruit_hold_t - dt)
 	item_slow_t = maxf(0.0, item_slow_t - dt)
 	ult_slow_t = maxf(0.0, ult_slow_t - dt)
 	if mark_hit_t > 0.0:
@@ -215,9 +219,13 @@ func assign(c: Contract, p: Dictionary, route := PackedVector2Array()) -> void:
 	var path := route if not route.is_empty() else field.recruit_path(position, p["pos"])
 	if path.is_empty():
 		return
+	world.figures.call("cancel_role_overtime", self)
+	if state == State.CHARGE:
+		_end_charge()
 	contract = c
 	auto_march = false
 	held_t = 0.0
+	role_recruit_hold_t = 0.0
 	post = p
 	p["unit"] = self
 	_path = path
@@ -227,10 +235,14 @@ func assign(c: Contract, p: Dictionary, route := PackedVector2Array()) -> void:
 
 ## Место исчезло до прихода (участок растаял на марше) — снова свободен.
 func set_free() -> void:
+	world.figures.call("cancel_role_overtime", self)
+	if state == State.CHARGE:
+		_end_charge()
 	if not post.is_empty() and post["unit"] == self:
 		post["unit"] = null
 	state = State.FREE
 	auto_march = false
+	role_recruit_hold_t = 0.0
 	post = {}
 	contract = null
 
@@ -261,7 +273,7 @@ func knock_to(to: Vector2) -> void:
 		position = nxt
 		left -= 4.0
 
-## «Сбор»: свободные и автомарш; ручное назначение в строй и натиск не трогаем.
+## «Сбор»: свободные, автомарш и конечные роли; обычный натиск пехоты не трогаем.
 func rally_to(path: PackedVector2Array) -> void:
 	if not can_rally() or path.is_empty():
 		return
@@ -274,15 +286,22 @@ func rally_to(path: PackedVector2Array) -> void:
 
 
 func can_rally() -> bool:
-	return state in [State.FREE, State.RALLY] or (state == State.MARCH and auto_march)
+	return state in [State.FREE, State.RALLY] or (state == State.MARCH and auto_march) \
+		or role_command_active()
 
 
 ## Таяние/расторжение участка: бег по стрелке. volley — залп выпуска (v17: сила рогатки,
 ## точный срыв, комбо); пустой — прежний натиск ровно с прежними числами.
 ## Запомнить договор строя (no_return_id): боец не возвращается на его места сам.
 func start_charge(dir: Vector2, volley: Dictionary = {}, cap := INF) -> void:
+	var release_facing: Vector2 = post.get("normal", dir)
+	if state == State.CHARGE:
+		_end_charge()
+	if kind != LegionCfg.KIND_LABORER and volley.is_empty():
+		volley = world._volley(dir, -1.0, false, false)
 	auto_march = false
 	held_t = 0.0
+	role_recruit_hold_t = 0.0
 	if contract != null:
 		no_return_id = contract.id
 	post = {}
@@ -298,6 +317,9 @@ func start_charge(dir: Vector2, volley: Dictionary = {}, cap := INF) -> void:
 		volley["units"] = int(volley["units"]) + 1
 		# «Комиссия»: залп помечает цель — по id группы бойцы ЗНАЮТ, чью метку усиливать
 		mark_group_id = int(volley.get("mark_group", -1))
+		LegionRoleRelease.attach(world, self, volley, volley.get("role_geometry", {}), release_facing)
+		if role_command_active():
+			_atk_cd = 0.0
 
 
 ## Натиск окончен (удар, дистанция, упёрся): залп узнаёт, что бойцом меньше.
@@ -313,6 +335,10 @@ func take_damage(amount: float, from: Vector2) -> void:
 	if not alive:
 		return
 	var a := amount
+	if role_command_active() and kind == LegionCfg.KIND_GUARD:
+		var facing := LegionRoleRelease.facing_of(self)
+		if facing.dot(from - position) > 0.0:
+			a *= float(spec["front_armor"])
 	if state == State.POSTED and not post.is_empty():
 		if contract != null and field.in_package(contract, int(post["seg"])):
 			a *= LegionCfg.PACKAGE_DAMAGE_MULT
@@ -344,6 +370,7 @@ func is_corpse_done() -> bool:
 
 func _die() -> void:
 	alive = false
+	role_recruit_hold_t = 0.0
 	if not post.is_empty():
 		post["unit"] = null
 	post = {}
@@ -520,6 +547,12 @@ func _tick_posted() -> void:
 
 
 func _tick_charge(dt: float) -> bool:
+	if role_command_active():
+		return bool((_volley["role_job"] as Dictionary).get("moving", false))
+	return _tick_infantry_charge(dt)
+
+
+func _tick_infantry_charge(dt: float) -> bool:
 	_charge_t -= dt
 	var foe: Node2D = world.grid.charge_target(position, _charge_dir) if not world.pvp \
 		else world.grid.charge_target_pvp(position, _charge_dir, side)
@@ -641,7 +674,7 @@ func _target_near(r: float, ghosts: bool, posted := false) -> Node2D:
 
 ## charged — удар с разбега или в окне после него: убийство таким ударом даёт души по комбо.
 ## Цель — враг; в PvP ещё чужой боец или чужой Котёл: теми же числами урона.
-func _strike(foe: Node2D, mult: float, charged := false) -> void:
+func _strike(foe: Node2D, mult: float, charged := false, ground_hit := false) -> void:
 	_face(foe.position - position)
 	if _atk_cd > 0.0:
 		view.prepare_attack(_atk_cd, foe)
@@ -665,7 +698,7 @@ func _strike(foe: Node2D, mult: float, charged := false) -> void:
 	if sealed:
 		dmg *= LegionCfg.SEAL_DAMAGE_MULT
 		_seal_t = 0.0
-	if bool(spec["ranged"]):
+	if bool(spec["ranged"]) and not ground_hit:
 		# урон — по попаданию: пока снаряд летит, цель может умереть от другого, и выстрел пропадёт
 		projectile_sealed = sealed
 		world.fire_projectile(self, foe, dmg)
@@ -674,7 +707,7 @@ func _strike(foe: Node2D, mult: float, charged := false) -> void:
 		var f := foe as Foe
 		var was_alive := f.alive
 		f.last_hit_side = side
-		f.take_damage(dmg, position)
+		f.take_damage(dmg, position, ground_hit)
 		if sealed:
 			f.apply_seal_slow()
 		if charged and was_alive and not f.alive:
@@ -686,6 +719,29 @@ func _strike(foe: Node2D, mult: float, charged := false) -> void:
 	else:
 		# чужой Котёл: боец бьёт его своим уроном и остаётся на месте (не исчезает, как враг PvE)
 		world.damage_cauldron(dmg, "", (foe as LegionBuilding).side)
+
+
+## У ролей касание не прекращает приказ. Огневой вал проверяет позицию цели в текущей полосе,
+## затем наносит удар туда сразу: снаряд не подхватывает врага за пределами выбранной зоны.
+func strike_release_target(foe: Node2D, ground_hit := false) -> void:
+	if _atk_cd > 0.0 or _volley.is_empty():
+		return
+	world.on_charge_contact(self, foe, _volley)
+	var first := LegionCfg.PERFECT_FIRST_MULT if _first_strike and bool(_volley["perfect"]) else 1.0
+	_first_strike = false
+	if foe is Foe:
+		var f := foe as Foe
+		if f.is_stunned():
+			first *= LegionCfg.STUNNED_CHARGE_MULT
+			world.stunned_charge_hit.emit(f)
+		first *= LegionChallenge.charge_mult(f, position)
+	_bonus_mult = float(_volley["dmg"]) * float(_volley["combo_mult"])
+	_strike(foe, float(spec["charge_dmg_mult"]) * world.mod_mult("charge_dmg_mult")
+		* _bonus_mult * first, true, ground_hit)
+
+
+func role_command_active() -> bool:
+	return state == State.CHARGE and _volley.has("role_job")
 
 
 ## Шаг к цели по прямой с проверкой рельефа; упёрлись — пробуем скольжение по осям.

@@ -386,7 +386,7 @@ func separate() -> void:
 		# строй неподвижен, марш идёт колонной по маршруту A*: расталкивание на узком мосту
 		# запирало колонну (толчок сильнее шага), поэтому толкаем только свободных и натиск
 		if not u.alive or u.state == Legionnaire.State.POSTED \
-				or u.state == Legionnaire.State.MARCH:
+				or u.state == Legionnaire.State.MARCH or u.role_command_active():
 			continue
 		var push := Vector2.ZERO
 		var p := u.position

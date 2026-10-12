@@ -1205,7 +1205,31 @@ func net_digest() -> String:
 	for u in units:
 		n.append_array([u.side, LegionCfg.KIND_ORDER.find(u.kind), u.state, 1 if u.alive else 0])
 		n.append(1 if u.auto_march else 0)
-		f.append_array([u.position.x, u.position.y, u.hp, u.held_t])
+		f.append_array([u.position.x, u.position.y, u.hp, u.held_t, u.role_recruit_hold_t])
+		if u.role_command_active():
+			var job: Dictionary = u._volley["role_job"]
+			n.append(1 if u._first_strike else 0)
+			n.append(1 if bool(u._volley["perfect"]) else 0)
+			n.append(1 if bool(u._volley["manual"]) else 0)
+			n.append(1 if bool(u._volley["hit"]) else 0)
+			n.append(int(job["band"]))
+			n.append(1 if bool(job["blocked"]) else 0)
+			f.append_array([u._atk_cd, float(u._volley["dmg"]), float(u._volley["combo_mult"]),
+				float(job["elapsed"]), float(job["run"]), float(job["depth"]),
+				(job["dir"] as Vector2).x, (job["dir"] as Vector2).y,
+				(job["facing"] as Vector2).x, (job["facing"] as Vector2).y])
+			for p: Vector2 in job["origins"]:
+				f.append_array([p.x, p.y])
+			for facing: Vector2 in job["facings"]:
+				f.append_array([facing.x, facing.y])
+			for member: Variant in job["members"]:
+				n.append(units.find(member) if is_instance_valid(member) else -1)
+			var hits: Dictionary = job["hits"]
+			for e in foes:
+				n.append(1 if hits.has(e) else 0)
+			if pvp:
+				for other in units:
+					n.append(1 if hits.has(other) else 0)
 	for e in foes:
 		n.append_array([e.type_id.hash(), e.state, 1 if e.alive else 0])
 		f.append_array([e.position.x, e.position.y, e.hp])
@@ -1851,6 +1875,7 @@ func _step(dt: float) -> void:
 		_prof_mark(&"press")
 	# после хода врагов (они уже сделали шаг к Котлу) и до хода бойцов, которые флаг читают
 	_scan_home_threats()
+	LegionRoleRelease.tick(self, dt)
 	if flip:
 		for i in range(units.size() - 1, -1, -1):
 			units[i].tick(dt)
@@ -2499,7 +2524,8 @@ func release_segment_aimed(c: Contract, seg: int, dir: Vector2, power: float,
 	stats["sling_releases"] = int(stats.get("sling_releases", 0)) + 1
 	if perfect:
 		stats["perfect_releases"] = int(stats.get("perfect_releases", 0)) + 1
-	_release(c, seg, &"manual", _volley(dir.normalized(), clampf(power, 0.0, 1.0), perfect, true))
+	_release(c, seg, &"manual", _volley(dir.normalized(),
+		-1.0 if power < 0.0 else clampf(power, 0.0, 1.0), perfect, true))
 
 
 ## «Оцепление»: ПКМ или рогатка по любому участку кольца — «Сжать кольцо!»: все живые участки
@@ -2545,7 +2571,8 @@ func release_run(c: Contract, segs: PackedInt32Array, gold: PackedByteArray) -> 
 		if not c.seg_alive(s):
 			continue
 		var perfect := i < gold.size() and gold[i] != 0
-		var v := _volley(c.seg_dir(s), 1.0 if perfect else -1.0, perfect, true)
+		var power := 1.0 if perfect and c.kind == LegionCfg.KIND_LABORER else -1.0
+		var v := _volley(c.seg_dir(s), power, perfect, true)
 		if perfect:
 			stats["sling_releases"] = int(stats.get("sling_releases", 0)) + 1
 			stats["perfect_releases"] = int(stats.get("perfect_releases", 0)) + 1
@@ -2568,10 +2595,20 @@ func _ring_cap(c: Contract, seg: int, volley: Dictionary) -> Dictionary:
 
 ## Залп — словарь, общий для бойцов одного выпуска. power < 0 — щелчок/таяние: множители 1.0.
 ## manual — выпуск игроком (щелчок или рогатка): только он растит и сбрасывает комбо.
+func role_pull_power(kind: StringName, pull_length: float) -> float:
+	return LegionRoleRelease.pull_power(kind, pull_length)
+
+
+func role_release_geometry(c: Contract, seg: int, dir: Vector2, power := -1.0,
+		cohesive := false) -> Dictionary:
+	return LegionRoleRelease.geometry(self, c, seg, dir, power, cohesive)
+
+
 func _volley(dir: Vector2, power: float, perfect: bool, manual: bool) -> Dictionary:
 	var t := clampf(power, 0.0, 1.0)
 	var sling := power >= 0.0
 	return {
+		"input_power": power,
 		"dir": dir, "power": t if sling else 1.0, "perfect": perfect, "manual": manual,
 		"range": lerpf(LegionCfg.SLING_RANGE.x, LegionCfg.SLING_RANGE.y, t) if sling else 1.0,
 		"dmg": lerpf(LegionCfg.SLING_DMG.x, LegionCfg.SLING_DMG.y, t) if sling else 1.0,
@@ -2584,6 +2621,9 @@ func _release(c: Contract, seg: int, cause: StringName, volley: Dictionary) -> v
 	if not c.seg_alive(seg):
 		return
 	var field := field_of(c)
+	if c.kind != LegionCfg.KIND_LABORER:
+		volley["role_geometry"] = role_release_geometry(c, seg, volley["dir"],
+			float(volley.get("input_power", -1.0)))
 	var sealed := cause == &"melt" and field.seal_ready(c, seg)
 	var bend := c.bend_frac(seg) if press_on() else 0.0
 	# причина — до сигнала пружины: слушатели (урок «пружина») отличают срыв от таяния
@@ -2616,7 +2656,7 @@ func _release(c: Contract, seg: int, cause: StringName, volley: Dictionary) -> v
 				u.settle(field.settlement_mult)
 			if sealed:
 				u.grant_seal()
-			if c.figure != &"":
+			if c.figure != &"" and c.kind == LegionCfg.KIND_LABORER:
 				# восьмёрка и треугольник: у каждого бойца своя цель; рогатка задаёт общую ось
 				# оттяжки (LegionFigures.charge_for)
 				var aim := figures.charge_for(c, p, u, volley.get("axis", Vector2.ZERO))
@@ -2627,6 +2667,7 @@ func _release(c: Contract, seg: int, cause: StringName, volley: Dictionary) -> v
 		else:
 			u.set_free()
 	stats["releases"] = int(stats["releases"]) + 1
+	volley.erase("role_geometry")
 	var key := "releases_melt" if cause == &"melt" else "releases_manual"
 	stats[key] = int(stats[key]) + 1
 	stats["charges"] = int(stats["charges"]) + n
@@ -2661,6 +2702,8 @@ func on_charge_contact(u: Legionnaire, foe: Node2D, volley: Dictionary) -> void:
 			volley["combo_mult"] = combo_mult()
 		_charge_feedback(foe.position.lerp(u.position, 0.5), perfect, u.side)
 	var knocked: Dictionary = volley["knocked"]
+	if volley.has("role_job"):
+		return   # фронт вытесняет шагами, огневой вал удерживает выбранную полосу
 	if off or knocked.has(foe) or not foe is Foe:
 		return
 	knocked[foe] = true
@@ -3612,6 +3655,7 @@ func _draw_fx() -> void:
 	_draw_rallies()
 	ability_aim.draw(_fx, aim_pos())
 	projectiles.draw(_fx)
+	LegionRoleRelease.draw(self, _fx)
 	for i in _impacts.size():
 		var v := _impacts[i]
 		var a := v.z / 0.3

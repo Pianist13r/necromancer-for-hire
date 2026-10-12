@@ -32,7 +32,7 @@ const UNIT_PROPS: Array[String] = [
 	"_aura_t", "_aura_near",
 	"_seal_t", "_seal_cd", "_path", "_path_i", "_atk_cd", "_bonus_t", "_charge_t", "_charge_dir",
 	"_charge_run", "_charge_cap", "_bonus_mult", "_first_strike", "_dead_t", "_stun_t",
-	"_rally_t", "held_t", "_scan_skip", "_guard_skip",
+	"_rally_t", "held_t", "role_recruit_hold_t", "_scan_skip", "_guard_skip",
 ]
 ## spec — обычно общий LegionCfg.UNIT_KINDS[kind]; «бодрый выход» (building.gd _spawn_into)
 ## подменяет его копией со скоростью ×BRISK_EXIT_MULT — тогда копия идёт в снимок.
@@ -172,6 +172,8 @@ static func _save_unit(w: LegionWorld, u: Legionnaire, reg: NetSnap.Reg) -> Dict
 	d["post"] = _post_ref(w, u, reg)
 	var vi := -1
 	if not u._volley.is_empty():
+		if u._volley.get("role_job") is Dictionary:
+			reg.share(u._volley["role_job"])
 		if u._volley.get("group") is Dictionary:
 			reg.share(u._volley["group"])
 		vi = reg.share(u._volley)
@@ -213,7 +215,7 @@ static func _take_unit(w: LegionWorld, pool: Array, i: int, d: Dictionary,
 	for k in UNIT_PROPS:
 		if k == "auto_march":
 			plain[k] = d.get(k, false)
-		elif k == "held_t":
+		elif k == "held_t" or k == "role_recruit_hold_t":
 			plain[k] = d.get(k, 0.0)
 		else:
 			plain[k] = d[k]

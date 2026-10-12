@@ -99,6 +99,28 @@ const SLING_EDGE_PAD := 3.0
 const SLING_RANGE := Vector2(0.8, 1.6)     ## дальность (charge_dist вида и CHARGE_TIME)
 const SLING_DMG := Vector2(1.0, 1.4)       ## урон удара с разбега и окна CHARGE_BONUS_TIME
 const SLING_SPEED := Vector2(1.0, 1.3)     ## скорость бега натиска
+
+## Роли выпуска (Игорь 11.10): жест выбирает глубину, а не силу урона. Подрядчик сохраняет
+## прежнюю полную рогатку; щиты переводят фронт, счетоводы проводят конечный огневой вал.
+const ROLE_PULL_FULL := 140.0
+const GUARD_FRONT_DEPTH := Vector2(60.0, 150.0)
+const GUARD_FRONT_DEFAULT := 100.0
+const GUARD_FRONT_TIME := 2.6
+const GUARD_FRONT_FORCE := 1.4
+const GUARD_FRONT_HEAVY := 3.0
+const GUARD_FRONT_FLANK_DRAG := 0.65
+const GUARD_FRONT_CONTACT_PAD := 5.0
+const GUARD_FRONT_STEP := 3.0
+const GUARD_FRONT_FACING_DOT := 0.25
+const ROLE_COMMAND_HOLD := 25.0
+const CLERK_BARRAGE_DEPTH := Vector2(90.0, 230.0)
+const CLERK_BARRAGE_DEFAULT := 150.0
+const CLERK_BARRAGE_BANDS := 6
+const CLERK_BARRAGE_WINDUP := 0.15
+const CLERK_BARRAGE_INTERVAL := 0.2
+const CLERK_BARRAGE_LANE_PAD := 12.0
+const ROLE_DRAW_ALPHA := 0.65
+const ROLE_DRAW_LINE := 2.0
 ## Превью натяжки: стрелка всегда полной длины; голубая «жди», пока в зоне нет врага, золотая —
 ## «Срывай!»; тетива прогнута назад на SLING_BOW_BEND px (натянута до упора).
 const SLING_ARROW_LEN := 150.0

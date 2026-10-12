@@ -1,6 +1,6 @@
 extends SceneTree
-## Эталон бота обновлён 08.10 A7: автомарш/тактика, два одинаковых прогона.
-## Происхождение новых хешей: docs/dev/audit-1008/gameplay-report.md.
+## Эталон бота обновлён 11.10.2026: новые роли, два одинаковых прогона.
+## Источник: docs/dev/FIGURES_INPUT_1011.md, раздел контрольных трасс.
 ##
 ## Самопроверка пакета «интуитивнее» (slow/intuit, Игорь 26.09: «пружинный срыв, прицеливание
 ## рогатки и абилки вовремя — не интуитивные»):
@@ -17,7 +17,7 @@ extends SceneTree
 ##  6) стена: штрих, начатый в скале, — вспышка «стена», не чаще раза в секунду;
 ##  7) черновик: пустая часть (мест больше, чем наберёт) — отрезки вдоль линии;
 ##  8) бой бота побайтно прежний (трасса на 3 картах, «Стажёр», сверка с эталоном
-##     интегрированного economy-mana — tests/data/legion_intuit_bot_ref.txt), скан каждые 6 шагов.
+##     интегрированных roles-figures-1011 — tests/data/legion_intuit_bot_ref.txt), скан каждые 6 шагов.
 ##
 ##   "$GODOT" --headless --path godot --fixed-fps 60 --script res://tests/legion_intuit_test.gd -- --mute
 ##
@@ -29,7 +29,7 @@ const SAVE := "user://legion_intuit_test.cfg"
 const CFG_PATH := "res://scripts/legion/intuit_cfg.gd"
 const SETTINGS_PATH := "res://scripts/common/settings.gd"
 const BOT_REF := "res://tests/data/legion_intuit_bot_ref.txt"
-## Бот: карта, сид, шагов по 1/60 с. Эталон economy-mana: происхождение — docs/dev/CODEX_MANA.md.
+## Бот: карта, сид, шагов по 1/60 с. Эталон economy-mana: происхождение — docs/dev/FIGURES_INPUT_1011.md.
 const BOT_RUNS := [["bridge", 1, 3600], ["fork", 2, 3600], ["wasteland", 3, 3600]]
 ## Полоса карты _gray между рекой (x 620–706) и скалой (x 870+), вдали от Котла.
 const LAB := Vector2(760, 120)
@@ -1084,4 +1084,4 @@ func _test_bot_same() -> void:
 		var d := _bot_digest(run[0], run[1], run[2])
 		var key := "%s %d %d" % [run[0], run[1], run[2]]
 		print("  BOTREF %s %s  (%d мс)" % [key, d, Time.get_ticks_msec() - t0])
-		_check(ref.get(key, "") == d, "бот %s: трасса совпала с эталоном economy-mana" % key)
+		_check(ref.get(key, "") == d, "бот %s: трасса совпала с эталоном roles-figures-1011" % key)

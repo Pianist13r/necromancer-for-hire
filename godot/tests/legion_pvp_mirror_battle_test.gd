@@ -31,8 +31,9 @@ const DT := 1.0 / 60.0
 ## Ключи снимка с координатами: точки (x → W − x), направления (x → −x), не координаты.
 const POINT_KEYS := ["position", "pos", "points", "_seg_centers", "center", "lobes", "seg_polys",
 	"tips", "pts", "entry", "_path", "ram_pos", "stamp_pos", "law_pos", "_ram_start",
-	"cauldron_pos", "cauldron_view_pos"]
-const DIR_KEYS := ["dir", "normal", "offset", "seg_bend_dir", "_charge_dir", "_dir"]
+	"cauldron_pos", "cauldron_view_pos", "origins", "ends"]
+const DIR_KEYS := ["dir", "normal", "offset", "seg_bend_dir", "_charge_dir", "_dir",
+	"facing", "facings"]
 const KEEP_KEYS := ["world_size", "entry_ring", "lobe_span"]
 ## Не сравниваются: однокадровые буферы давки (пересчёт в шаге), рамки и куски ломаной участков
 ## (производные от points, число точек куска — порог float на границе участка), хэш карты

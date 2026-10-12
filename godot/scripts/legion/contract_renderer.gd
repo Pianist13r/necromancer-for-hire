@@ -1,3 +1,4 @@
+# gdlint: disable=max-file-lines
 class_name ContractRenderer
 extends RefCounted
 ## Только рисование договоров. Симуляция и ввод остаются в ContractField.
@@ -160,7 +161,9 @@ func _draw_overlay() -> void:
 			_draw_over_limit()
 	if field.is_slinging() and not field._aim.is_empty():
 		var sc := field._grab["contract"] as Contract
-		if sc.ring:
+		if RoleReleasePreview.handles(sc.kind):
+			RoleReleasePreview.draw(field)
+		elif sc.ring:
 			_draw_ring_sling()
 		elif sc.figure != &"":
 			_draw_fig_sling()
@@ -544,6 +547,7 @@ func _draw_draft() -> void:
 	# B-028: подпись — ПОСЛЕ стрелок, поверх них: стрелка первого участка ложилась на
 	# «наберёт N / мест M» и перечёркивала буквы.
 	_draw_preview_caption()
+	_draw_shape_assist(body)
 
 
 ## Пустая часть черновика — притушена тёмной полосой и прочерчена пунктиром: «сюда не встанут».
@@ -671,6 +675,38 @@ func _draw_preview_caption() -> void:
 		-1, field._core_fs(), Color.WHITE)
 
 
+## Начало жеста остаётся видимым ориентиром. Окружность не ловит мышь и не
+## меняет штрих; обещание фигуры появляется лишь после настоящего распознавания.
+func _draw_shape_assist(body: Color) -> void:
+	var text := field.draft_shape_hint()
+	if text.is_empty():
+		return
+	if field.draft_loop_like():
+		var first := field._draft[0]
+		var r := field.draft_closure_radius()
+		field.overlay.draw_arc(first, r, 0, TAU, 40, Color(body, 0.35), 1.5, true)
+		field.overlay.draw_circle(first, 4.0, Color.WHITE)
+	var at := field._pointer + Vector2(field.RING_LABEL_OFFSET.x, -field.RING_LABEL_SIZE)
+	_draw_shape_caption(text, at, body)
+
+
+## Подложка и ограничение обоих краёв одинаковы для советов пера и статуса готовой фигуры.
+func _draw_shape_caption(text: String, at: Vector2, color: Color, centered := false) -> void:
+	var font: Font = ThemeDB.fallback_font
+	var size := field._core_fs()
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	if centered:
+		at.x -= width * 0.5
+	elif at.x + width > field._screen_w() - 8.0:
+		at.x = field._pointer.x - width - field.RING_LABEL_OFFSET.x
+	at.x = field._clamp_label_x(at.x, width)
+	var view := field.world.view_rect()
+	at.y = clampf(at.y, view.position.y + size + 64.0, view.end.y - 8.0)
+	field.overlay.draw_rect(Rect2(at - Vector2(5, size), Vector2(width + 10, size + 7)),
+		Color(0.04, 0.02, 0.08, 0.88))
+	field.overlay.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+
+
 ## Черновик-кольцо: штрих цвета фигуры, пунктир замыкания, стрелки к центру по всему кругу и
 ## подпись «Оцепление» у курсора — ДО отпускания видно, что выйдет кольцо, а не линия.
 func _draw_ring_draft() -> void:
@@ -694,14 +730,18 @@ func _draw_ring_draft() -> void:
 	var font: Font = UiStyle.FONT_TITLE
 	var size := field._fsz(roundi(field.RING_LABEL_SIZE * (1.0 + 0.08 * pulse)))
 	var out := (field._pointer - center).normalized()
-	var label_w := font.get_string_size(I18n.t(field.RING_LABEL), HORIZONTAL_ALIGNMENT_LEFT,
+	var label := field.draft_shape_hint()
+	var label_w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT,
 		-1, size).x
 	var label_at := field._pointer + out * field.RING_LABEL_OFFSET.x + Vector2(0.0, size * 0.35)
 	if out.x < 0.0:
 		label_at.x -= label_w
-	field.overlay.draw_string_outline(font, label_at, I18n.t(field.RING_LABEL),
+	label_at.x = field._clamp_label_x(label_at.x, label_w)
+	label_at.y = clampf(label_at.y, field.world.view_rect().position.y + size + 64.0,
+		field.world.view_rect().end.y - size - field._core_fs())
+	field.overlay.draw_string_outline(font, label_at, label,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5, Color(0, 0, 0, 0.85))
-	field.overlay.draw_string(font, label_at, I18n.t(field.RING_LABEL),
+	field.overlay.draw_string(font, label_at, label,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size, body)
 	# превью набора — под кольцом по центру (у линии оно у начала штриха, а у кольца начало —
 	# это и есть курсор)
@@ -714,6 +754,8 @@ func _draw_ring_draft() -> void:
 	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
 		field._core_fs()).x
 	var cap_at := Vector2(center.x - cw * 0.5, bottom - field.RING_LABEL_OFFSET.y + field.ARROW_OFFSET)
+	cap_at.x = field._clamp_label_x(cap_at.x, cw)
+	cap_at.y = minf(cap_at.y, field.world.view_rect().end.y - 8.0)
 	field.overlay.draw_string_outline(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
 		field._core_fs(), LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
 	field.overlay.draw_string(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1,
@@ -839,6 +881,9 @@ func _draw_figures() -> void:
 			# замкнут и пульсирует; сорванный раньше уходит обычным натиском, без ульты.
 			var frac := clampf(c.charge_t / FigureCfg.CHARGE_TIME, 0.0, 1.0) if ready else 0.0
 			_draw_charge_ring(c.center, frac, col, charged, pulse)
+			_draw_shape_caption(field.figure_status(c),
+				Vector2(c.center.x, field.fig_bottom(c) + size + 12.0),
+				LegionCfg.PERFECT_COLOR if charged else col.lerp(Color.WHITE, 0.4), true)
 
 
 ## Обод заряда фигуры вокруг её центра: серые «часы» по числу мест (сколько бойцов нужно) и
@@ -874,7 +919,7 @@ func _draw_fig_draft() -> void:
 	var center := probe.center
 	var font: Font = UiStyle.FONT_TITLE
 	var size := field._fsz(roundi(field.RING_LABEL_SIZE * (1.0 + 0.08 * pulse)))
-	var label := field.fig_label(field._draft_fig)
+	var label := field.draft_shape_hint()
 	var out := (field._pointer - center).normalized()
 	var label_w := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	var label_at := field._pointer + out * field.RING_LABEL_OFFSET.x + Vector2(0.0, size * 0.35)
@@ -890,6 +935,8 @@ func _draw_fig_draft() -> void:
 			# прижата к правому краю — поднять над курсором: внизу слева висит «наберёт N / мест M»
 			label_at.y -= size + hs + 16.0
 	label_at.x = field._clamp_label_x(label_at.x, block_w)
+	label_at.y = clampf(label_at.y, field.world.view_rect().position.y + size + 64.0,
+		field.world.view_rect().end.y - size - hs)
 	field.overlay.draw_string_outline(font, label_at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5,
 		Color(0, 0, 0, 0.85))
 	field.overlay.draw_string(font, label_at, label, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
@@ -911,6 +958,7 @@ func _draw_fig_draft() -> void:
 	var cw := small.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs).x
 	var cap_at := Vector2(center.x - cw * 0.5, bottom - field.RING_LABEL_OFFSET.y + field.ARROW_OFFSET)
 	cap_at.x = field._clamp_label_x(cap_at.x, cw)
+	cap_at.y = minf(cap_at.y, field.world.view_rect().end.y - 8.0)
 	field.overlay.draw_string_outline(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs,
 		LegionCfg.CORE_LABEL_OUTLINE_W, LegionCfg.CORE_LABEL_OUTLINE_COLOR)
 	field.overlay.draw_string(small, cap_at, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, hs, Color.WHITE)

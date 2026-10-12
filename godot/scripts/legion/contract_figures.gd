@@ -250,6 +250,19 @@ func pending_overtime() -> int:
 	return _overtime.size()
 
 
+## Новый ручной приказ отменяет обещанную вторую смену именно для этого участника.
+## Обычное завершение конечной роли сюда не приходит: заслуженный выпуск сохраняется.
+func cancel_role_overtime(u: Legionnaire) -> void:
+	if u.kind == LegionCfg.KIND_LABORER:
+		return
+	for job in _overtime:
+		var i := (job["units"] as Array).find(u)
+		if i >= 0:
+			var done: PackedByteArray = job["done"]
+			done[i] = 1
+			job["done"] = done
+
+
 ## Сорвать во второй натиск тех, кто уже добежал первый. true — задание закрыто.
 func _fire_overtime(job: Dictionary) -> bool:
 	var units: Array[Legionnaire] = job["units"]
@@ -261,7 +274,8 @@ func _fire_overtime(job: Dictionary) -> bool:
 	for i in units.size():
 		if done[i] != 0:
 			continue
-		var u := units[i]
+		var value: Variant = units[i]
+		var u := LegionRoleRelease._member(value)
 		if not is_instance_valid(u) or not u.alive:
 			done[i] = 1
 			continue
@@ -274,7 +288,8 @@ func _fire_overtime(job: Dictionary) -> bool:
 			continue
 		if u.state == Legionnaire.State.MARCH:
 			u.set_free()
-		var aim := _toward(u.position, homes[i], FigureCfg.EIGHT_OVERRUN, Vector2.RIGHT)
+		var aim := _toward(u.position, homes[i], FigureCfg.EIGHT_OVERRUN, Vector2.RIGHT) \
+			if u.kind == LegionCfg.KIND_LABORER else _overtime_role_aim(job, i)
 		var v := world._volley(aim[0], -1.0, false, false)
 		v["group"] = group
 		u.start_charge(aim[0], v, aim[1])
@@ -288,6 +303,29 @@ func _fire_overtime(job: Dictionary) -> bool:
 			_stat("overtimes")
 			world.sides[int(job["side"])].contracts.on_overtime(job["center"], n, job["lobes"])
 	return waiting == 0 or float(job["t"]) < -FigureCfg.OVERTIME_WAIT
+
+
+## Второй приказ восьмёрки сохраняет роль: полупетля щитов переводится одним фронтом, а
+## счетоводы проводят второй вал из удержанной позиции. По одному к центру никто не гонится.
+func _overtime_role_aim(job: Dictionary, index: int) -> Array:
+	var homes: Array[Vector2] = job["homes"]
+	var units: Array[Legionnaire] = job["units"]
+	var center := Vector2.ZERO
+	var count := 0
+	var done: PackedByteArray = job["done"]
+	var value: Variant = units[index]
+	var source := LegionRoleRelease._member(value)
+	for i in units.size():
+		value = units[i]
+		var u := LegionRoleRelease._member(value)
+		if u != null and source != null and u.alive and u.kind == source.kind \
+				and homes[i].is_equal_approx(homes[index]) \
+				and (done[i] == 0 or i == index or (u.role_command_active() \
+				and is_same(u._volley.get("group", {}), job["group"]))):
+			center += u.position
+			count += 1
+	return _toward(center / maxf(1.0, count), homes[index],
+		FigureCfg.EIGHT_OVERRUN, Vector2.RIGHT)
 
 
 ## «Обряд»: удар в центре фигуры. У мини-обряда числа ослаблены (D-1002 §6 «Мини-спам»):

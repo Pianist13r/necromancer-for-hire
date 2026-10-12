@@ -529,7 +529,8 @@ func _intercept_ghost(slot: Dictionary) -> bool:
 			continue
 		var guards := 0
 		for u in world.units_near(f.position, LegionCfg.FREE_AGGRO):
-			if u.state == Legionnaire.State.FREE or u.state == Legionnaire.State.CHARGE:
+			if u.state == Legionnaire.State.FREE or (u.state == Legionnaire.State.CHARGE \
+					and not (u.kind == LegionCfg.KIND_GUARD and u.role_command_active())):
 				guards += 1
 		if guards >= LegionCfg.BOT_MIN_SQUAD:
 			continue
@@ -537,7 +538,7 @@ func _intercept_ghost(slot: Dictionary) -> bool:
 		var seg := -1
 		var distance := LegionCfg.BOT_GHOST_INTERCEPT
 		for c: Contract in slot["contracts"]:
-			if c.kind == LegionCfg.KIND_CLERK:
+			if c.kind != LegionCfg.KIND_LABORER:
 				continue
 			for s in c.seg_count():
 				if not c.seg_alive(s) or c.seg_manned(s) < LegionCfg.BOT_MIN_SQUAD:

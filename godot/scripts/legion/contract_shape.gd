@@ -1,3 +1,4 @@
+# gdlint: disable=max-file-lines
 class_name ContractShape
 extends RefCounted
 ##
@@ -64,7 +65,9 @@ const RESAMPLE_MIN_STEP := 5.0
 ## — капля) и закручены В РАЗНЫЕ стороны: это и отличает восьмёрку от двойного витка или
 ## петли внутри петли (там обе закручены одинаково). Итоговый поворот ≈ 0 (кольцо ≈ 2π).
 const EIGHT_MIN_LEN := 300.0
-const EIGHT_MIN_POINTS := 16
+## Быстрый росчерк даёт 10–14 событий. Две петли, противоположный обход и перетяжка
+## ниже проверяются геометрически; число событий не говорит о числе петель.
+const EIGHT_MIN_POINTS := 8
 const EIGHT_LOBE_MIN := 0.25
 const EIGHT_CROSS_TOL := 12.0
 const EIGHT_ROUND_MIN := 0.4
@@ -186,6 +189,12 @@ const D_ARC_FLAT_MAX := 0.12
 const D_ARC_MIN := 0.45
 ## Больше этого числа рёбер упрощения «D» не бывает: прямая сторона плюс 1–4 хорды дуги.
 const D_MAX_EDGES := 8
+## У редкой дуги соседние события образуют хорды без промежуточного прогиба. Такую хорду
+## допускаем лишь короче прямой стороны и при наличии наблюдаемых точек НА самой стороне.
+const D_SPARSE_MAX_POINTS := 22
+const D_SPARSE_ARC_SIDE := 0.65
+const D_SIDE_MIN_SAMPLES := 3
+const D_SPARSE_CORNER_REACH := 0.12
 
 
 ## Кольцо ли штрих (см. заголовок). pts — ломаная как нарисована, без замыкания. mini — порог
@@ -782,6 +791,24 @@ static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 		return {}
 	var p0 := loop[posmod(s0, n)]
 	var p1 := loop[posmod(s1, n)]
+	var raw_side := p0.distance_to(p1)
+	var raw_dev := 0.0
+	for k in range(s0 + 1, s1):
+		raw_dev = maxf(raw_dev, loop[posmod(k, n)].distance_to(
+			Geometry2D.get_closest_point_to_segment(loop[posmod(k, n)], p0, p1)))
+	# Угол можно восстановить только у УЖЕ наблюдаемой длинной прямой стороны.
+	# Иначе продолжение касательных превращает гладкий овал в D: более длинная
+	# воображаемая сторона прячет прогиб его настоящих событий.
+	var sparse_side_ok := raw_side >= D_STRAIGHT_MIN * total \
+		and raw_dev <= maxf(D_STRAIGHT_DEV_MIN, D_STRAIGHT_DEV_K * raw_side)
+	if sparse_side_ok and stroke.size() <= D_SPARSE_MAX_POINTS \
+			and s1 - s0 >= D_SIDE_MIN_SAMPLES:
+		# Событие может перескочить стык прямой и дуги. Восстанавливаем стык по
+		# наблюдаемой стороне и касательной дуги; новый угол не зависит от того,
+		# какой именно соседний отсчёт оказался ближе к вершине.
+		var axis := (p1 - p0).normalized()
+		p0 = _d_junction(loop, s0, -1, axis, total)
+		p1 = _d_junction(loop, s1, 1, axis, total)
 	var side := p0.distance_to(p1)
 	var dev := 0.0
 	for k in range(s0 + 1, s1):
@@ -794,7 +821,14 @@ static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	for q in m:
 		if q != si and float(edges[q][2]) > D_ARC_FLAT_MAX * total \
 				and float(edges[q][3]) < D_ARC_DEV_K * float(edges[q][2]):
-			return {}
+			# Это хорда редкой дуги, а не ещё одно ребро: сторона длиннее всех хорд,
+			# и на ней действительно наблюдали несколько событий. Грубый круг, у
+			# которого «сторона» — единственный большой прыжок мыши, сюда не проходит.
+			if stroke.size() > D_SPARSE_MAX_POINTS or m < 4 \
+					or not sparse_side_ok \
+					or s1 - s0 < D_SIDE_MIN_SAMPLES \
+					or float(edges[q][2]) > side * D_SPARSE_ARC_SIDE:
+				return {}
 	if side > (1.0 - D_ARC_MIN) * total:
 		return {}
 	# углы на обоих концах прямой стороны — до точек дуги через D_CORNER_PROBE периметра
@@ -808,6 +842,21 @@ static func d_fit(pts: PackedVector2Array, mini := false) -> Dictionary:
 	if absf(d_in.angle_to(d_side)) < D_CORNER_MIN or absf(d_side.angle_to(d_out)) < D_CORNER_MIN:
 		return {}
 	return {"corners": PackedVector2Array([p0, p1]), "share": side / total}
+
+
+static func _d_junction(loop: PackedVector2Array, from: int, step: int, axis: Vector2,
+		total: float) -> Vector2:
+	var base := loop[posmod(from, loop.size() - 1)]
+	var a := _walk(loop, from, step * D_CORNER_PROBE * total)
+	var b := _walk(loop, from, step * D_CORNER_PROBE * total * 2.0)
+	var hit: Variant = Geometry2D.line_intersects_line(base, axis, a, b - a)
+	if hit == null:
+		return base
+	var corner: Vector2 = hit
+	if corner.distance_to(base) > D_SPARSE_CORNER_REACH * total \
+			or (corner - base).dot(axis) * step < 0.0:
+		return base
+	return corner
 
 
 ## Штрих без одиночных рывков мыши (D_SPIKE_RATIO); концы штриха не трогаются.
