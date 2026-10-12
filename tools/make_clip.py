@@ -13,11 +13,11 @@ make_clip.py — собрать клип анимации ОДНОЙ коман�
 
 Запуск:
     # весь конвейер для варианта из anim_config.json
-    python tools/make_clip.py walk --drive C:/AI/necro/assets/drive/walk_s25 \\
+    python tools/make_clip.py walk --drive C:/Projects/Necromancer/local/assets/drive/walk_s25 \\
         --wan-variant wa_walk_s25 --polish-variant polish_w8
 
     # только вторая половина: у меня уже есть кадры переноса движения
-    python tools/make_clip.py walk --from-frames C:/AI/necro/assets/wan_out/wa_walk2 \\
+    python tools/make_clip.py walk --from-frames C:/Projects/Necromancer/local/assets/wan_out/wa_walk2 \\
         --polish-variant polish_w8
 
 Каждый шаг печатает, что сделал; при падении шага дальше не идём — чтобы не собрать
@@ -119,7 +119,7 @@ def main() -> int:
                     help="без полировки: сразу кадры -> игровые спрайты (полировка на этой машине тяжела)")
     ap.add_argument("--wan-variant", default="wa_walk1")
     ap.add_argument("--polish-variant", default="polish_w8")
-    ap.add_argument("--ref", default="C:/AI/necro/assets/posegrid/cut_w8/frame_00.png",
+    ap.add_argument("--ref", default="C:/Projects/Necromancer/local/assets/posegrid/cut_w8/frame_00.png",
                     help="кадр персонажа-эталона (задаёт внешность)")
     ap.add_argument("--cols", type=int, default=4)
     ap.add_argument("--cell", type=int, default=512)
@@ -132,7 +132,7 @@ def main() -> int:
 
     if a.from_apng:
         from PIL import Image, ImageSequence
-        frames_dir = pathlib.Path(rf"C:/AI/necro/assets/wan_out/{a.clip}")
+        frames_dir = pathlib.Path(rf"C:/Projects/Necromancer/local/assets/wan_out/{a.clip}")
         frames_dir.mkdir(parents=True, exist_ok=True)
         for f in frames_dir.glob("frame_*.png"):
             f.unlink()
@@ -148,7 +148,7 @@ def main() -> int:
         # APNG переноса раскладываем на кадры
         from PIL import Image, ImageSequence
         apng = sorted(frames_dir.glob("*.png"))[-1]
-        frames_dir = pathlib.Path(rf"C:/AI/necro/assets/wan_out/{a.clip}")
+        frames_dir = pathlib.Path(rf"C:/Projects/Necromancer/local/assets/wan_out/{a.clip}")
         frames_dir.mkdir(parents=True, exist_ok=True)
         for i, fr in enumerate(ImageSequence.Iterator(Image.open(apng))):
             fr.convert("RGB").save(frames_dir / f"frame_{i:03d}.png")

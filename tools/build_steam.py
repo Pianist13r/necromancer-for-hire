@@ -20,7 +20,7 @@ Linux-файл на Windows не запускается: только разме
 Steam-сеть «Схватки» (GodotSteam, docs/dev/ONLINE.md «Реализация Steam Networking»): после проб
 tools/steam/stage_godotsteam.py кладёт рядом с бинарём каждой ОС папку godotsteam/ и
 steam_api64.dll / libsteam_api.so, лицензию GodotSteam — в licenses/. Плагин: --godotsteam,
-иначе NECRO_GODOTSTEAM_PLUGIN, иначе C:/AI/necro/export-templates/godotsteam-4.23.1. Нет плагина
+иначе NECRO_GODOTSTEAM_PLUGIN, иначе C:/Projects/Necromancer/local/export-templates/godotsteam-4.23.1. Нет плагина
 (или --no-godotsteam) — сборка идёт без Steam-сети с предупреждением: игра без GodotSteam
 работает (SteamNet.boot → «По сети» через ретранслятор), пробы выше идут именно так. Сборку с
 godotsteam/ скрипт не запускает: это вызвало бы steamInitEx под аккаунтом владельца.
@@ -45,14 +45,14 @@ sys.path.insert(0, str(REPO / "tools" / "release"))
 from make_github_release import LICENSE_NAMES, LICENSES  # noqa: E402
 
 GODOT = Path("C:/Projects/SharedTools/godot/Godot_v4.7.2-stable_win64_console.exe")
-TPZ = Path("C:/AI/necro/export-templates/4.7.2/Godot_v4.7.2-stable_export_templates.tpz")
+TPZ = Path("C:/Projects/Necromancer/local/export-templates/4.7.2/Godot_v4.7.2-stable_export_templates.tpz")
 TEMPLATE_DIR = "Godot/export_templates/4.7.2.stable"  # относительно APPDATA
 NEED = ("templates/windows_release_x86_64.exe", "templates/windows_debug_x86_64.exe",
         "templates/linux_release.x86_64", "templates/linux_debug.x86_64", "templates/version.txt")
 WIN_PRESET, LINUX_PRESET = "Steam Windows", "Steam Linux"
 # GodotSteam 4.23.1 (скачан по слову Игоря 08.10, D-1008-N7); папка, где лежит addons/godotsteam.
 GODOTSTEAM = Path(os.environ.get("NECRO_GODOTSTEAM_PLUGIN")
-                  or "C:/AI/necro/export-templates/godotsteam-4.23.1")
+                  or "C:/Projects/Necromancer/local/export-templates/godotsteam-4.23.1")
 STAGE_GODOTSTEAM = REPO / "tools" / "steam" / "stage_godotsteam.py"
 STEAM_API = {"windows": "steam_api64.dll", "linux": "libsteam_api.so"}
 # Что не должно попасть в pck (аудит build_steam B5 + оснастка): исходные пути и имена

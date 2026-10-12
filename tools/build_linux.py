@@ -4,7 +4,7 @@
 # --import и --export-release пресета Linux. Только stdlib, скачивания нет.
 # Песочница и логи НЕ удаляются — диагностический след (как tools/build_macos.py).
 #
-#   python -X utf8 tools/build_linux.py --tpz C:/AI/necro/export-templates/4.7.2/Godot_v4.7.2-stable_export_templates.tpz
+#   python -X utf8 tools/build_linux.py --tpz C:/Projects/Necromancer/local/export-templates/4.7.2/Godot_v4.7.2-stable_export_templates.tpz
 
 import argparse
 import os

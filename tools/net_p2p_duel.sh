@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 WHICH="${1:-abcdefgh}"
 LIMIT="${2:-120}"
 PORT="${3:-18831}"
-OUT="${OUT:-C:/AI/necro/net/p2p_duel/$(date +%Y%m%d-%H%M%S)}"
+OUT="${OUT:-C:/Projects/Necromancer/local/qa/net/p2p_duel/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$OUT"
 fails=()
 n=0

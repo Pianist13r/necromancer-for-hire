@@ -80,8 +80,7 @@ func _test_crypt_labels() -> void:
 	_check(neutral.contains("Ничей") and neutral.contains("8"), "ничей склеп: «%s»" % neutral)
 	c.allegiance = LegionCrypt.Owner.ENEMY
 	var enemy := c.label_text()
-	_check(enemy.contains("Ад") and enemy.contains("займите") and not enemy.contains("/"),
-		"склеп Ада: «%s»" % enemy)
+	_check(enemy == "Склеп у Ада", "краткий статус склепа Ада: «%s»" % enemy)
 	c.capturing = LegionCrypt.Owner.PLAYER
 	c.progress = 1.5
 	_check(c.label_text().begins_with("Захватываем"), "идёт захват: «%s»" % c.label_text())

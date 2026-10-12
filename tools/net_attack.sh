@@ -10,7 +10,7 @@ set -u
 cd "$(dirname "$0")/.."
 PORT="${1:-18881}"
 GODOT="${GODOT:-C:/Projects/SharedTools/godot/Godot_v4.7.2-stable_win64_console.exe}"
-OUT="${OUT:-C:/AI/necro/net/attack/$(date +%Y%m%d-%H%M%S)}"
+OUT="${OUT:-C:/Projects/Necromancer/local/qa/net/attack/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$OUT/appdata"
 export APPDATA="$OUT/appdata" NECRO_NO_DEV_BRIDGE=1
 CODE=0

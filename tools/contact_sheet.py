@@ -7,9 +7,9 @@
 
 Как пользоваться:
 
-    GODOT --path godot --write-movie C:/AI/necro/assets/v7/clip/f.png \
+    GODOT --path godot --write-movie C:/Projects/Necromancer/local/assets/v7/clip/f.png \
           --fixed-fps 30 --quit-after 240 -- --autostart --mute --demo
-    python tools/contact_sheet.py C:/AI/necro/assets/v7/clip C:/AI/necro/assets/v7/sheet.png \
+    python tools/contact_sheet.py C:/Projects/Necromancer/local/assets/v7/clip C:/Projects/Necromancer/local/assets/v7/sheet.png \
           --count 6 --from-frame 120 --cols 2
 
 Аргументы:

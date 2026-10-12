@@ -129,6 +129,7 @@ var mana_cost_mult := 1.0
 var base_cost_mult := 1.0
 var aura_enabled := LegionCfg.LINE_AURA_ENABLED
 var path_queries := 0
+var pentagon_guide: LegionPentagonGuide = null
 ## v17 рогатка: схема ввода (Settings.control_scheme() на старте карты) и шкала «Отсрочка».
 var scheme := Settings.SCHEME_SLING
 var delay := LegionCfg.DELAY_MAX
@@ -253,6 +254,8 @@ func _exit_tree() -> void:
 
 func setup(w: LegionWorld) -> void:
 	world = w
+	if pentagon_guide != null:
+		pentagon_guide.stop()
 	recruit_r.clear()
 	unlocked.clear()
 	for kind in LegionCfg.KIND_ORDER:
@@ -963,6 +966,15 @@ func _net_aim(at: Vector2, force: bool) -> void:
 func _input(event: InputEvent) -> void:
 	if human_input:
 		_track_stack(event)
+	if pentagon_guide != null and pentagon_guide.enabled() and _battle_input() \
+			and event.is_action_pressed(&"ui_cancel"):
+		if _drawing or _pressing:
+			cancel()
+			_pressing = false
+			_press_pts = PackedVector2Array()
+		pentagon_guide.stop()
+		get_viewport().set_input_as_handled()
+		return
 	var m := event as InputEventMouse
 	if m != null:
 		_pointer = _to_world(m.position)
@@ -1002,6 +1014,42 @@ func _battle_input() -> bool:
 		and not world.pvp_menu_open()
 
 
+## Направляющая не создаёт черновик. Только второй, свободный штрих идёт в begin/extend/finish.
+func start_pentagon_guide() -> bool:
+	if not _battle_input() or not bool(shapes.get(ContractShape.PENTAGON, false)):
+		return false
+	if pentagon_guide == null:
+		pentagon_guide = LegionPentagonGuide.new(self)
+		add_child(pentagon_guide)
+	pentagon_guide.start(_pointer)
+	return true
+
+
+# gdlint: disable=max-returns
+func _guide_input(event: InputEvent) -> bool:
+	if pentagon_guide == null or not pentagon_guide.enabled():
+		return false
+	var mb := event as InputEventMouseButton
+	if mb == null:
+		return false
+	_pointer = _to_world(mb.position)
+	var btn := MouseBind.button(mb)
+	if btn == MOUSE_BUTTON_WHEEL_UP or btn == MOUSE_BUTTON_WHEEL_DOWN:
+		if mb.pressed:
+			pentagon_guide.resize(btn == MOUSE_BUTTON_WHEEL_UP)
+		return true   # колесо направляющей не переключает вид договора
+	if btn != MOUSE_BUTTON_LEFT:
+		return false
+	if pentagon_guide.floating and mb.pressed:
+		pentagon_guide.anchor(_pointer)
+		return true
+	if pentagon_guide.consume_release and not mb.pressed:
+		pentagon_guide.consume_release = false
+		return true
+	return false
+
+
+# gdlint: disable=max-returns
 func _unhandled_input(event: InputEvent) -> void:
 	if not active or not human_input or world.paused or world.is_ground_loading():
 		return
@@ -1009,12 +1057,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	# отпускания и движение проходят — прицел и штрих, начатые до меню, не залипают
 	if world.pvp_menu_open() and _is_press(event):
 		return
+	if _guide_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if not _grab.is_empty() and _sling_cancel_event(event):
 		cancel_sling()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseMotion:
 		_pointer = _to_world((event as InputEventMouseMotion).position)
+		if pentagon_guide != null:
+			pentagon_guide.follow(_pointer)
 		_hover_dirty = true
 		if not _grab.is_empty():
 			_sling_move(_pointer)
@@ -2069,6 +2122,8 @@ func finish() -> void:
 	if _draft_net:
 		_net_finish()
 		return
+	if pentagon_guide != null:
+		pentagon_guide.result(ContractShape.classify(_draft))
 	_drawing = false
 	var stroke := _draft
 	var shape_hint := draft_shape_hint()
@@ -2205,7 +2260,7 @@ func dismiss(c: Contract) -> void:
 
 
 func cancel() -> void:
-	if _drawing and not _draft_net:   # превью сети маны не брало — и не возвращает
+	if _drawing and not _draft_net:
 		_refund(_draft_cost)
 	_drawing = false
 	_draft_net = false

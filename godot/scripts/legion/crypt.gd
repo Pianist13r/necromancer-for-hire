@@ -155,7 +155,7 @@ func label_text() -> String:
 				return I18n.t("Враги рядом · набор стоит")
 			return I18n.t("Склеп ваш · штат %d/%d") % [building.alive_count(), building.cap]
 		Owner.ENEMY:
-			return I18n.t("Склеп у Ада · займите %d бойцами") % LegionCfg.CRYPT_UNITS
+			return I18n.t("Склеп у Ада")
 	return I18n.t("Ничей склеп") if nearby_units == 0 and not _teaches() \
 		else I18n.t("Ничей склеп · займите %d бойцами (рядом %d)") % [LegionCfg.CRYPT_UNITS, nearby_units]
 
@@ -186,6 +186,9 @@ func label_rect() -> Rect2:
 	var chip := Rect2(
 		Vector2(-ts.x * 0.5, LegionCfg.CRYPT_LABEL_Y) - LegionCfg.CRYPT_LABEL_PAD,
 		ts + LegionCfg.CRYPT_LABEL_PAD * 2.0)
+	if allegiance == Owner.ENEMY:
+		# Краткий статус держим у самой постройки, а не длинной строкой на активном поле.
+		chip.position.y = -100.0 - chip.size.y
 	if world == null:
 		return chip
 	chip.position += position   # дальше — в мировых координатах

@@ -18,6 +18,15 @@ func _check(ok: bool, message: String) -> void:
 
 
 func _frames() -> void:
+	# Briefing now yields while cold textures load. Keep all navigation checks,
+	# but wait for the public transition to finish instead of assuming two frames.
+	var deadline := Time.get_ticks_msec() + 60000
+	while is_instance_valid(main) and main._loading_battle:
+		if Time.get_ticks_msec() >= deadline:
+			_check(false, "загрузка боя завершилась за минуту")
+			quit(1)
+			return
+		await process_frame
 	await process_frame
 	await process_frame
 

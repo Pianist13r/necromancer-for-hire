@@ -10,7 +10,7 @@ python -X utf8 C:/Projects/Necromancer/tools/build_steam.py
 ```
 
 - Пресеты `godot/export_presets.cfg`: «Steam Windows» и «Steam Linux», фичи `ship,steam`, pck вшит в исполняемый файл.
-  Release-шаблоны Godot 4.7.2 берутся из `C:/AI/necro/export-templates/4.7.2/…tpz` и распаковываются в песочницу APPDATA.
+  Release-шаблоны Godot 4.7.2 берутся из `C:/Projects/Necromancer/local/export-templates/4.7.2/…tpz` и распаковываются в песочницу APPDATA.
   В `%APPDATA%` владельца ничего не ставится.
 - Иконку (`godot/assets/img/icon.ico`, котёл, 16–256 px; пересоздать — `tools/make_icon.py`) и свойства exe
   (версия `X.Y.Z.0` из `ReleaseInfo.VERSION`, «Pianist13r», «Некромант по найму») Godot 4.7.2 пишет в exe сам.
@@ -18,7 +18,7 @@ python -X utf8 C:/Projects/Necromancer/tools/build_steam.py
 - Steam-сеть «Схватки»: после проб скрипт вызывает `tools/steam/stage_godotsteam.py` для Windows и Linux —
   рядом с бинарём ложатся `godotsteam/` и `steam_api64.dll` / `libsteam_api.so`, в `licenses/` — `GODOTSTEAM_LICENSE.md`;
   `steam_appid.txt` в поставку не идёт (скрипт останавливается, если он есть). Депо берут их маской `*`.
-  Плагин: `--godotsteam <папка>`, иначе `NECRO_GODOTSTEAM_PLUGIN`, иначе `C:/AI/necro/export-templates/godotsteam-4.23.1`.
+  Плагин: `--godotsteam <папка>`, иначе `NECRO_GODOTSTEAM_PLUGIN`, иначе `C:/Projects/Necromancer/local/export-templates/godotsteam-4.23.1`.
   Нет плагина или `--no-godotsteam` — сборка без Steam-сети с `[WARN]` и строкой в `BUILD.md`; игра работает и так
   («По сети» через ретранслятор). Пробы запуска идут без `godotsteam/`; загрузку расширения из сборки скрипт не проверяет
   (это `steamInitEx` под аккаунтом владельца — только с его ведома, `docs/dev/ONLINE.md`). Тест раскладки:

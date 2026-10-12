@@ -8,15 +8,15 @@ English · [Русский](README.md)
 
 Choose the language from the main menu in **Settings → Language / Язык**. The setting covers the interface, tutorials, cutscenes and spoken instructions. You can keep your existing saves when switching languages.
 
-Download: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.exe) ·
-[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-macOS.zip) ·
-[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Linux.tar.gz) ·
+Download: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Windows.exe) ·
+[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-macOS.zip) ·
+[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Linux.tar.gz) ·
 [Game website](https://necromancer-for-hire.ru/en/) · [All releases](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
 [Telegram news](https://t.me/necromancer_for_hire) · [Community chat](https://t.me/necromancer_for_hire_chat) ·
 [Feedback form](https://forms.yandex.ru/u/6ac606b3f47e73002a8eaf4e)
 
-**Alpha version 0.4.0-alpha.** Made with Godot 4.7.2.
+**Alpha version 0.4.1-alpha.** Made with Godot 4.7.2.
 
 | Draw contracts | Cast spells | Skirmish |
 |---|---|---|
@@ -31,6 +31,18 @@ Contracts expire in segments: contractors charge, guards move the front, and cle
 | ![Two opposing armies in Skirmish](media/readme/en/05_duel.jpg) | ![A Ritual formation faces the inspectors](media/readme/en/09_last_wave.jpg) |
 
 Screenshots and silent GIFs are captured from gameplay in the English version.
+
+## What's new in 0.4.1-alpha
+
+Loading is now visible when entering a campaign battle from its briefing. A second click cannot start another battle; a failed load returns to the briefing.
+
+Clerk projectiles have clearer trails and cores. Enemy crypts use a short label beside the building.
+
+The first lesson explains Shift. Tutorial shapes stop animating after six seconds, and the D example is clearer.
+
+Optional Commission help is available through Pause → How to Play → Help draw a Commission. Use the wheel to set the size, click to pin five guides, then draw a separate continuous stroke by hand.
+
+While help is enabled, the old tutorial pentagon is hidden; Esc restores the normal example. There is no stamp or automatic closure. Shape costs and recognition, campaign pacing and Swamp balance are unchanged.
 
 ## What's new in 0.4.0-alpha
 
@@ -144,10 +156,10 @@ You do not need Git or the source code to play. Archives include English and Rus
 
 | System | Download | Launch |
 |---|---|---|
-| **Windows 10/11, 64-bit** | [**Single executable**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.exe) | Download and run; no installation. It is unsigned. If Windows shows “Windows protected your PC”, and you trust this download, choose More info → Run anyway. |
-| Windows archive | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Windows.zip) | Extract the whole archive and run `Necromancer.exe`. Keep `Necromancer.pck` beside it with that exact name. |
-| **macOS, Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-macOS.zip) | Double-click the ZIP to extract it with Archive Utility, then move the .app to Applications. It is ad-hoc signed and not notarized by Apple. If you trust it, permit this app through System Settings → Privacy & Security → Open Anyway. |
-| **Linux, x86_64** | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.0-alpha/NecromancerForHire-Linux.tar.gz) | Run `tar -xzf NecromancerForHire-Linux.tar.gz`, then `./Necromancer/Necromancer.x86_64`. |
+| **Windows 10/11, 64-bit** | [**Single executable**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Windows.exe) | Download and run; no installation. It is unsigned. If Windows shows “Windows protected your PC”, and you trust this download, choose More info → Run anyway. |
+| Windows archive | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Windows.zip) | Extract the whole archive and run `Necromancer.exe`. Keep `Necromancer.pck` beside it with that exact name. |
+| **macOS, Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-macOS.zip) | Double-click the ZIP to extract it with Archive Utility, then move the .app to Applications. It is ad-hoc signed and not notarized by Apple. If you trust it, permit this app through System Settings → Privacy & Security → Open Anyway. |
+| **Linux, x86_64** | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Linux.tar.gz) | Run `tar -xzf NecromancerForHire-Linux.tar.gz`, then `./Necromancer/Necromancer.x86_64`. |
 
 Windows and Linux require a Vulkan-capable graphics card and driver. The macOS universal build requires Metal-capable graphics. The macOS package has been checked structurally but not run on a physical Mac. Linux launch has been checked headlessly on Ubuntu 24.04; desktop support remains alpha.
 

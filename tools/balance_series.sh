@@ -23,7 +23,7 @@
 
 set -u
 GODOT="${GODOT:-C:/Projects/SharedTools/godot/Godot_v4.7.2-stable_win64_console.exe}"
-OUT="${OUT:-C:/AI/necro/assets/balance}"
+OUT="${OUT:-C:/Projects/Necromancer/local/assets/balance}"
 FRAMES="${FRAMES:-60000}"
 
 mode="${1:---idle}"

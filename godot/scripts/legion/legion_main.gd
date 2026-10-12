@@ -20,6 +20,7 @@ extends Node
 ## подписи мира ложились поверх карточки итога (corr 29.09, turn_1024). Полный экран — выше всего.
 const OVERLAY_Z := 1000
 const WORLD_SCENE := preload("res://scenes/legion_world.tscn")
+const BATTLE_LOADING := preload("res://scripts/legion/ui/battle_loading.gd")
 
 # ── Пакет cuts: катсцены (docs/legion/DESIGN_V15.md §9) ──────────────────────
 const CUT_INTRO_1 := preload("res://assets/legion/cutscenes/lg_intro_1.png")
@@ -43,6 +44,7 @@ var audio: LegionAudio = null
 ## Текущий верхний экран кампании (меню/карты/брифинг/итог/поправка) — публично для тестов:
 ## flow-тест ведёт игру, эмитируя сигналы прямо у этого узла, как реальные клики.
 var screen: Control = null
+var _loading_battle := false
 ## Аргументы командной строки из `_ready()`: `_ensure_audio()` создаёт узел до появления `world`.
 var _args: Dictionary = {}
 var _pause_screen: LegionPause = null
@@ -282,7 +284,7 @@ func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 		audio.speech.voice_any(["lg_contract_new_1", "lg_contract_new_2", "lg_contract_new_3"],
 			LegionCfg.AUDIO_V15_PRIORITY_HR, LegionAudio.VoiceClass.STORY)
 	b.call_deferred("populate", data)
-	b.start.connect(start_battle)
+	b.start.connect(request_battle.bind(on_back))
 	b.back.connect(on_back if on_back.is_valid() else show_menu)
 	b.prep_bought.connect(_voice_prep_bought)
 
@@ -292,6 +294,36 @@ func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 ## КАМПАНИИ явно ставит СВОЙ режим у себя же — сбрасывает _in_endless_battle и Campaign-scope,
 ## а не наследует их от того, что шло до него (в т.ч. от забега, из которого вышли паузой в
 ## меню, минуя _on_match_ended).
+func request_battle(map_id: String, on_back: Callable = Callable()) -> void:
+	if _loading_battle:
+		return
+	if world != null:
+		start_battle(map_id)
+		return
+	_loading_battle = true
+	_teardown_screen()
+	var loading := _make_battle_loading()
+	_set_screen(loading)
+	var prepared: bool = await loading.call("prepare")
+	_loading_battle = false
+	if not prepared:
+		show_briefing(map_id, on_back)
+		var notice := AcceptDialog.new()
+		notice.dialog_text = I18n.t("Не удалось подготовить бой. Попробуйте ещё раз.")
+		add_child(notice)
+		notice.confirmed.connect(notice.queue_free)
+		notice.canceled.connect(notice.queue_free)
+		notice.popup_centered()
+		return
+	var world_started := Time.get_ticks_usec()
+	start_battle(map_id)
+	print("BATTLE START: world_and_map_ms=", (Time.get_ticks_usec() - world_started) / 1000.0)
+
+
+func _make_battle_loading() -> Control:
+	return BATTLE_LOADING.new()
+
+
 func start_battle(map_id: String) -> void:
 	if _settle_abandoned_daily():
 		return
@@ -828,9 +860,17 @@ func _show_howto() -> void:
 	# D-0927-121: из боя «Вызова дня» «Обучение» недоступно — единственный уход с объекта через
 	# «Меню» с подтверждением; если всё же дойдёт, start_battle() засчитает самовольный уход.
 	h.show_tutorial = not (_in_endless_battle and _endless_daily)
+	h.show_pentagon_help = world != null and world.phase == LegionWorld.Phase.BATTLE \
+		and world.contracts != null and bool(world.contracts.shapes.get(ContractShape.PENTAGON, false))
 	h.z_index = OVERLAY_Z
 	add_child(h)
 	h.closed.connect(func() -> void: h.queue_free())
+	h.pentagon_help_pressed.connect(func() -> void:
+		h.queue_free()
+		_hide_pause()
+		if world != null:
+			world.set_paused(false)
+			world.contracts.start_pentagon_guide())
 	# Пакет tutorial: «Обучение» из «Как играть» запускает его принудительно, даже если флаг
 	# tutorial/done уже стоит — это явная просьба игрока, а не автозапуск первой игры.
 	var launch_tutorial := func() -> void:

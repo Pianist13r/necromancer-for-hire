@@ -21,6 +21,7 @@ const COLOR := UiStyle.GOLD
 const LIT := Color(1.0, 0.78, 0.2)
 const SHADOW := Color(0.03, 0.02, 0.06, 0.8)
 const PULSE_RATE := 5.0
+const TEMPLATE_MOTION_TIME := 6.0
 const GHOST_GLOW_W := 30.0
 const GHOST_W := 7.0
 const GHOST_DASH := 14.0
@@ -51,6 +52,8 @@ const SAFE_TOP := 120.0
 
 var tut: LegionTutorial = null
 var _t := 0.0
+var _step_t := 0.0
+var _last_step: StringName = &""
 
 func _init(t: LegionTutorial) -> void:
 	tut = t
@@ -61,12 +64,21 @@ func _process(dt: float) -> void:
 	# паузы (кадр приёмки skip 25.09) — прячем, как и плашку
 	visible = not tut.world.paused
 	_t += dt
+	if tut.step_id() != _last_step:
+		_last_step = tut.step_id()
+		_step_t = 0.0
+	else:
+		_step_t += dt
 	queue_redraw()
+
+
+static func template_motion_active(time_on_step: float) -> bool:
+	return time_on_step < TEMPLATE_MOTION_TIME
 
 func _draw() -> void:
 	if tut == null or not tut.active:
 		return
-	var pulse := 0.5 + 0.5 * sin(_t * PULSE_RATE)
+	var pulse := 0.5 + 0.5 * sin(_t * PULSE_RATE) if template_motion_active(_step_t) else 0.5
 	var bob := sin(_t * BOB_RATE) * BOB
 	match tut.step_kind():
 		&"draw":
@@ -130,8 +142,15 @@ func _draw() -> void:
 ## Шаблон фигуры «где и что чертить» — у ВСЕХ уроков-фигур (TU-02: раньше только у вида
 ## figure, 6 из 8 уроков шли без метки), пока своей такой фигуры на поле нет.
 func shows_template() -> bool:
-	return tut != null and tut.active and tut.step_kind() in LegionTutorial.FIGURE_KINDS \
-		and not tut.figure_standing()
+	if tut == null or not tut.active or tut.step_kind() not in LegionTutorial.FIGURE_KINDS \
+			or tut.figure_standing():
+		return false
+	# Добровольная направляющая заменяет только учебный образец Комиссии. После Esc он вернётся.
+	if String(tut.lesson().get("arg", "")) == "pentagon":
+		var guide := tut.world.contracts.pentagon_guide
+		if guide != null and guide.enabled():
+			return false
+	return true
 
 ## Значок ПКМ над участком {contract, seg}: кольцо на участке и мышь с горящей правой кнопкой.
 func _draw_rmb(hit: Dictionary, pulse: float, bob: float) -> void:
@@ -185,7 +204,8 @@ func _draw_template(pts: PackedVector2Array, pulse: float) -> void:
 			draw_line(pts[i - 1], pts[i], Color(COLOR, 0.7 + 0.3 * pulse), GHOST_W, true)
 	draw_circle(pts[0], 8.0, SHADOW)
 	draw_circle(pts[0], 6.0, COLOR)
-	_draw_run(pts, pulse)
+	if template_motion_active(_step_t):
+		_draw_run(pts, pulse)
 
 
 ## Подновление: та же бегущая мышь с горящей ЛКМ, но вдоль своей линии — «веди по ней».

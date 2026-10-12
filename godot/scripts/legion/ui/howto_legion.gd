@@ -14,10 +14,12 @@ extends Control
 signal closed
 ## Пакет tutorial: запросить интерактивное обучение на wasteland (docs/legion/TUTORIAL_SPEC.md).
 signal tutorial_pressed
+signal pentagon_help_pressed
 
 ## D-0927-121: false — кнопки «Обучение» нет (из боя «Вызова дня» уйти можно только «Меню» с
 ## подтверждением). Ставить до add_child — читается в _ready().
 var show_tutorial := true
+var show_pentagon_help := false
 
 ## Владелец фокуса до открытия: закрыв экран, вернём клавиатуру ему (кнопке «Как играть»
 ## паузы или меню), иначе Tab/Enter после закрытия терялись бы в никуда.
@@ -167,6 +169,18 @@ func _ready() -> void:
 	box.add_child(_row(I18n.t("Пятиугольник — «Комиссия по упокоению»: четверо на выбранных углах из ")
 		+ I18n.t("пяти (пятый угол пуст). Дождавшиеся заряда получают личный щит, а заряженный выпуск ")
 		+ I18n.t("метит врага — по меченому группа бьёт сильнее."), _DiagramShape.new(&"pentagon")))
+	if show_pentagon_help:
+		box.add_child(_row(I18n.t("Помощь Комиссии: 1) поставьте пять ориентиров щелчком, "
+			+ "колесом задайте размер; ")
+			+ I18n.t("2) отдельным непрерывным штрихом обведите углы и замкните у начала. "
+				+ "Esc убирает ориентиры."),
+			null))
+		var pentagon_btn := Button.new()
+		pentagon_btn.name = "HowtoPentagonHelp"
+		pentagon_btn.text = I18n.t("Помочь нарисовать Комиссию")
+		UiStyle.style_button(pentagon_btn)
+		pentagon_btn.pressed.connect(func() -> void: pentagon_help_pressed.emit())
+		box.add_child(pentagon_btn)
 	box.add_child(_row(I18n.t("Полукруг — «Неустойка»: прямая сторона и дуга, двое на углах между ")
 		+ I18n.t("ними. Заряженный выпуск вешает на врагов просрочку — они замедляются."),
 		_DiagramShape.new(&"d_shape")))

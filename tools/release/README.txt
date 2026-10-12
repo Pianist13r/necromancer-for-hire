@@ -1,6 +1,17 @@
 NECROMANCER FOR HIRE — Windows
 Death, guaranteed by contract.
-Alpha version 0.4.0-alpha.
+Alpha version 0.4.1-alpha.
+
+NEW IN 0.4.1
+  Campaign briefings show a loading screen before the first battle.
+  Optional pentagon guides help you draw the shape by hand:
+  Pause > How to play > Help draw a Commission. Click to pin the guides,
+  then trace the corners with a separate continuous stroke. The old lesson
+  pentagon is hidden while help is enabled; Esc restores it.
+  The first lesson explains Shift. Shape examples stop animating after
+  six seconds; the D example is clearer. Clerk shots are easier to see,
+  and enemy crypts use a short nearby label.
+  Campaign pacing and the Swamp difficulty step still need further testing.
 
 NEW IN 0.4.0
   Contractors charge; guards move a cohesive front and keep their shield facing
@@ -110,7 +121,17 @@ HELP AND LICENSES
 
 НЕКРОМАНТ ПО НАЙМУ (Necromancer for Hire)
 Смерть с гарантией по договору.
-Альфа-версия 0.4.0-alpha.
+Альфа-версия 0.4.1-alpha.
+
+НОВОЕ В 0.4.1
+  Перед первым боем из брифинга кампании показывается экран загрузки.
+  Добровольная помощь пятиугольнику: Пауза > Как играть >
+  «Помочь нарисовать Комиссию». Щелчок закрепляет ориентиры; затем
+  отдельным непрерывным штрихом обведите углы. Esc убирает ориентиры.
+  Первый урок объясняет Шифт. Через шесть секунд образец фигуры
+  становится неподвижным; D показана яснее. Полёт печатей заметнее,
+  а надпись вражеского склепа стала короткой и находится у постройки.
+  Темп кампании и скачок сложности на Болоте требуют отдельной проверки.
 
 НОВОЕ В 0.4.0
   Подрядчики идут в натиск; вахтёры двигают связный фронт, сохраняя направление

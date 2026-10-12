@@ -252,13 +252,14 @@ static func template(fig: String, c: Vector2, r: float) -> PackedVector2Array:
 				var a := a0 + TAU * float(k % n) / n
 				corners.append(c + Vector2(cos(a), sin(a)) * r)
 		"d_shape":
-			# прямая сторона + полукруг вправо (порядок — как у руки: снизу вверх по прямой)
+			# Прямая сторона + заметно выпуклая дуга вправо. Узкий полукруг игрок обводил
+			# почти без углов и получал кольцо; образец должен показывать ясное «пузо».
 			corners.append(c + Vector2(0.0, r))
 			corners.append(c + Vector2(0.0, -r))
 			var dn := ceili(PI * r / LessonsCfg.FIG_STEP)
 			for k in dn + 1:
 				var a := -PI * 0.5 + PI * float(k) / dn
-				corners.append(c + Vector2(cos(a), sin(a)) * r)
+				corners.append(c + Vector2(cos(a) * r * 1.3, sin(a) * r))
 	var out := PackedVector2Array()
 	if corners.is_empty():
 		return out

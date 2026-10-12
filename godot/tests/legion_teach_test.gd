@@ -48,6 +48,13 @@ func _check(cond: bool, what: String) -> void:
 
 
 func _frames(n: int) -> void:
+	var deadline := Time.get_ticks_msec() + 60000
+	while is_instance_valid(main) and main._loading_battle:
+		if Time.get_ticks_msec() >= deadline:
+			_check(false, "battle loading timed out")
+			quit(1)
+			return
+		await process_frame
 	for i in n:
 		await process_frame
 

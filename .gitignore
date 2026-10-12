@@ -1,4 +1,5 @@
 dist/
+/local/
 batches/
 _anim_out/
 __pycache__/
