@@ -66,7 +66,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.78)
+	# Из паузы (allow_reset=false) её кнопки стоят ровно за карточкой настроек:
+	# полупрозрачная шторка показывала их подписи сквозь поля на 960×540.
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.78 if allow_reset else 1.0)
 	UiStyle.fill_rect(backdrop)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(backdrop)
@@ -267,7 +269,7 @@ func _ready() -> void:
 	if allow_reset:
 		# Сброс — в конец прокручиваемого контента: редкое действие не растягивает карточку,
 		# а подтверждение по-прежнему прячет «Готово», вынуждая явный выбор.
-		content.add_child(_build_reset_block(close_btn))
+		content.add_child(_build_reset_block(close_btn, scroll))
 
 	# Начальный фокус — первый виджет: клавиатура сразу ведёт экран (Tab идёт по строкам,
 	# Esc закрывает). Отложенно: экран ещё строится, фокус — после входа в дерево.
@@ -510,7 +512,7 @@ func _section(box: Control, text: String) -> void:
 
 
 ## «Сбросить прогресс…» → подтверждение на месте («Стереть» / «Отмена»), без отдельного окна.
-func _build_reset_block(close_btn: Button) -> Control:
+func _build_reset_block(close_btn: Button, scroll: ScrollContainer) -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 8)
 	block.add_child(HSeparator.new())
@@ -541,7 +543,8 @@ func _build_reset_block(close_btn: Button) -> Control:
 	no_btn.pressed.connect(func() -> void:
 		confirm.visible = false
 		close_btn.visible = true
-		reset_btn.visible = true)
+		reset_btn.visible = true
+		reset_btn.grab_focus())
 	row.add_child(yes_btn)
 	row.add_child(no_btn)
 	confirm.add_child(row)
@@ -552,8 +555,19 @@ func _build_reset_block(close_btn: Button) -> Control:
 		reset_btn.visible = false
 		close_btn.visible = false
 		confirm.visible = true
-		no_btn.grab_focus())
+		no_btn.grab_focus()
+		_reveal_reset_confirmation(scroll, no_btn))
 	return block
+
+
+## Раскрытие блока меняет высоту содержимого после текущего кадра. Ранний grab_focus
+## сохраняет клавиатурный выбор «Отмена», а после раскладки доводим обе кнопки до экрана.
+func _reveal_reset_confirmation(scroll: ScrollContainer, cancel_btn: Button) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(cancel_btn) or not cancel_btn.is_inside_tree():
+		return
+	scroll.ensure_control_visible(cancel_btn)
 
 
 func _small_button(text: String) -> Button:

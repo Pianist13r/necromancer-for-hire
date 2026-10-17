@@ -473,53 +473,33 @@ static func _maze(rng: RandomNumberGenerator) -> Dictionary:
 	var c := _cauldron(rng)
 	var cy := int(c.y)
 	var xm := int(c.x) + _r(rng, Vector2i(144, 192))
-	# верхняя ветвь — с внешним коленом над воротами сверху (c1 ≤ 720, x0 ≥ 1040)
+	# Северные ворота входят в первую горизонталь на строке gn: так их собственный
+	# вертикальный участок до слияния продолжается ниже HUD и вмещает рубеж.
 	var x0 := _r(rng, Vector2i(1040, 1104))
 	var c1 := _r(rng, Vector2i(640, 704))
 	if c1 - xm < 256:
 		return {}
-	var c2 := _r(rng, Vector2i(xm + 128, c1 - 128))
+	var c2_hi := c1 - 128
+	if c2_hi < xm + 208:
+		return {}
+	var c2 := _r(rng, Vector2i(xm + 208, c2_hi))
+	var c3 := xm + 96
 	var gn := _r(rng, _in_n(cy))
 	var o1 := _r(rng, OUT_N)
 	var i1 := _r(rng, _in_n(cy))
 	var o2 := _r(rng, OUT_N)
-	var north: Array = [Vector2(OFF_E, gn), Vector2(x0, gn), Vector2(x0, o1), Vector2(c1, o1),
-		Vector2(c1, i1), Vector2(c2, i1), Vector2(c2, o2), Vector2(xm, o2), Vector2(xm, cy), c]
+	var xn := _r(rng, TOP_GATE)
+	var join := Vector2(xn, gn)
+	var north: Array = [Vector2(OFF_E, gn), Vector2(x0, gn), join, Vector2(c1, gn),
+		Vector2(c1, o1), Vector2(c2, o1), Vector2(c2, i1), Vector2(c3, i1),
+		Vector2(c3, o2), Vector2(xm, o2), Vector2(xm, cy), c]
 	var south := _branch(rng, _r(rng, _in_s(cy)), xm, [OUT_S, _in_s(cy)], Vector2i(208, 288))
 	if south.is_empty():
 		return {}
-	var sk := _sk(c, [north, south + [Vector2(xm, cy), c]])
-	sk["nodes"] = {"merge": Vector2(xm, cy)}
-	var top: PackedVector2Array = sk["roads"][0]["pts"]
-	# верхние ворота x 864–912: ищем колено верхней ветви (не вход), над которым их можно
-	# поставить — вертикаль сверху до колена ничего не пересекает: каждый x принадлежит одному
-	# горизонтальному колену ветви
-	for i in range(1, top.size() - 3):
-		var a := top[i]
-		var b := top[i + 1]
-		var lo := maxi(int(b.x) + 96, TOP_GATE.x)
-		var hi := mini(int(a.x) - 96, TOP_GATE.y)
-		if a.y != b.y or lo > hi:
-			continue
-		var xn := _r(rng, Vector2i(ceili(lo / 16.0) * 16, floori(hi / 16.0) * 16))
-		if xn < lo or xn > hi:
-			continue
-		var j := Vector2(xn, a.y)
-		var joined := PackedVector2Array()
-		for k in i + 1:
-			joined.append(top[k])
-		joined.append(j)
-		for k in range(i + 1, top.size()):
-			joined.append(top[k])
-		sk["roads"][0]["pts"] = joined
-		var from_top := PackedVector2Array([Vector2(xn, OFF_N)])
-		for k in range(i + 1, joined.size()):
-			from_top.append(joined[k])
-		sk["roads"].append({"id": "r2", "pts": from_top})
-		sk["nodes"]["merge2"] = j
-		sk["nodes"]["corridors"] = true
-		return sk
-	return {}
+	var from_top: Array = [Vector2(xn, OFF_N)] + north.slice(2)
+	var sk := _sk(c, [north, south + [Vector2(xm, cy), c], from_top])
+	sk["nodes"] = {"merge": Vector2(xm, cy), "merge2": join, "corridors": true}
+	return sk
 
 
 ## 7. Болото со склепами: две ветви с широкими петлями, топь в карманах, склепы у дальних петель

@@ -60,6 +60,9 @@ const FOE_SKIP: Array[String] = [
 	"idx",   # пишет grid.rebuild
 ]
 const SHOTS_REFS: Array[String] = ["shots"]
+const SHOTS_SKIP: Array[String] = [
+	"impacts",   # только вид: вспышки попаданий огневого вала (до 0,18 с), бой их не читает
+]
 
 
 ## Сверка полей классов (тест): [скрипт, учтённые имена].
@@ -67,7 +70,7 @@ static func coverage() -> Array:
 	return [
 		[Legionnaire, UNIT_PROPS + UNIT_REFS + UNIT_SKIP],
 		[Foe, FOE_PROPS + FOE_REFS + FOE_SKIP],
-		[LegionProjectiles, SHOTS_REFS],
+		[LegionProjectiles, SHOTS_REFS + SHOTS_SKIP],
 	]
 
 
@@ -128,7 +131,8 @@ static func build(w: LegionWorld, data: Dictionary, _reg: NetSnap.Reg) -> void:
 	w.foes.assign(foes)
 	w._corpses.assign(corpses)
 	w._damage_hp.clear()
-	w.projectiles.shots.clear()
+	# и вспышки попаданий: их нет в снимке, старые принадлежали состоянию до загрузки
+	w.projectiles.clear()
 
 
 static func link(w: LegionWorld, data: Dictionary, reg: NetSnap.Reg) -> void:

@@ -14,7 +14,7 @@ extends RefCounted
 ##                                                  id "gen:7:3:pvp"
 ##
 
-const VERSION := 2
+const VERSION := 4
 ## Экспериментальная расстановка: включение в игре — только после решения Игоря.
 ## Оснастка передаёт одноимённый ключ opts; кэш map_from_id всегда использует конфиг.
 const CONFIG := {"new_layout_schemes": false}

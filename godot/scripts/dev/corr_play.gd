@@ -59,6 +59,9 @@ extends Node
 ## "mode": "menu", buttons — видимые кнопки с текстом и центром для tap, texts — видимые
 ## надписи экрана, camp — прогресс сохранения; `wait` — реальные секунды после действий (0,5).
 ## Бой кончился — не выход, а следующий ход меню (экран итога). Выход — только {"quit": true}.
+## Бой, начавшийся во время хода меню (кончилась «Подготовка боя…», пока агент думал, или бой
+## начал сам ход), стоит до первого хода боя; ход, написанный к кадру меню, после такой загрузки
+## исполняется уже как ход боя (B-504).
 ##
 
 const DEVICE := 8
@@ -78,6 +81,38 @@ const MENU_SETTLE := 0.6
 ## Потолок надписей меню в состоянии хода: экран «Как играть» длинный, остальное — короткое.
 const MENU_TEXTS_MAX := 80
 
+
+## Each external wait has its own completion signal. On detach the node can
+## settle it before Godot frees the suspended GDScript instance.
+class PendingWait:
+	extends RefCounted
+	signal resolved(ok: bool)
+	var source: Object = null
+	var signal_name: StringName
+	var callback: Callable
+	var settled := false
+
+	func listen(target: Object, name: StringName) -> Error:
+		source = target
+		signal_name = name
+		callback = Callable(self, "_on_source")
+		return source.connect(signal_name, callback, Object.CONNECT_ONE_SHOT)
+
+	func _on_source() -> void:
+		_settle(true)
+
+	func cancel() -> void:
+		_settle(false)
+
+	func _settle(ok: bool) -> void:
+		if settled:
+			return
+		settled = true
+		if is_instance_valid(source) and source.is_connected(signal_name, callback):
+			source.disconnect(signal_name, callback)
+		source = null
+		resolved.emit(ok)
+
 var world: LegionWorld = null
 ## Кампания по переписке: главный узел (legion_main.gd), world берётся у него каждый ход —
 ## мир появляется только с первым боем.
@@ -90,21 +125,85 @@ var _log: Array[String] = []
 var _warns: Array[String] = []
 ## Сколько peek-кадров снято за текущий ход: второй не должен затирать первый.
 var _peeks := 0
+## Опционально для точного повтора: ход, полученный на экране загрузки, ждёт исхода
+## подготовки до выбора часов меню/боя. Обычная партия по переписке не меняется.
+var _wait_loading := false
+var _main_has_loading_state := false
+var _main_has_preparation_query := false
+## Кампания (B-504): пока corr не исполняет ход боя, мир в бою стоит. Флаг держит не один объект
+## мира, а каждый кадр — тот, что сейчас у главного узла: первый бой создаёт мир уже после кадра
+## меню, пока агент думает, и прежний hold его не касался (бой уходил на 66 с вперёд).
+var _guard := false
+## Мир, которому corr последним выставил удержание: сменился объект — прежний отпустить.
+var _held: LegionWorld = null
+var _pressed_keys: Dictionary = {}
+var _pressed_buttons: Dictionary = {}
+var _cancel_aliases: Array[InputEventKey] = []
+## Scene reload can detach this node while an input coroutine awaits a frame.
+## Detach is terminal for this corr instance even if another scene is added.
+var _cancelled := false
+var _pending_waits: Array[PendingWait] = []
 
 
 func setup(w: LegionWorld, out_dir: String) -> void:
 	world = w
+	_mark_synthetic(w)
 	dir = out_dir.replace("\\", "/").trim_suffix("/")
+
+
+## B-505: события corr идут устройством DEVICE — APPLICATION_FOCUS_OUT не должен отменять
+## начатый синтетический штрих. Механизм проверен; причина исторического PS не установлена.
+## Мир кампании появляется позже setup_main и может смениться — отмечаем каждый, кого держим.
+func _mark_synthetic(w: LegionWorld) -> void:
+	if w != null and not w.synthetic_input:
+		w.synthetic_input = true
+
+
+## Диагностика B-505: фокус окна приходит и уходит независимо от хода — пишем в журнал состояния,
+## что именно было на поле в этот момент (черновик, натяжка), чтобы пропавший штрих был виден.
+func _notification(what: int) -> void:
+	var name := ""
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT:
+			name = "APPLICATION_FOCUS_OUT"
+		NOTIFICATION_APPLICATION_FOCUS_IN:
+			name = "APPLICATION_FOCUS_IN"
+		NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+			name = "WM_WINDOW_FOCUS_OUT"
+		NOTIFICATION_WM_WINDOW_FOCUS_IN:
+			name = "WM_WINDOW_FOCUS_IN"
+		_:
+			return
+	var w := _current_world()
+	var field := ""
+	if w != null and w.contracts != null:
+		field = " черновик=%s натяжка=%s" % [w.contracts.has_draft(), w.contracts.is_slinging()]
+	_note("ход %d: окно %s%s" % [turn, name, field])
 
 
 ## Кампания по переписке (legion_main.gd, ключ --dev corr без --map).
 func setup_main(m: Node, out_dir: String) -> void:
 	main = m
 	dir = out_dir.replace("\\", "/").trim_suffix("/")
+	var args := LegionWorld.parse_args()
+	var dev: Dictionary = args.get("dev", {})
+	_wait_loading = String(dev.get("corr_wait_loading", "0")) == "1"
+	_main_has_preparation_query = m.has_method("battle_preparation_pending")
+	_main_has_loading_state = false
+	for property: Dictionary in m.get_property_list():
+		if String(property.get("name", "")) == "_loading_battle":
+			_main_has_loading_state = true
+			break
 
 
 func _ready() -> void:
+	if not _active():
+		return
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_install_cancel_alias()
+	# удержание (_process) ставится раньше шага мира в том же кадре, где бой начался, —
+	# независимо от того, где в дереве окажется новый мир
+	process_priority = -1
 	DirAccess.make_dir_recursive_absolute(dir)
 	if main != null:
 		_run_campaign()
@@ -121,6 +220,9 @@ static func top_quit(move: Dictionary) -> bool:
 
 ## Выход из игры (тест подменяет, чтобы не закрыть самого себя).
 func _quit(code: int) -> void:
+	if not _active():
+		return
+	_cleanup_input()
 	get_tree().quit(code)
 
 
@@ -131,55 +233,205 @@ func _in_battle() -> bool:
 	return world != null and world.phase == LegionWorld.Phase.BATTLE and not world.paused
 
 
-func _run_campaign() -> void:
-	await _frames(30)
-	while true:
-		var battle := _in_battle()
-		if battle:
-			world.hold = true
+func _process(_delta: float) -> void:
+	if _guard:
+		_set_guard(true)
+
+
+## Удержание кампании (B-504). on — corr ждёт ход или исполняет ход меню / действия хода боя без
+## часов: мир, который сейчас в бою и не на паузе, стоит. off — ход боя идёт (wait или часы
+## corr_clock), corr ушёл или выходит. Прежний объект мира, если главный узел его сменил,
+## отпускается: удержание не должно пережить свой мир.
+func _set_guard(on: bool) -> void:
+	_guard = on
+	var w := _current_world()
+	if is_instance_valid(_held) and _held != w:
+		_held.hold = false
+		_unmark_synthetic(_held)
+	_held = w
+	if w != null:
+		_mark_synthetic(w)
+		w.hold = on and w.phase == LegionWorld.Phase.BATTLE and not w.paused
+
+
+## Мир главного узла прямо сейчас; поле world не трогает — его обновляет ход (_in_battle).
+func _current_world() -> LegionWorld:
+	var w: LegionWorld = world
+	if is_instance_valid(main):
+		w = main.get("world") as LegionWorld
+	return w if is_instance_valid(w) else null
+
+
+func _battle_preparation_pending() -> bool:
+	if _main_has_preparation_query:
+		return bool(main.call("battle_preparation_pending"))
+	return _main_has_loading_state and bool(main.get("_loading_battle"))
+
+
+func _exit_tree() -> void:
+	_cancelled = true
+	# Signal emission resumes nested awaits synchronously while this node still
+	# exists. Clear before emitting because resumed continuations erase tokens.
+	var pending := _pending_waits.duplicate()
+	_pending_waits.clear()
+	for token: PendingWait in pending:
+		token.cancel()
+	_cleanup_input()
+
+
+func _active() -> bool:
+	return not _cancelled and is_inside_tree() and not is_queued_for_deletion()
+
+
+func _await_external(source: Object, signal_name: StringName) -> bool:
+	if not _active() or not is_instance_valid(source):
+		return false
+	var token := PendingWait.new()
+	_pending_waits.append(token)
+	if token.listen(source, signal_name) != OK:
+		_pending_waits.erase(token)
+		return false
+	var ok: bool = await token.resolved
+	_pending_waits.erase(token)
+	return ok and _active()
+
+
+func _unmark_synthetic(w: LegionWorld) -> void:
+	if is_instance_valid(w) and w.synthetic_input:
+		w.cancel_human_gestures()
+		w.synthetic_input = false
+
+
+## Detach/quit must restore a live world's human focus policy. Cancel first: sending mouse-up
+## before cancellation would commit a half-drawn contract. Release only this corr's own keys.
+func _cleanup_input() -> void:
+	_guard = false
+	if is_instance_valid(_held):
+		_held.hold = false
+		_unmark_synthetic(_held)
+	var w := _current_world()
+	if w != null:
+		w.hold = false
+		_unmark_synthetic(w)
+	_held = null
+	for event: InputEvent in _pressed_keys.values() + _pressed_buttons.values():
+		var release := event.duplicate() as InputEvent
+		release.set("pressed", false)
+		if release is InputEventMouseButton:
+			(release as InputEventMouseButton).button_mask = 0
+		Input.parse_input_event(release)
+	_pressed_keys.clear()
+	_pressed_buttons.clear()
+	for alias in _cancel_aliases:
+		InputMap.action_erase_event(&"ui_cancel", alias)
+	_cancel_aliases.clear()
+
+
+## Встроенный ui_cancel ограничен устройством клавиатуры движка (16 в 4.7.2).
+## Corr сохраняет DEVICE для защиты жестов от потери фокуса; временный дубль
+## привязки разрешает тот же Esc, не меняя обычную клавиатуру или настройки игрока.
+func _install_cancel_alias() -> void:
+	if not _cancel_aliases.is_empty():
+		return
+	for event in InputMap.action_get_events(&"ui_cancel"):
+		if event is not InputEventKey or event.device == -1 or event.device == DEVICE:
+			continue
+		var alias := event.duplicate() as InputEventKey
+		alias.device = DEVICE
+		if not InputMap.action_has_event(&"ui_cancel", alias):
+			InputMap.action_add_event(&"ui_cancel", alias)
+			_cancel_aliases.append(alias)
+
+
+func _send_input(event: InputEvent) -> void:
+	if not _active():
+		return
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed:
+			_pressed_keys[key.physical_keycode] = key
 		else:
-			if world != null:
-				world.hold = false   # удержание прошлого боя не должно морозить следующий
+			_pressed_keys.erase(key.physical_keycode)
+	elif event is InputEventMouseButton:
+		var button := event as InputEventMouseButton
+		if button.pressed:
+			_pressed_buttons[button.button_index] = button
+		else:
+			_pressed_buttons.erase(button.button_index)
+	Input.parse_input_event(event)
+
+
+func _run_campaign() -> void:
+	if not await _frames(30):
+		return
+	while _active():
+		# мир в бою стоит до исполнения хода, в меню, итоге и паузе — нет (удержание прошлого боя
+		# не морозит экраны); бой, начавшийся позже, удержание догонит в _process (B-504)
+		_set_guard(true)
+		var battle := _in_battle()
+		if not battle:
 			# экраны меню появляются плавно: без паузы кадр и список кнопок снимаются на
 			# прозрачном экране итога (кнопок нет, сессия 180f1168)
-			await get_tree().create_timer(MENU_SETTLE, true, false, true).timeout
-		await _frames(3)
-		await _snapshot(false)
+			if not await _await_external(
+					get_tree().create_timer(MENU_SETTLE, true, false, true), &"timeout"):
+				return
+		if not await _frames(3):
+			return
+		if not await _snapshot(false):
+			return
 		var move: Dictionary = await _wait_move()
+		if not _active():
+			return
 		_peeks = 0
-		# экран мог смениться, пока агент думал (меню само не меняется, но на всякий случай)
+		if top_quit(move):
+			_set_guard(false)
+			_quit(0)
+			return
+		# Загрузка и начатый ею выход Прораба могут пережить menu-wait. Пока они идут,
+		# guard уже держит появившийся мир, поэтому ожидание не расходует игровые тики.
+		if _wait_loading:
+			while _active() and is_instance_valid(main) and _battle_preparation_pending():
+				if not await _frames(1):
+					return
+		if not _active():
+			return
+		# экран мог смениться, пока агент думал: кончилась загрузка боя — ход меню исполняется
+		# как ход боя (мир всё это время стоял)
 		battle = _in_battle()
 		var clock := float(world.dev.get("corr_clock", "0")) if battle else 0.0
 		var t0 := world.now if battle else 0.0
-		if top_quit(move):
-			_quit(0)
-			return
 		if battle and clock > 0.0:
-			world.hold = false
+			_set_guard(false)
 		for a in move.get("actions", []):
 			if bool((a as Dictionary).get("quit", false)):
+				_set_guard(false)
 				_quit(0)
 				return
-			await _act(a as Dictionary)
+			if not await _act(a as Dictionary):
+				return
 		if battle:
 			var wait := clock if clock > 0.0 else float(move.get("wait", DEFAULT_WAIT))
 			var t_end := (t0 if clock > 0.0 else world.now) + maxf(wait, 0.0)
-			world.hold = false
-			while _in_battle() and world.now < t_end:
-				await _frames(1)
+			_set_guard(false)
+			while _active() and _in_battle() and world.now < t_end:
+				if not await _frames(1):
+					return
 		else:
 			var w := float(move.get("wait", MENU_WAIT))
-			await get_tree().create_timer(maxf(w, 0.05), true, false, true).timeout
+			if not await _await_external(
+					get_tree().create_timer(maxf(w, 0.05), true, false, true), &"timeout"):
+				return
 		turn += 1
 
 
 func _input(event: InputEvent) -> void:
-	if (event is InputEventMouse or event is InputEventKey) and event.device != DEVICE:
+	if _active() and (event is InputEventMouse or event is InputEventKey) and event.device != DEVICE:
 		get_viewport().set_input_as_handled()
 
 
 func _run() -> void:
-	await _frames(20)
+	if not await _frames(20):
+		return
 	# чужой id карты (id кампании вместо имени файла): мира нет, _state() упал бы на пустом
 	# wave_runner, а агент ждал бы ход 0 до таймаута — пишем причину файлом и выходим
 	if world.map.is_empty() or world.wave_runner == null:
@@ -190,16 +442,21 @@ func _run() -> void:
 		ef.close()
 		get_tree().quit(1)
 		return
-	while true:
+	while _active():
 		world.hold = true
-		await _frames(3)
+		if not await _frames(3):
+			return
 		var over := world.phase != LegionWorld.Phase.BATTLE
-		await _snapshot(over)
+		if not await _snapshot(over):
+			return
 		if over:
-			await _frames(2)
+			if not await _frames(2):
+				return
 			get_tree().quit(0)
 			return
 		var move: Dictionary = await _wait_move()
+		if not _active():
+			return
 		_peeks = 0
 		var clock := float(world.dev.get("corr_clock", "0"))
 		var t0 := world.now
@@ -212,13 +469,15 @@ func _run() -> void:
 			if bool((a as Dictionary).get("quit", false)):
 				_quit(0)
 				return
-			await _act(a as Dictionary)
+			if not await _act(a as Dictionary):
+				return
 		var wait := clock if clock > 0.0 else float(move.get("wait", DEFAULT_WAIT))
 		var t_end := (t0 if clock > 0.0 else world.now) + maxf(wait, 0.0)
 		world.hold = false
 		# пауза (ESC) останавливает часы мира — не ждать их вечно (verifier 180f1168)
-		while world.now < t_end and world.phase == LegionWorld.Phase.BATTLE and not world.paused:
-			await _frames(1)
+		while _active() and world.now < t_end and world.phase == LegionWorld.Phase.BATTLE and not world.paused:
+			if not await _frames(1):
+				return
 		turn += 1
 
 
@@ -228,10 +487,13 @@ func _path(stem: String, ext: String) -> String:
 	return "%s/%s_%03d.%s" % [dir, stem, turn, ext]
 
 
-func _snapshot(over: bool) -> void:
+func _snapshot(over: bool) -> bool:
+	if not _active():
+		return false
 	# без окна (headless — самотест) кадра нет и frame_post_draw не приходит: только состояние
 	if DisplayServer.get_name() != "headless":
-		await RenderingServer.frame_post_draw
+		if not await _await_external(RenderingServer, &"frame_post_draw"):
+			return false
 		var img := get_viewport().get_texture().get_image()
 		img.save_png(_path("turn", "png"))
 	var st: Dictionary
@@ -251,19 +513,22 @@ func _snapshot(over: bool) -> void:
 	var wf :=FileAccess.open(dir + "/waiting.txt", FileAccess.WRITE)
 	wf.store_string(str(turn))
 	wf.close()
+	return true
 
 
 func _wait_move() -> Dictionary:
 	var p := _path("move", "json")
-	while true:
+	while _active():
 		if FileAccess.file_exists(p):
-			await _frames(2)  # дать дописать файл
+			if not await _frames(2):  # дать дописать файл
+				return {}
 			var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(p))
 			if parsed is Dictionary:
 				return parsed as Dictionary
 			_note("ход %d: не разобрал %s" % [turn, p])
 			DirAccess.rename_absolute(p, p + ".bad")
-		await _frames(6)
+		if not await _frames(6):
+			return {}
 	return {}
 
 
@@ -284,7 +549,8 @@ func _warn_cooldown(k: String) -> void:
 	elif k == "R":
 		left = world.rally_left()
 	if left > 0.05:
-		_warns.append("ход %d: %s в откате ещё %.1f с — не сработает (откат не тикает, пока идут действия хода)"
+		_warns.append(("ход %d: %s в откате ещё %.1f с — не сработает "
+			+ "(откат не тикает, пока идут действия хода)")
 			% [turn, k, left])
 
 
@@ -498,41 +764,49 @@ func _state(over: bool) -> Dictionary:
 
 # ── Действия ────────────────────────────────────────────────────────────────
 
-func _act(a: Dictionary) -> void:
+func _act(a: Dictionary) -> bool:
+	if not _active():
+		return false
 	if a.has("kind"):
-		await _key(KEYS[str(int(a["kind"]))])
+		return await _key(KEYS[str(int(a["kind"]))])
 	elif a.has("draw"):
 		var toward: Variant = _pt(a["toward"]) if a.has("toward") else null
-		await _draw(_pts(a["draw"]), toward, bool(a.get("peek", false)))
+		return await _draw(_pts(a["draw"]), toward, bool(a.get("peek", false)))
 	elif a.has("aim"):
 		var ap := _pts(a["aim"])
-		await _move(ap[0])
-		await _key_state(KEY_SPACE, true)
-		await _move(ap[1])
-		await _key_state(KEY_SPACE, false)
+		if not await _move(ap[0]):
+			return false
+		if not await _key_state(KEY_SPACE, true):
+			return false
+		if not await _move(ap[1]):
+			return false
+		return await _key_state(KEY_SPACE, false)
 	elif a.has("sling"):
 		var pts := _pts(a["sling"])
-		await _drag(pts[0], pts[1], MOUSE_BUTTON_RIGHT, false)
+		return await _drag(pts[0], pts[1], MOUSE_BUTTON_RIGHT, false)
 	elif a.has("tap"):
-		await _click(_pt(a["tap"]), MOUSE_BUTTON_LEFT)
+		return await _click(_pt(a["tap"]), MOUSE_BUTTON_LEFT)
 	elif a.has("move"):
-		await _move(_pt(a["move"]))   # навести указатель: подсказки меню, дерево героя
+		return await _move(_pt(a["move"]))   # навести указатель: подсказки меню, дерево героя
 	elif a.has("rtap"):
-		await _click(_pt(a["rtap"]), MOUSE_BUTTON_RIGHT)
+		return await _click(_pt(a["rtap"]), MOUSE_BUTTON_RIGHT)
 	elif a.has("wheel"):
 		var btn := MOUSE_BUTTON_WHEEL_DOWN if int(a["wheel"]) > 0 else MOUSE_BUTTON_WHEEL_UP
 		var at := get_viewport().get_final_transform().affine_inverse() * _last_screen
 		if _world_mode():
 			at = world.screen_to_world(at)   # _button переводит мир → экран
-		await _button(at, btn, true)
-		await _button(at, btn, false)
+		if not await _button(at, btn, true):
+			return false
+		return await _button(at, btn, false)
 	elif a.has("key"):
 		if a.has("at"):
-			await _move(_pt(a["at"]))
+			if not await _move(_pt(a["at"])):
+				return false
 		_warn_cooldown(String(a["key"]).to_upper())
-		await _key(KEYS[String(a["key"]).to_upper()])
+		return await _key(KEYS[String(a["key"]).to_upper()])
 	else:
 		_note("ход %d: неизвестное действие %s" % [turn, JSON.stringify(a)])
+	return _active()
 
 
 func _pt(v: Variant) -> Vector2:
@@ -547,23 +821,31 @@ func _pts(v: Variant) -> PackedVector2Array:
 	return out
 
 
-func _draw(pts: PackedVector2Array, toward: Variant, peek: bool) -> void:
+func _draw(pts: PackedVector2Array, toward: Variant, peek: bool) -> bool:
+	if not _active():
+		return false
 	if pts.size() < 2:
-		return
-	await _move(pts[0])
-	await _button(pts[0], MOUSE_BUTTON_LEFT, true)
+		return true
+	if not await _move(pts[0]):
+		return false
+	if not await _button(pts[0], MOUSE_BUTTON_LEFT, true):
+		return false
 	for i in range(1, pts.size()):
 		var a := pts[i - 1]
 		var b := pts[i]
 		var n := maxi(1, ceili(a.distance_to(b) / STEP_PX))
 		for k in range(1, n + 1):
-			await _move(a.lerp(b, float(k) / n), MOUSE_BUTTON_MASK_LEFT)
+			if not await _move(a.lerp(b, float(k) / n), MOUSE_BUTTON_MASK_LEFT):
+				return false
 	var end := pts[pts.size() - 1]
 	if toward != null:
 		# стрелка черновика: Пробел держим, указатель к цели (contract_field.aim_at), Пробел отпускаем
-		await _key_state(KEY_SPACE, true)
-		await _move(toward as Vector2, MOUSE_BUTTON_MASK_LEFT)
-		await _key_state(KEY_SPACE, false)
+		if not await _key_state(KEY_SPACE, true):
+			return false
+		if not await _move(toward as Vector2, MOUSE_BUTTON_MASK_LEFT):
+			return false
+		if not await _key_state(KEY_SPACE, false):
+			return false
 		end = toward as Vector2
 	if peek:
 		# мир на удержании не тикает поле договоров — превью захвата и черновик обновляем сами
@@ -576,22 +858,39 @@ func _draw(pts: PackedVector2Array, toward: Variant, peek: bool) -> void:
 			u.queue_redraw()
 			if u.view != null:
 				u.view.queue_redraw()
-		await _frames(2)
-		await RenderingServer.frame_post_draw
+		if not await _frames(2):
+			return false
+		if not await _await_external(RenderingServer, &"frame_post_draw"):
+			return false
 		_peeks += 1
 		var suffix := "_peek.png" if _peeks == 1 else "_peek%d.png" % _peeks
 		get_viewport().get_texture().get_image().save_png(_path("turn", "png").replace(".png", suffix))
-	await _button(end, MOUSE_BUTTON_LEFT, false)
+	# B-505: штрих, у которого перед отпусканием нет черновика, молча не даст договора — пишем в
+	# журнал (log состояния), что именно случилось, вместо «договор просто не появился»
+	var before := world.contracts.contracts.size() if _world_mode() else -1
+	var had_draft := world.contracts.has_draft() if _world_mode() else false
+	if not await _button(end, MOUSE_BUTTON_LEFT, false):
+		return false
+	if before >= 0 and not had_draft:
+		_note("ход %d: штрих из %d точек (вид %s) отпущен без черновика: договоров %d → %d"
+			% [turn, pts.size(), world.contracts.current_kind,
+				before, world.contracts.contracts.size()])
+	return true
 
 
-func _drag(a: Vector2, b: Vector2, button: MouseButton, _unused: bool) -> void:
+func _drag(a: Vector2, b: Vector2, button: MouseButton, _unused: bool) -> bool:
+	if not _active():
+		return false
 	var mask := MOUSE_BUTTON_MASK_RIGHT if button == MOUSE_BUTTON_RIGHT else MOUSE_BUTTON_MASK_LEFT
-	await _move(a)
-	await _button(a, button, true)
+	if not await _move(a):
+		return false
+	if not await _button(a, button, true):
+		return false
 	var n := maxi(2, ceili(a.distance_to(b) / STEP_PX))
 	for k in range(1, n + 1):
-		await _move(a.lerp(b, float(k) / n), mask)
-	await _button(b, button, false)
+		if not await _move(a.lerp(b, float(k) / n), mask):
+			return false
+	return await _button(b, button, false)
 
 
 # ── Ввод (как в legion_tutorial_driver.gd) ──────────────────────────────────
@@ -617,7 +916,9 @@ func _out(sp: Vector2) -> Array:
 	return [roundi(p.x), roundi(p.y)]
 
 
-func _move(p: Vector2, mask: int = 0) -> void:
+func _move(p: Vector2, mask: int = 0) -> bool:
+	if not _active():
+		return false
 	var ev := InputEventMouseMotion.new()
 	ev.device = DEVICE
 	var sp := _screen(p)
@@ -626,11 +927,13 @@ func _move(p: Vector2, mask: int = 0) -> void:
 	ev.relative = sp - _last_screen
 	ev.button_mask = mask
 	_last_screen = sp
-	Input.parse_input_event(ev)
-	await _frames(1)
+	_send_input(ev)
+	return await _frames(1)
 
 
-func _button(p: Vector2, button: MouseButton, pressed: bool) -> void:
+func _button(p: Vector2, button: MouseButton, pressed: bool) -> bool:
+	if not _active():
+		return false
 	var ev := InputEventMouseButton.new()
 	ev.device = DEVICE
 	var sp := _screen(p)
@@ -640,41 +943,53 @@ func _button(p: Vector2, button: MouseButton, pressed: bool) -> void:
 	ev.pressed = pressed
 	var bit := MOUSE_BUTTON_MASK_LEFT if button == MOUSE_BUTTON_LEFT else MOUSE_BUTTON_MASK_RIGHT
 	ev.button_mask = bit if pressed else 0
-	Input.parse_input_event(ev)
-	await _frames(1)
+	_send_input(ev)
+	return await _frames(1)
 
 
-func _click(p: Vector2, button: MouseButton) -> void:
-	await _move(p)
-	await _button(p, button, true)
-	await _frames(2)
-	await _button(p, button, false)
+func _click(p: Vector2, button: MouseButton) -> bool:
+	if not await _move(p):
+		return false
+	if not await _button(p, button, true):
+		return false
+	if not await _frames(2):
+		return false
+	return await _button(p, button, false)
 
 
-func _key_state(code: Key, pressed: bool) -> void:
+func _key_state(code: Key, pressed: bool) -> bool:
+	if not _active():
+		return false
 	var ev := InputEventKey.new()
 	ev.device = DEVICE
 	ev.physical_keycode = code
 	ev.keycode = code
 	ev.pressed = pressed
-	Input.parse_input_event(ev)
-	await _frames(2)
+	_send_input(ev)
+	return await _frames(2)
 
 
-func _key(code: Key) -> void:
+func _key(code: Key) -> bool:
+	if not _active():
+		return false
 	var ev := InputEventKey.new()
 	ev.device = DEVICE
 	ev.physical_keycode = code
 	ev.keycode = code
 	ev.pressed = true
-	Input.parse_input_event(ev)
-	await _frames(2)
+	_send_input(ev)
+	if not await _frames(2):
+		return false
 	var up := ev.duplicate() as InputEventKey
 	up.pressed = false
-	Input.parse_input_event(up)
-	await _frames(1)
+	_send_input(up)
+	return await _frames(1)
 
 
-func _frames(n: int) -> void:
+func _frames(n: int) -> bool:
 	for i in n:
-		await get_tree().process_frame
+		if not _active():
+			return false
+		if not await _await_external(get_tree(), &"process_frame"):
+			return false
+	return true

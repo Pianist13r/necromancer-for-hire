@@ -77,9 +77,7 @@ var _in_zone: Array[Foe] = []   ## враги зоны проверяемого 
 func setup(w: LegionWorld) -> void:
 	world = w
 	name = "Intuit"
-	_gw = ceili((LegionCfg.WORLD_SIZE.x + 2.0 * LegionCfg.SPATIAL_MARGIN) / IntuitCfg.GRID_CELL)
-	_gh = ceili((LegionCfg.WORLD_SIZE.y + 2.0 * LegionCfg.SPATIAL_MARGIN) / IntuitCfg.GRID_CELL)
-	_head.resize(_gw * _gh)
+	_resize_grid()
 	w.match_started.connect(func(_id: String) -> void: reset())
 	# правильные действия игрока гасят свои советы: срыв пружиной, каст навыка по подсказке
 	# («Точно!» щелчком по золоту сообщает поле — ContractField._click_release)
@@ -96,6 +94,7 @@ func setup(w: LegionWorld) -> void:
 
 
 func reset() -> void:
+	_resize_grid()
 	_gold.clear()
 	_spring.clear()
 	_useful = [false, false, false]
@@ -110,6 +109,14 @@ func reset() -> void:
 	_scan_t = 0.0
 	_lull_from = -1.0
 	_door_deaths.clear()
+
+
+func _resize_grid() -> void:
+	if world == null:
+		return
+	_gw = ceili((world.world_size.x + 2.0 * LegionCfg.SPATIAL_MARGIN) / IntuitCfg.GRID_CELL)
+	_gh = ceili((world.world_size.y + 2.0 * LegionCfg.SPATIAL_MARGIN) / IntuitCfg.GRID_CELL)
+	_head.resize(_gw * _gh)
 
 
 func _process(delta: float) -> void:

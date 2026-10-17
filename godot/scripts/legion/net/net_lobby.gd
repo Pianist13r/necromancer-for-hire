@@ -348,6 +348,10 @@ func _on_bot() -> void:
 
 
 func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
+	var focused := get_viewport().gui_get_focus_owner()
+	var room_focus: Array = []
+	if focused != null and _rooms_box.is_ancestor_of(focused):
+		room_focus = focused.get_meta("room_focus", [])
 	var names: Array[String] = []
 	for n: Variant in players:
 		names.append(String(n))
@@ -371,7 +375,8 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 			_my_room_map = map if map != "" else PvpMaps.DUEL
 			# код — чтобы позвать знакомого («Код комнаты» у него); время ожидания — в строке состояния
 			var my_code := String(room.get("code", session.room_code))
-			var row := _room_row(I18n.t("Ваша комната %s · %s") % [my_code, map_title], I18n.t("Закрыть"))
+			var row := _room_row(I18n.t("Ваша комната %s · %s") % [my_code, map_title],
+				I18n.t("Закрыть"), [my_code, "cancel"])
 			(row.get_child(1) as Button).pressed.connect(func() -> void:
 				_note = ""
 				session.cancel_room())
@@ -379,19 +384,37 @@ func _on_lobby(rooms: Array, players: Array, in_game: int) -> void:
 		_foreign_rooms += 1
 		var host := String(room.get("host", "?"))
 		var code := String(room.get("code", ""))
-		var row2 := _room_row("«%s» · %s" % [host, map_title], I18n.t("Играть"))
+		var row2 := _room_row("«%s» · %s" % [host, map_title], I18n.t("Играть"), [code, "join"])
 		(row2.get_child(1) as Button).pressed.connect(func() -> void: session.join_room(code))
 	# пустой список называет строка состояния («Открытых комнат нет»)
 	_create_row.visible = session.is_online() and not waiting_mine
+	if not room_focus.is_empty():
+		_restore_room_focus(room_focus)
 
 
-func _room_row(text: String, action: String) -> HBoxContainer:
+func _restore_room_focus(key: Array) -> void:
+	# Only replace focus that belonged to a room action. Never select another room.
+	for row: Node in _rooms_box.get_children():
+		if row.is_queued_for_deletion():
+			continue
+		var button := row.get_child(1) as Button
+		if button.get_meta("room_focus", []) == key:
+			button.grab_focus()
+			return
+	var back_button := find_child("NavBack", true, false) as Button
+	if back_button != null and back_button.is_visible_in_tree():
+		back_button.grab_focus()
+
+
+func _room_row(text: String, action: String, key: Array) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	var l := UiStyle.label(text, 20, UiStyle.FONT_TEXT, UiStyle.TEXT)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(l)
-	row.add_child(_btn(action, 150.0))
+	var button := _btn(action, 150.0)
+	button.set_meta("room_focus", key)
+	row.add_child(button)
 	_rooms_box.add_child(row)
 	return row
 

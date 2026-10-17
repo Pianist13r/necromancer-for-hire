@@ -39,6 +39,9 @@ static var _replacement: Dictionary = {}
 ## пропали бы молча при открытии сохранения новой сборкой.
 static func migrate(cfg: ConfigFile, path: String) -> bool:
 	var version := int(cfg.get_value(SECTION, "version", 0))
+	if version > VERSION:
+		SafeConfig.refuse_newer_version(path)
+		return false
 	if version >= VERSION:
 		return version == VERSION
 	var before := cfg.encode_to_text()

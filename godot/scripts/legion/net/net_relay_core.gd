@@ -36,8 +36,12 @@ extends RefCounted
 ##   {"t":"late"}                      ходы соперника опаздывают → сопернику (растит задержку)
 ## Подтяжка (docs/pvp/NET_LOCKSTEP.md, «Подтяжка»): {"t":"healed","id","ok","at"} — клиент принял
 ## (или нет) снимок судьи и досчитал бой до тика at.
+## Переподключение (docs/pvp/NET_LOCKSTEP.md, «Переподключение»; только если оба прислали
+## hello с "caps":["rejoin"] — тогда в start есть "rj", секрет стороны):
+##   {"t":"rejoin","code","side","rj","have","rid"}  вернуться в идущий матч после обрыва
 ## Сервер → клиент: welcome / lobby / room / start / ready / in / cand / late / desync / snap /
-## verdict / left / error / pong.
+## verdict / left / error / pong; при переподключении rejoined / rejoin_denied, сопернику
+## opp_away / opp_back.
 ##
 ## Судья (net_judge.gd): на каждый начатый матч ретранслятор запускает отдельный процесс судьи. Он
 ## входит пакетом {"t":"judge","v","room","key"} (ключ знает только ретранслятор), получает старт
@@ -154,6 +158,39 @@ const HEAL_AT_SLACK := 1200
 ## Поле процгена: сид до 6 цифр, сложность 1–5 (меню и сервер дают 3). Длина цепочки больше
 ## делает генерацию минутами — так вешали судью (проверка 01.10, gen:1:2000000000:pvp).
 const GEN_RE := "^gen:[0-9]{1,6}:[1-5]:pvp$"
+## Переподключение (docs/pvp/NET_LOCKSTEP.md, «Переподключение»). Отсрочку даёт ТОЛЬКО
+## транспортный разрыв (сокет закрыт) в идущем бою комнаты, где оба клиента умеют возвращаться:
+## сторона «отсутствует», комната жива, соперник видит отсчёт. Не вернулась за отсрочку — как
+## прежде, уход (сопернику «left»). Срок одного разрыва — RECONNECT_GRACE_MS (Wi-Fi/смена сети —
+## 5–15 с, обнаружение и попытки клиента — ещё ~15 с, двукратный запас), но не больше остатка
+## общего бюджета стороны AWAY_TOTAL_MAX_MS за матч (бесконечные паузы обрывом). Числа успешных
+## возвратов в условии поражения нет (рецензия 10.10: четыре честные смены сети сожгли бы его).
+const RECONNECT_GRACE_MS := 45000
+const AWAY_TOTAL_MAX_MS := 90000
+## Повторный «rejoin» с ДРУГИМ id попытки при живом прежнем канале вытесняет его не чаще этого
+## (тот же id — повтор потерянного ответа, без ограничения); раньше — «busy», клиент повторит.
+const REJOIN_GAP_MS := 2000
+## Тот же id попытки (повтор после потерянного ответа) — тоже не чаще раза в 2 с (verifier 11.10):
+## каждый возврат перематывает сопернику историю ходов с have+1. Клиент повторяет после 5 с без
+## ответа, «busy» для него временный.
+const REJOIN_SAME_GAP_MS := 2000
+## Перемотки истории ходов соперника на возвратах (сколько ходов отдано повторно) — не больше за
+## матч на сторону: честный теряет десятки–сотни ходов на обрыв, а have=-1 раз за разом гонял бы
+## всю историю (до LOG_CAP). Сверх — отказ «budget».
+const REWIND_TURNS_MAX := 24000
+## После возврата стороны её соперник ещё столько не может прервать матч «void»: разрыв ходов на
+## сервере объясняется хвостом, который вернувшийся только досылает (verifier 11.10, гонка V1).
+## Окно засчитывается в бюджет отсутствия вернувшейся стороны: иначе обрыв-возврат по кругу
+## откладывал бы законный «void» без конца.
+const VOID_SHIELD_MS := 10000
+## Итог закрытой комнаты помним столько сверх отсрочки: вернувшийся после ухода соперника узнаёт
+## победу (или отмену), а не «вернуться не удалось».
+const ENDED_KEEP_MS := 15000
+## Вернувшаяся сторона досылает хвост своих ходов пачкой (после задержки сети он приходит разом,
+## а предел частоты считается по времени чтения): столько ходов сверх «next» на момент возврата и
+## не дольше RESYNC_FREE_MS её ходы не считаются в MAX_MSGS_PER_SEC.
+const RESYNC_FREE_TURNS := 600
+const RESYNC_FREE_MS := 30000
 
 ## Порт внутреннего входа судей (0 — судьи не запускаются): судья подключается к нему сам,
 ## отдельным процессом; задаёт владелец (net_relay.gd).
@@ -169,6 +206,8 @@ var ready_timeout := READY_TIMEOUT_MS
 ## --stats-grace МС — для проб, иначе STATS_GRACE_MS
 var stats_grace := STATS_GRACE_MS
 var lobby_idle := LOBBY_IDLE_MS
+## --rejoin-grace МС — для проб, иначе RECONNECT_GRACE_MS
+var rejoin_grace := RECONNECT_GRACE_MS
 ## Пробные крючки (только тесты, как dbg_* у NetSession): подмена отправки в канал
 ## (link, text) → bool и запуска судьи (code) → void. Тест-подкласс ядра не годится: внутренний
 ## класс, наследующий глобальный, ронял процесс на выходе (код 139, 08.10.2026).
@@ -183,6 +222,8 @@ var _rng := RandomNumberGenerator.new()
 var _lobby_dirty := false
 ## «комната:сторона» → {code, side, name, deadline}: чья сводка матча ещё ожидается
 var _stats_wait: Dictionary = {}
+## Закрытые комнаты с переподключением: код → {rj, leaver (сторона ушедшего, -1 — без итога), until}
+var _ended: Dictionary = {}
 var _judge_tokens := float(JUDGE_START_BURST)
 var _judge_refill_at := 0
 var _log_at := 0
@@ -205,6 +246,8 @@ func process() -> void:
 	_pump_judges()
 	_pump_out()
 	_check_ready()
+	_check_away()
+	_check_heals()
 	_check_stats()
 	if _lobby_dirty:
 		_lobby_dirty = false
@@ -228,7 +271,8 @@ func add_link(link: NetLink, judge_only: bool) -> int:
 	var id := _next_id
 	_next_id += 1
 	_peers[id] = {"link": link, "born": Time.get_ticks_msec(), "hello": false, "name": "",
-		"build": "", "room": "", "side": -1, "win_start": Time.get_ticks_msec(),
+		"build": "", "gen_version": -1, "room": "", "side": -1,
+		"win_start": Time.get_ticks_msec(),
 		"win_count": 0, "outq": [], "outq_bytes": 0, "lobby_next": "", "tail": [],
 		"tail_bytes": 0, "tail_cost": 0, "judge_only": judge_only,
 		"idle_at": Time.get_ticks_msec(), "op_at": Time.get_ticks_msec(),
@@ -252,7 +296,8 @@ func _poll_peer(id: int) -> void:
 		return
 	var state := link.state()
 	if state == NetLink.State.CLOSED:
-		_drop(id, "закрыл соединение")
+		# единственный путь к отсрочке: транспортный разрыв (выкидывание за нарушения — нет)
+		_drop(id, "закрыл соединение", true)
 		return
 	var late := Time.get_ticks_msec() - int(p["born"]) > HELLO_TIMEOUT_MS
 	if state != NetLink.State.OPEN:
@@ -293,7 +338,8 @@ func _read_packets(id: int, p: Dictionary, link: NetLink) -> void:
 			return
 		# судья (свой процесс, вошёл по ключу) — без предела частоты: догоняя бой, он шлёт
 		# отпечатки пачкой, а снимок для подтяжки — десятками кусков
-		if not bool(p.get("judge", false)) and not _rate_ok(p):
+		if not bool(p.get("judge", false)) and not _resync_free(p, msg as Dictionary) \
+				and not _rate_ok(p):
 			_drop(id, "слишком часто")
 			return
 		_handle(id, msg as Dictionary, text)
@@ -306,6 +352,22 @@ func _rate_ok(p: Dictionary) -> bool:
 		p["win_count"] = 0
 	p["win_count"] = int(p["win_count"]) + 1
 	return int(p["win_count"]) <= MAX_MSGS_PER_SEC
+
+
+## Ход вернувшейся стороны, пока она досылает хвост (не дальше RESYNC_FREE_TURNS от «next» на
+## момент возврата и не дольше RESYNC_FREE_MS), предел частоты не считает: хвост после задержки
+## сети приходит одной пачкой, и честного выкидывало бы «слишком часто». Остальные пакеты — как
+## всегда.
+func _resync_free(p: Dictionary, msg: Dictionary) -> bool:
+	if msg.get("t") != "in" or not p.has("free_k"):
+		return false
+	var code := String(p["room"])
+	var s := int(p["side"])
+	if Time.get_ticks_msec() > int(p["free_until"]) or not _rooms.has(code) or not s in [0, 1] \
+			or int(((_rooms[code] as Dictionary)["next_k"] as Array)[s]) >= int(p["free_k"]):
+		p.erase("free_k")
+		return false
+	return true
 
 
 ## Leave всегда разрешён: ограничение не должно запирать человека в матче.
@@ -333,6 +395,9 @@ func _take_judge_token(now: int) -> bool:
 
 
 func _handle(id: int, msg: Dictionary, raw: String) -> void:
+	# A queued packet may outlive a peer removed by the admission limit or a close.
+	if not _peers.has(id):
+		return
 	var t := _s(msg.get("t"), 16)
 	if bool(_peers[id].get("judge_only", false)) and not bool(_peers[id].get("judge", false)):
 		if t == "judge":
@@ -340,11 +405,11 @@ func _handle(id: int, msg: Dictionary, raw: String) -> void:
 		else:
 			_drop(id, "внутренний вход — только для судьи")
 		return
-	if t == "ping":
-		_send(id, {"t": "pong", "ms": msg.get("ms", 0)})
-		return
-	if t == "hello":
-		_hello(id, msg)
+	if t == "ping" or t == "hello":
+		if t == "ping":
+			_send(id, {"t": "pong", "ms": msg.get("ms", 0)})
+		else:
+			_hello(id, msg)
 		return
 	if t == "judge":
 		_drop(id, "судья на публичном входе")
@@ -393,6 +458,8 @@ func _handle(id: int, msg: Dictionary, raw: String) -> void:
 			_no_ready(id)
 		"healed":
 			_healed(id, msg)
+		"rejoin":
+			_rejoin(id, msg)
 
 
 func _hello(id: int, msg: Dictionary) -> void:
@@ -405,9 +472,14 @@ func _hello(id: int, msg: Dictionary) -> void:
 		return
 	p["hello"] = true
 	p["build"] = _clean_build(_s(msg.get("build"), 64))
+	p["gen_version"] = _i(msg.get("gen_version"), -1)
 	p["idle_at"] = Time.get_ticks_msec()
 	p["name"] = _clean_name(_s(msg.get("name"), 64), id)
-	_send(id, {"t": "welcome", "id": id, "name": p["name"]})
+	# умеет ли клиент вернуться в матч после обрыва: отсрочка — только если умеют оба
+	var caps: Variant = msg.get("caps")
+	p["rejoin_cap"] = caps is Array and (caps as Array).size() <= 16 and "rejoin" in (caps as Array)
+	_send(id, {"t": "welcome", "id": id, "name": p["name"],
+		"gen_version": ProcGen.VERSION})
 	_log("игрок %d «%s» вошёл (сборка %s)" % [id, p["name"], p["build"]])
 	_lobby_dirty = true
 
@@ -421,6 +493,10 @@ func _create_room(id: int, map_id: String) -> void:
 		return
 	if not _map_ok(map_id):
 		map_id = "pvp:duel"
+	if map_id.begins_with(ProcGen.ID_PREFIX) and int(p["gen_version"]) != ProcGen.VERSION:
+		# Старый клиент знает code=build и остаётся в лобби; новый читает уточнение why.
+		_send(id, {"t": "error", "code": "build", "why": "gen_version"})
+		return
 	var code := _new_code()
 	_rooms[code] = {"peers": [id], "host": p["name"], "map": map_id, "build": p["build"],
 		"started": false, "hashes": {}, "seed": 0, "judge": 0, "judge_pid": -1, "key": "",
@@ -435,7 +511,14 @@ func _create_room(id: int, map_id: String) -> void:
 		"heal_over": [false, false], "heal_at": [0, 0], "snap": [{}, {}],
 		# тик K снимка текущей подтяжки (из заголовка снимка судьи), отдан ли снимок стороне целиком,
 		# тик расхождения, с которого подтяжку запросили
-		"heal_k": [-1, -1], "heal_sent": [false, false], "heal_dk": [0, 0]}
+		"heal_k": [-1, -1], "heal_sent": [false, false], "heal_dk": [0, 0],
+		# переподключение: можно ли (оба умеют), секрет стороны, поколение канала стороны (сторону
+		# комнаты меняет только её актуальный пир этого поколения), до какого времени ждём
+		# отсутствующую (0 — на месте), с какого, сколько всего отсутствовала, возвратов, id
+		# последней удачной попытки (её повтор — тот же ответ), когда канал привязан, итог судьи
+		"rejoin": false, "rj": ["", ""], "gen": [0, 0], "away_until": [0, 0], "away_since": [0, 0],
+		"away_total": [0, 0], "rejoins": [0, 0], "rid": ["", ""], "bind_at": [0, 0],
+		"verdict_raw": "", "rewound": [0, 0], "rj_logs": [0, 0]}
 	p["room"] = code
 	p["side"] = 0
 	p["idle_at"] = Time.get_ticks_msec()
@@ -457,6 +540,10 @@ func _join_room(id: int, code: String) -> void:
 		return
 	if String(room["build"]) != String(p["build"]):
 		_send(id, {"t": "error", "code": "build", "need": room["build"]})
+		return
+	if String(room["map"]).begins_with(ProcGen.ID_PREFIX) \
+			and int(p["gen_version"]) != ProcGen.VERSION:
+		_send(id, {"t": "error", "code": "build", "why": "gen_version"})
 		return
 	if judge_max > 0 and not _take_judge_token(Time.get_ticks_msec()):
 		_send(id, {"t": "error", "code": "rate_limit"})
@@ -480,6 +567,8 @@ func _join_room(id: int, code: String) -> void:
 	var p2p := crypto.generate_random_bytes(16).hex_encode()
 	room["start_ms"] = Time.get_ticks_msec()
 	var names := [String(_peers[(room["peers"] as Array)[0]]["name"]), String(p["name"])]
+	room["rejoin"] = bool(_peers[(room["peers"] as Array)[0]].get("rejoin_cap", false)) \
+		and bool(p.get("rejoin_cap", false))
 	for pid: int in room["peers"]:
 		var s := int(_peers[pid]["side"])
 		# секретный ключ стороны — только ей: HMAC её ходов в UDP, по нему подлог доказуем
@@ -487,9 +576,18 @@ func _join_room(id: int, code: String) -> void:
 		(room["keys"] as Array)[s] = key
 		var sk := "%s:%d" % [code, s]
 		_peers[pid]["stats_key"] = sk
+		_peers[pid]["gen"] = 0
 		_stats_wait[sk] = {"code": code, "side": s, "name": names[s], "deadline": 0}
-		_send(pid, {"t": "start", "seed": seed_value, "map": map_id, "side": s,
-			"code": code, "opponent": names[1 - s], "p2p": p2p, "key": key.hex_encode()})
+		var start := {"t": "start", "seed": seed_value, "map": map_id, "side": s,
+			"code": code, "opponent": names[1 - s], "p2p": p2p, "key": key.hex_encode(),
+			"gen_version": ProcGen.VERSION}
+		if bool(room["rejoin"]):
+			# секрет возврата стороны — свой, не HMAC-ключ (тот — для доказательства подлога); в
+			# лог и сводку не попадает: по нему сторону можно занять
+			var rj := crypto.generate_random_bytes(16).hex_encode()
+			(room["rj"] as Array)[s] = rj
+			start["rj"] = rj
+		_send(pid, start)
 	_log("комната %s: «%s» против «%s», сид %d, карта %s" % [code, names[0], names[1],
 		seed_value, map_id])
 	_spawn_judge(code)
@@ -511,6 +609,11 @@ func _close_room(code: String, leaver: int) -> void:
 	var room: Dictionary = _rooms[code]
 	# Комната уже закрывается: бюджет истории уступает место хвостам получателей.
 	_rooms.erase(code)
+	if bool(room["rejoin"]) and int(room["go_ms"]) > 0:
+		# итог — для того, кто вернётся после закрытия (его соперник ушёл, пока он был без связи)
+		_ended[code] = {"rj": (room["rj"] as Array).duplicate(),
+			"leaver": (room["peers"] as Array).find(leaver) if leaver > 0 else -1,
+			"until": Time.get_ticks_msec() + rejoin_grace + ENDED_KEEP_MS}
 	for s in 2:
 		var sk := "%s:%d" % [code, s]
 		if _stats_wait.has(sk) and int(_stats_wait[sk]["deadline"]) == 0:
@@ -827,6 +930,10 @@ func _stats(id: int, msg: Dictionary) -> void:
 	var heals := clampi(_i(msg.get("heal"), 0), 0, HEAL_MAX)
 	if heals > 0:
 		parts.append("подтяжек снимком %d" % heals)
+	var rejoins := clampi(_i(msg.get("rj"), 0), 0, 1000)
+	if rejoins > 0:
+		parts.append("переподключений %d (вне связи %s с)" % [rejoins,
+			_dec(_f(msg.get("away_s"), 0.0, 1.0e5))])
 	var wall := int(_f(msg.get("wall"), 0.0, 1.0e6))
 	parts.append("%d:%02d (%d тиков)" % [wall / 60, wall % 60,
 		clampi(_i(msg.get("ticks"), 0), 0, 1000000000)])
@@ -1033,12 +1140,20 @@ func _judge_hello(id: int, msg: Dictionary) -> void:
 			or int(room["judge"]) > 0 or _i(msg.get("v"), 0) != PROTO:
 		_kick(id, "судья: чужой ключ")
 		return
+	if String(room["map"]).begins_with(ProcGen.ID_PREFIX) \
+			and _i(msg.get("gen_version"), -1) != ProcGen.VERSION:
+		# Не сравнивать клиентов с судьёй старой геометрии; перейти к сверке пары.
+		room["judge_dead"] = true
+		_stop_judge(room)
+		_kick(id, "судья: другая версия генератора")
+		return
 	var p: Dictionary = _peers[id]
 	p["hello"] = true
 	p["judge"] = true
 	p["room"] = code
 	room["judge"] = id
-	_send(id, {"t": "start", "seed": room["seed"], "map": room["map"], "side": -1})
+	_send(id, {"t": "start", "seed": room["seed"], "map": room["map"], "side": -1,
+		"gen_version": ProcGen.VERSION})
 	room["cursor"] = 0
 	_log("комната %s: судья на месте, история %d ходов" % [code, (room["log"] as Array).size()])
 
@@ -1123,6 +1238,21 @@ func _make_history_space(id: int, cost: int) -> void:
 			if held > largest_cost:
 				largest = pid
 				largest_cost = held
+		# отсутствующая сторона (обрыв, ждём возврата) держит историю без пира — тоже кандидат; её
+		# комнату закрываем без итога: обрыв не вина, а место нужно
+		var away_code := ""
+		for code: String in _rooms:
+			var room: Dictionary = _rooms[code]
+			for s in 2:
+				if int((room["away_until"] as Array)[s]) > 0 \
+						and int((room["history_cost"] as Array)[s]) > largest_cost:
+					away_code = code
+					largest_cost = int((room["history_cost"] as Array)[s])
+		if away_code != "":
+			_log("комната %s: общий бюджет истории — закрыта без итога (сторона отсутствует)"
+				% away_code)
+			_close_room_void(away_code, "overload")
+			continue
 		_drop(largest, "общий бюджет истории: слишком много удерживаемых данных")
 
 ## После хода стороны: жалобы на этот её ход, ждавшие его на сервере.
@@ -1149,6 +1279,19 @@ func _void(id: int) -> void:
 	var next: Array = room["next_k"]
 	var gap := int(next[side]) - int(next[1 - side])
 	var names := _names(room)
+	var away: Array = room["away_until"]
+	var back_ms := Time.get_ticks_msec() - int((room["bind_at"] as Array)[1 - side])
+	if int(away[0]) > 0 or int(away[1]) > 0 \
+			or (int((room["rejoins"] as Array)[1 - side]) > 0 and back_ms < VOID_SHIELD_MS):
+		# соперник отсутствует (обрыв, ждём отсрочку) или только что вернулся и досылает хвост
+		# (VOID_SHIELD_MS): ходов от него нет не по придержке. Отказ —
+		# не трата запроса (до _request_ok) и с «away»: клиент НЕ обнуляет свой простой и повторит,
+		# иначе обрыв перед законным «void» давал придерживающему лишние 30 с (рецензия 10.10)
+		if _side_log_ok(room, side):
+			_log("комната %s: прерывание стороны %d отложено — соперник переподключается" % [code,
+				side])
+		_send(id, {"t": "void_denied", "gap": gap, "away": true})
+		return
 	if not _request_ok(id):
 		return
 	if int(room["go_ms"]) == 0 or gap < VOID_MIN_GAP:
@@ -1325,6 +1468,8 @@ func _judge_msg(id: int, t: String, raw: String) -> void:
 		_judge_heal_fail(code, _rooms[code], JSON.parse_string(raw) as Dictionary)
 	elif t == "verdict":
 		_log("комната %s: итог судьи %s" % [code, raw])
+		# отсутствующей стороне — в ответе на её возврат (rejoined.verdict)
+		(_rooms[code] as Dictionary)["verdict_raw"] = raw
 		for pid: int in (_rooms[code] as Dictionary)["peers"]:
 			_send_raw(pid, raw)
 
@@ -1471,7 +1616,10 @@ func _kick(id: int, why: String) -> void:
 		_peers[id]["kick_why"] = why
 
 
-func _drop(id: int, why: String) -> void:
+## may_return — транспортный разрыв (сокет закрыт): в идущем бою комнаты, где оба умеют
+## возвращаться, сторона получает отсрочку вместо ухода. Выкидывания за нарушения, «leave» и
+## бюджет истории — всегда без отсрочки.
+func _drop(id: int, why: String, may_return := false) -> void:
 	if not _peers.has(id):
 		return
 	var p: Dictionary = _peers[id]
@@ -1484,10 +1632,259 @@ func _drop(id: int, why: String) -> void:
 			(_rooms[code] as Dictionary)["judge"] = 0   # дальше — сверка пары без судьи
 			(_rooms[code] as Dictionary)["judge_dead"] = true
 		return
+	if code != "" and _rooms.has(code) and not _is_current(_rooms[code], id, p):
+		code = ""   # канал уже заменён переподключением: комнату трогает только актуальный
 	if code != "":
-		_close_room(code, id)
+		if not (may_return and _away_start(code, id, p, why)):
+			_close_room(code, id)
 	if bool(p["hello"]):
 		_lobby_dirty = true
+
+
+# ── Переподключение (docs/pvp/NET_LOCKSTEP.md, «Переподключение») ─────────────────
+
+## Пир — актуальный канал своей стороны комнаты: и id, и поколение (вытесненный старый канал и его
+## запоздалый _drop комнату не трогают — рецензия 10.10).
+func _is_current(room: Dictionary, id: int, p: Dictionary) -> bool:
+	var s := int(p["side"])
+	if not s in [0, 1] or s >= (room["peers"] as Array).size():
+		return true   # ожидающая комната хозяина / заглушки тестов — как прежде
+	return int((room["peers"] as Array)[s]) == id \
+		and int(p.get("gen", 0)) == int((room["gen"] as Array)[s])
+
+
+## Сторона пира id отключилась (сокет закрыт): отсрочка, если можно. true — комната жива и ждёт.
+func _away_start(code: String, id: int, p: Dictionary, why: String) -> bool:
+	var room: Dictionary = _rooms[code]
+	var s := int(p["side"])
+	if not bool(room["rejoin"]) or not s in [0, 1] or int(room["go_ms"]) == 0 \
+			or bool((room["ended"] as Array)[s]) or int((room["peers"] as Array)[s]) != id:
+		return false
+	var left_ms := AWAY_TOTAL_MAX_MS - int((room["away_total"] as Array)[s])
+	if left_ms <= 0:
+		_log("комната %s: сторона %d отключилась (%s), бюджет отсутствия за матч (%d с) исчерпан" % [
+			code, s, why, AWAY_TOTAL_MAX_MS / 1000])
+		return false
+	var grace := mini(rejoin_grace, left_ms)
+	var now := Time.get_ticks_msec()
+	(room["away_since"] as Array)[s] = now
+	(room["away_until"] as Array)[s] = now + grace
+	_heal_cancel(code, room, s)
+	_send(int((room["peers"] as Array)[1 - s]), {"t": "opp_away", "ms": grace})
+	_log("комната %s: сторона %d «%s» отключилась (%s) — ждём её %d с (вне связи за матч уже %d с)"
+		% [code, s, p["name"], why, grace / 1000, int((room["away_total"] as Array)[s]) / 1000])
+	return true
+
+
+## Подтяжка стороны s прерывается обрывом: куски в мёртвый сокет пропали, а уложенные в сокет
+## не значат «дошли» (пустой snap[s] неоднозначен — рецензия 10.10). Отменяем целиком и без траты
+## HEAL_MAX: клиент на возврате тоже забывает подтяжку, а новый отпечаток с расхождением после
+## возврата запросит снимок с новым номером.
+func _heal_cancel(code: String, room: Dictionary, s: int) -> void:
+	var busy: Array = room["heal_busy"]
+	if not bool(busy[s]):
+		return
+	busy[s] = false
+	(room["snap"] as Array)[s] = {}
+	(room["heal_sent"] as Array)[s] = false
+	(room["heal_k"] as Array)[s] = -1
+	(room["heal"] as Array)[s] = maxi(0, int((room["heal"] as Array)[s]) - 1)
+	_log("комната %s: подтяжка стороны %d прервана обрывом — будет запрошена заново" % [code, s])
+
+
+## Отсрочки вышли. Отсутствует одна — как уход (сопернику «left», ему победа, правило прежнее).
+## Срок вышел, а соперник тоже отсутствует, — обрыв у обоих: закрыть без итога.
+func _check_away() -> void:
+	var now := Time.get_ticks_msec()
+	for code: String in _ended.keys():
+		if now >= int((_ended[code] as Dictionary)["until"]):
+			_ended.erase(code)
+	for code: String in _rooms.keys():
+		if not _rooms.has(code):
+			continue
+		var room: Dictionary = _rooms[code]
+		var away: Array = room["away_until"]
+		for s in 2:
+			if int(away[s]) == 0 or now < int(away[s]):
+				continue
+			var waited := (now - int((room["away_since"] as Array)[s])) / 1000
+			if int(away[1 - s]) > 0:
+				_log("комната %s: сторона %d не вернулась за %d с, соперник тоже не на связи — " \
+					% [code, s, waited] + "закрыта без итога")
+				_close_room(code, 0)
+			else:
+				_log("комната %s: сторона %d не вернулась за %d с — уход" % [code, s, waited])
+				_close_room(code, int((room["peers"] as Array)[s]))
+			_lobby_dirty = true
+			break
+
+
+## Снимок для подтяжки не дошёл за HEAL_WAIT_MS — независимо от новых отпечатков (прежде проверка
+## жила только в _judge_mismatch и без нового расхождения флаг висел до конца матча): подтяжка не
+## состоялась, стороне — обычная надпись о расхождении и итог судьи.
+func _check_heals() -> void:
+	var now := Time.get_ticks_msec()
+	for code: String in _rooms:
+		var room: Dictionary = _rooms[code]
+		var busy: Array = room["heal_busy"]
+		for s in 2:
+			if not bool(busy[s]) or now - int((room["heal_at"] as Array)[s]) <= HEAL_WAIT_MS:
+				continue
+			_log("комната %s: снимок для стороны %d не дошёл за %d с" % [code, s,
+				HEAL_WAIT_MS / 1000])
+			busy[s] = false
+			(room["snap"] as Array)[s] = {}
+			if s < (room["peers"] as Array).size():
+				_send(int((room["peers"] as Array)[s]), {"t": "desync",
+					"k": int((room["heal_dk"] as Array)[s]), "judge": true})
+
+
+## Возврат стороны в идущий матч. Сначала всё проверяется: комната, секрет, сборка/генератор,
+## состояние и диапазон have. Отказ не трогает комнату или бюджет. Потом канал заменяется
+## целиком: прежний (если ещё жив — полумёртвый WebSocket) выкидывается без закрытия комнаты.
+func _rejoin(id: int, msg: Dictionary) -> void:
+	var p: Dictionary = _peers[id]
+	var code := _s(msg.get("code"), 8).strip_edges().to_upper()
+	var s := _i(msg.get("side"), -1)
+	var have := _i(msg.get("have"), -2)
+	var rid := _s(msg.get("rid"), 32)
+	var rj := _s(msg.get("rj"), 64)
+	var why := _rejoin_refusal(p, code, s, rj, have, rid)
+	if why == "no_room" and _ended.has(code) and s in [0, 1] and rj.length() == 32 \
+			and rj == String(((_ended[code] as Dictionary)["rj"] as Array)[s]):
+		# комнату закрыли, пока сторона была без связи: итог — ей (ушёл соперник — победа)
+		var lv := int((_ended[code] as Dictionary)["leaver"])
+		_send(id, {"t": "rejoin_denied", "why": "ended",
+			"outcome": "void" if lv < 0 else ("opp_left" if lv == 1 - s else "you_left")})
+		_kick(id, "возврат после закрытия комнаты")
+		return
+	if why != "":
+		_send(id, {"t": "rejoin_denied", "why": why})
+		_kick(id, "отказ в возврате: " + why)
+		# лимит строк — свой: неверные rj чужака не выжигают строки жертвы (verifier 11.10)
+		if _rooms.has(code) and s in [0, 1]:
+			var rl: Array = (_rooms[code] as Dictionary)["rj_logs"]
+			rl[s] = int(rl[s]) + 1
+			if int(rl[s]) <= PATH_LOGS_MAX:
+				_log("комната %s: отказ в возврате стороны %d — %s" % [code, s, why])
+		return
+	var room: Dictionary = _rooms[code]
+	var now := Time.get_ticks_msec()
+	var peers: Array = room["peers"]
+	var old := int(peers[s])
+	var away: Array = room["away_until"]
+	var gone := 0
+	# окно досылки без предела частоты: новое — при возврате из отсутствия и при вытеснении с новым
+	# id попытки (у клиента хвост); повтор тем же id получает ОСТАТОК прежнего окна, а не свежее —
+	# иначе частые повторы продлевали бы его без конца (рецензия 10.10)
+	var free_k := int((room["next_k"] as Array)[s]) + RESYNC_FREE_TURNS
+	var free_until := now + RESYNC_FREE_MS
+	# окно, в котором соперник не может прервать матч «void», — в бюджет отсутствия
+	(room["away_total"] as Array)[s] = int((room["away_total"] as Array)[s]) + VOID_SHIELD_MS
+	var rewind := int((room["out_k"] as Array)[1 - s]) - clampi(have + 1, 0,
+		int((room["next_k"] as Array)[1 - s]))
+	if rewind > 0:
+		(room["rewound"] as Array)[s] = int((room["rewound"] as Array)[s]) + rewind
+	if int(away[s]) > 0:
+		gone = now - int((room["away_since"] as Array)[s])
+		(room["away_total"] as Array)[s] = int((room["away_total"] as Array)[s]) + gone
+		away[s] = 0
+		(room["away_since"] as Array)[s] = 0
+		# подтяжка, запрошенная, пока стороны не было, — отменяется: клиент на возврате её забывает,
+		# следующее расхождение запросит снимок с новым номером (verifier 11.10, V7)
+		_heal_cancel(code, room, s)
+	elif _peers.has(old):
+		var op: Dictionary = _peers[old]
+		if rid != "" and rid == String((room["rid"] as Array)[s]):
+			free_k = int(op.get("free_k", -1))
+			free_until = int(op.get("free_until", 0))
+		op["room"] = ""
+		op["side"] = -1
+		op["stats_key"] = ""
+		_kick(old, "переподключился другим каналом")
+		_heal_cancel(code, room, s)
+	var gen: Array = room["gen"]
+	gen[s] = int(gen[s]) + 1
+	peers[s] = id
+	(room["rid"] as Array)[s] = rid
+	(room["bind_at"] as Array)[s] = now
+	(room["rejoins"] as Array)[s] = int((room["rejoins"] as Array)[s]) + 1
+	var next: Array = room["next_k"]
+	p["room"] = code
+	p["side"] = s
+	p["gen"] = int(gen[s])
+	p["stats_key"] = "%s:%d" % [code, s]
+	p["idle_at"] = now
+	p["lobby_next"] = ""
+	if free_k >= 0:
+		p["free_k"] = free_k
+		p["free_until"] = free_until
+	# ходы соперника — с первого, которого у клиента нет (через сервер они идут строго по порядку)
+	(room["out_k"] as Array)[1 - s] = clampi(have + 1, 0, int(next[1 - s]))
+	var reply := {"t": "rejoined", "next": int(next[s]),
+		"opp_ready": bool((room["ready"] as Array)[1 - s]), "gen": int(gen[s])}
+	var v: Variant = JSON.parse_string(String(room["verdict_raw"])) \
+		if String(room["verdict_raw"]) != "" else null
+	if v is Dictionary:
+		reply["verdict"] = v
+	_send(id, reply)
+	_send(int(peers[1 - s]), {"t": "opp_back"})
+	if int(away[1 - s]) > 0:
+		# соперник тоже без связи — вернувшемуся отсчёт его отсрочки (verifier 11.10, V6)
+		_send(id, {"t": "opp_away", "ms": maxi(0, int(away[1 - s]) - now)})
+	_log("комната %s: сторона %d «%s» вернулась (%s, возврат %d, вне связи за матч %d с), " % [
+		code, s, p["name"], "через %d мс" % gone if gone > 0 else "заменён канал",
+		int((room["rejoins"] as Array)[s]), int((room["away_total"] as Array)[s]) / 1000]
+		+ "ходы ей с %d, её — с %d" % [have + 1, int(next[s])])
+	_lobby_dirty = true
+
+
+## Почему возврат нельзя ("" — можно): no_room / token / state / expired / busy (временный: клиент
+## повторит; остальные — окончательные).
+func _rejoin_refusal(p: Dictionary, code: String, s: int, rj: String, have: int,
+		rid: String) -> String:
+	if String(p["room"]) != "":
+		return "busy"
+	if not _rooms.has(code):
+		return "no_room"
+	var room: Dictionary = _rooms[code]
+	if not bool(room["rejoin"]) or not s in [0, 1] or rj.length() != 32 \
+			or rj != String((room["rj"] as Array)[s]) or String(room["build"]) != String(p["build"]):
+		return "token"
+	if String(room["map"]).begins_with(ProcGen.ID_PREFIX) \
+			and int(p["gen_version"]) != ProcGen.VERSION:
+		return "gen_version"
+	var now := Time.get_ticks_msec()
+	var away := int((room["away_until"] as Array)[s])
+	var why := ""
+	if not bool(room["started"]) or int(room["go_ms"]) == 0 or bool((room["ended"] as Array)[s]) \
+			or (away > 0 and now >= away):
+		why = "expired"
+	elif have < -1 or have >= int((room["next_k"] as Array)[1 - s]):
+		why = "state"
+	elif int((room["rewound"] as Array)[s]) + int((room["out_k"] as Array)[1 - s]) - (have + 1) \
+			> REWIND_TURNS_MAX:
+		why = "budget"
+	elif away == 0 and int((room["away_total"] as Array)[s]) >= AWAY_TOTAL_MAX_MS:
+		# Live-channel replacements and lost-response retries also reserve void shields.
+		# Once the match budget is spent they cannot refresh the shield indefinitely.
+		why = "budget"
+	elif away == 0 and _peers.has(int((room["peers"] as Array)[s])):
+		# прежний канал жив (полумёртвый WebSocket или потерянный «rejoined»): тот же id попытки —
+		# повтор, без ограничения; другой — вытеснение не чаще REJOIN_GAP_MS
+		var same := rid != "" and rid == String((room["rid"] as Array)[s])
+		if now - int((room["bind_at"] as Array)[s]) < (REJOIN_SAME_GAP_MS if same else REJOIN_GAP_MS):
+			why = "busy"
+	return why
+
+
+## Закрыть идущий матч без итога (отсутствующая сторона держит место, которое нужно другим):
+## присутствующим — ошибка с кодом (клиент уходит в лобби без сдачи), потом обычное закрытие.
+func _close_room_void(code: String, err_code: String) -> void:
+	for pid: int in (_rooms[code] as Dictionary)["peers"]:
+		_send(pid, {"t": "error", "code": err_code})
+	_close_room(code, 0)
+	_lobby_dirty = true
 
 
 func _log(text: String, proof := false) -> void:

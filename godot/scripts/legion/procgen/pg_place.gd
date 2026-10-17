@@ -254,14 +254,39 @@ static func _farthest(lay: PgLayout, cands: Array[Dictionary], chosen: Array[Dic
 static func lines(lay: PgLayout) -> void:
 	var ghosts := (lay.card.get("foes", []) as Array).has("ghost")
 	var fronts: Array[Dictionary] = []
-	# фронт — по рубежу на каждой дороге, на её собственной (не общей) части
+	var half := bool(lay.card.get("half", false))
+	# Ограниченные дороги половины обслуживаем первыми: после выбора обычных
+	# рубежей на соседних дорогах единственный общий пролёт может оказаться ближе
+	# 200 px и стать недоступным, хотя исходно на нём есть физически годный рубеж.
+	if half:
+		for r in lay.roads:
+			if not _front(lay, r, [], FRONT_FRAC).is_empty():
+				continue
+			if _has_road_front(r, fronts):
+				continue
+			var ln := _front(lay, r, fronts, FRONT_FRAC, true)
+			if not ln.is_empty():
+				fronts.append(ln)
+	# Обычный фронт ставим на собственной части дороги, если общий ещё не покрывает её.
 	for r in lay.roads:
+		if half and _has_road_front(r, fronts):
+			continue
 		var ln := _front(lay, r, fronts, FRONT_FRAC)
 		if not ln.is_empty():
 			fronts.append(ln)
 	if fronts.is_empty():
 		lay.fail = "нет места для рубежа поперёк дороги"
 		return
+	# У половины PvP дорога PvE вливается в общий хвост, а у турникета одна
+	# ветвь целиком поглощена соседними дорогами. На таком общем участке рубеж
+	# всё равно должен физически пересечь обслуживаемую дорогу.
+	if half:
+		for r in lay.roads:
+			if _has_road_front(r, fronts):
+				continue
+			var ln := _front(lay, r, fronts, FRONT_FRAC, true)
+			if not ln.is_empty():
+				fronts.append(ln)
 	# второй рубеж ближе к Котлу на каждой дороге: смоук ботом (27.09) — с одним рубежом на
 	# середине дороги бойцы простаивали (idle ≈ 5000 боец·с против ≈ 2000 на «Пустыре»), а
 	# прорвавшиеся шли к Котлу без встречи
@@ -272,6 +297,14 @@ static func lines(lay: PgLayout) -> void:
 		if not ln.is_empty():
 			ln["role"] = "front"
 			fronts.append(ln)
+	for r in lay.roads:
+		var served := _has_road_front(r, fronts) if half else false
+		if not half:
+			for ln: Dictionary in fronts:
+				served = served or String(ln["road"]) == String(r["id"])
+		if not served:
+			lay.fail = "нет переднего рубежа на дороге %s" % String(r["id"])
+			return
 	var out := fronts.duplicate()
 	var back := _back(lay, out, ghosts)
 	if not back.is_empty():
@@ -301,9 +334,10 @@ static func _on_other(lay: PgLayout, r: Dictionary, p: Vector2) -> bool:
 	return false
 
 
-## Лучшее место поперёк дороги r: середина её собственной части, пролёт ≥ 200, вахтёры
-## ближайшей площадки дотягиваются (для охраны).
-static func _front(lay: PgLayout, r: Dictionary, have: Array[Dictionary], want: float) \
+## Лучшее место поперёк дороги r: обычно собственная часть, shared разрешает общий участок
+## только для половины PvP; пролёт, набор охраны и расстояние до других рубежей прежние.
+static func _front(lay: PgLayout, r: Dictionary, have: Array[Dictionary], want: float,
+		shared := false) \
 		-> Dictionary:
 	var path: PackedVector2Array = r["pts"]
 	var vis := PgGeom.visible_range(path)
@@ -312,7 +346,7 @@ static func _front(lay: PgLayout, r: Dictionary, have: Array[Dictionary], want: 
 	for span: float in [LINE_SPAN, LINE_SPAN_MIN]:
 		for at in PgQuirks.straight_spots(path, vis.x + 64.0, vis.y - 150.0, 64.0, 16.0):
 			var p := PgGeom.point_at(path, at)
-			if _on_other(lay, r, p):
+			if not shared and _on_other(lay, r, p):
 				continue
 			var ln := _line_at(lay, r, at, span, "guard")
 			if ln.is_empty():
@@ -334,6 +368,22 @@ static func _front(lay: PgLayout, r: Dictionary, have: Array[Dictionary], want: 
 
 static func _mid(ln: Dictionary) -> Vector2:
 	return (_v(ln["a"]) + _v(ln["b"])) * 0.5
+
+
+## Общий рубеж половины покрывает дорогу только при пересечении её оси до Котла
+## и направлении стрелки навстречу врагам; метка соседней дороги недостаточна.
+static func _has_road_front(r: Dictionary, fronts: Array[Dictionary]) -> bool:
+	var path: PackedVector2Array = r["pts"]
+	var total := PgGeom.length(path)
+	for ln: Dictionary in fronts:
+		var hit: Variant = LegionMapChecks.line_cross(_v(ln["a"]), _v(ln["b"]), path)
+		if hit == null:
+			continue
+		var at := PgGeom.project(path, hit)
+		if at > 64.0 and at < total - 130.0 and \
+				_v(ln["dir"]).normalized().dot(PgGeom.tangent_at(path, at)) < -0.7:
+			return true
+	return false
 
 
 static func _door_dist(lay: PgLayout, p: Vector2) -> float:

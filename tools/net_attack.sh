@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Регресс атак обманщика на ретранслятор онлайн-«Схватки» (пробы verifier №2 01.10):
-#   1) tests/net_attack_probe.gd — повтор хода честного в жалобе (B1, сразу и через очередь) и
-#      придержанный «ready» с ходами по часам (A1);
+#   1) tests/net_attack_probe.gd — повтор хода честного в жалобе (B1, сразу и через очередь),
+#      придержанный «ready» с ходами по часам (A1), заливы, запросы void/no_ready, предел объёма,
+#      и (9, A) переподключение: поток rejoin с неверным rj, двойной rejoin с верным;
 #   2) tests/net_cheat_host.gd + настоящий гость (tests/net_duel_probe.gd --role guest) — честного
 #      не выбивает за «ходы не доходят до сервера», отключается обманщик.
 #   tools/net_attack.sh [порт=18881]
@@ -23,7 +24,7 @@ timeout 300 "$GODOT" --headless --path godot --script res://tests/net_attack_pro
 kill "$R1" 2>/dev/null
 grep -E "ATTACK|NET ATTACK" "$OUT/attack.log"
 if grep -q "SCRIPT ERROR" "$OUT/relay1.log"; then
-	echo "FAIL: SCRIPT ERROR в ретрансляторе (атаки 1–8)"
+	echo "FAIL: SCRIPT ERROR в ретрансляторе (атаки 1–10)"
 	grep -m3 -A2 "SCRIPT ERROR" "$OUT/relay1.log"
 	CODE=1
 fi

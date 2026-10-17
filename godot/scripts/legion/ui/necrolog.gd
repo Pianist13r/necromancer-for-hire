@@ -95,7 +95,8 @@ func show_report(report: Dictionary, foe_type: String, map_title: String,
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD
 		text_col.add_child(l)
 
-	box.add_child(BattleDebrief.panel(report.get("debrief", {}), PAPER_INK))
+	box.add_child(BattleDebrief.panel(report.get("debrief", {}), PAPER_INK,
+		report.get("debrief_available", {})))
 	var records := _record_lines(report)
 	if not records.is_empty():
 		var rec_box := VBoxContainer.new()

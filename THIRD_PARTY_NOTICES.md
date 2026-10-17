@@ -21,13 +21,17 @@ Part of the art, music and voice was made with generative tools and services, th
 cut and assembled by the author. Rights in the outputs are held under those services' terms.
 
 Per-file provenance (model, date, evidence, whether the file ships) is kept in `assets/SOURCES.md`,
-section «Сводная таблица происхождения» (last full check 2026-10-08).
+section «Сводная таблица происхождения» (historical snapshot, last full check 2026-10-08).
+English voice is documented in the 2026-10-11 initial-batch appendix and the
+2026-10-16 current-inventory note in `assets/SOURCES.md`, with per-line metadata in
+`tools/voice/english_manifest.json` in the source repository.
+The 2026-10-08 totals have not been recomputed as a current full-project inventory.
 
 | What | Tool / service |
 |---|---|
 | Base character sprites and the Soul Cauldron (2026-08-21) | Z-Image Turbo (local, ComfyUI) |
 | Early backgrounds, main-menu background, cover image (2026-08-20/21; cover 2026-10-07) | Z-Image Turbo and Qwen-Image (local, ComfyUI); cover title set in the Underdog font |
-| Boss sprite and eight legacy cutscene panels (2026-08-20) | generative tool not recorded |
+| Boss sprite and eight legacy cutscene panels (2026-08-20) | Local generative models, according to the author's statement (2026-10-08, D-1008-S19); exact tools not recorded |
 | Buildings, campaign map backgrounds, cutscene stills, skeleton rig parts, older animation sheets | Google Nano Banana Pro (via MostAI) |
 | Tile library for procedural maps (ground, props) | Google Nano Banana 2 (via MostAI); road textures cut by code from the campaign backgrounds |
 | One building image (`laborer_1_painterly.png`) and one swamp ground (`procgen/ground/swamp_02.png`) | OpenAI gpt-image (C2PA marks in both PNGs) |
@@ -36,7 +40,8 @@ section «Сводная таблица происхождения» (last full 
 | Directional attacks and deaths (2026-10-04) | Alibaba Model Studio: Wan 2.7 I2V; selected Wan 2.6 I2V Flash clips |
 | Directional walks (2026-10-04) | Original scripted IK using the approved character masters; no external motion-capture or pose dataset |
 | Some earlier animation in-betweens | RIFE v4.6 frame interpolation (MIT, local) |
-| Voice (58 lines) | Google Gemini 3.1 Flash TTS and ElevenLabs v3 (via MostAI) |
+| Russian voice (58 lines) | Google Gemini 3.1 Flash TTS and ElevenLabs v3 (via MostAI); `tools/voice/mostai_manifest.tsv` |
+| English voice (143 clips in the 2026-10-16 source inventory; initial batch of 142 on 2026-10-11) | Qwen3-TTS Flash (`qwen3-tts-flash`) via Alibaba Model Studio; `tools/voice/english_manifest.json` |
 | Menu / battle / boss music | Suno (via MostAI) |
 | Victory / defeat music | ACE-Step v1 (Apache 2.0 model, local) |
 | UI frames (SVG), legacy HUD icons, level masks, procedural effects and sound effects | written as code |

@@ -5,6 +5,7 @@ extends RefCounted
 
 const PREFIX := "; necro-save-v1 "
 const FAMILY := "; necro-save-"
+const NEWER_VERSION := "Сохранение создано более новой версией игры. Запись отключена."
 static var notices: Dictionary = {}
 static var _blocked: Dictionary = {}
 
@@ -13,6 +14,8 @@ static func load_file(path: String) -> ConfigFile:
 	_blocked.erase(path)
 	var current := _read(path)
 	if current["error"] == OK:
+		if notices.get(path, "") == NEWER_VERSION:
+			notices.erase(path)
 		return current["config"]
 	# Новая версия могла изменить смысл данных: откат к старому backup здесь опасен.
 	if current["error"] == ERR_UNAVAILABLE:
@@ -33,6 +36,13 @@ static func _refuse(path: String, message: String) -> ConfigFile:
 	notices[path] = message
 	push_warning("SafeConfig: %s (%s)" % [message, path])
 	return ConfigFile.new()
+
+
+## Внутренняя схема может быть новее даже при поддерживаемом внешнем конверте.
+## Повторная попытка записи не должна повторять одно и то же предупреждение.
+static func refuse_newer_version(path: String) -> void:
+	if not _blocked.has(path) or notices.get(path, "") != NEWER_VERSION:
+		_refuse(path, NEWER_VERSION)
 
 
 static func _read(path: String) -> Dictionary:

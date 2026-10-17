@@ -61,6 +61,7 @@ const _KINDS := {
 	# D-1002: фигура выпущена ЗАРЯЖЕННОЙ (урок кончается действием игрока, а не контуром),
 	# фигура выпущена рогаткой по одной группе, фигура мини-размера
 	"figure_ult": &"figure_ult", "figure_slung": &"figure_slung", "figure_mini": &"figure_mini",
+	"guard_pushed": &"guard_push",
 }
 ## Уроки-фигуры: штрих шаблона, запас армии и зачёт (значение `done` головой вида).
 const FIGURE_KINDS: Array[StringName] = [&"figure", &"figure_ult", &"figure_mini",
@@ -108,6 +109,7 @@ var bot_done := false
 ## world.now, когда текущий урок встал на плашку (LegionIntuit.muted: первые секунды урока
 ## советы молчат все, дальше — только те, что спорят с уроком, B-081).
 var entered_at := 0.0
+var guard_lesson: LegionGuardLesson
 
 var _step := -1
 var _banner: LegionLessonBanner = null
@@ -176,6 +178,7 @@ static func parse(map: Dictionary) -> Array[Dictionary]:
 		var hold: Variant = d.get("hold", false)
 		var when := String(d.get("when", "start"))
 		out.append({
+			"after": StringName(String(d.get("after", ""))),
 			"id": StringName(String(d.get("id", ""))), "when": when, "start": when == "start",
 			"text": String(d.get("text", "")), "voice": StringName(String(d.get("voice", ""))),
 			"done": done, "kind": kind, "arg": arg, "mark": d.get("mark", {}),
@@ -280,6 +283,8 @@ func tick(dt: float) -> void:
 		# KB-06: клавишу переназначили в настройках поверх паузы — плашка называет новую
 		_keys_rev = Controls.revision
 		_banner.retext(step_text(_step))
+		if step_kind() == &"guard_push" and guard_lesson != null:
+			guard_lesson.tick(true)
 		if world.audio != null:
 			world.audio.speech.refresh_tutorial_voice(lesson().get("voice", &""))
 	if _credit:
@@ -429,6 +434,10 @@ func _enter(i: int) -> void:
 	_staff_spawned = 0
 	_absent_t = 0.0
 	var l := lessons[i]
+	if l["kind"] == &"guard_push":
+		if guard_lesson == null:
+			guard_lesson = LegionGuardLesson.new(self)
+		guard_lesson.enter()
 	var again: bool = not l["start"] and _voiced.has(l["id"])
 	match l["kind"]:
 		&"draw":
@@ -526,9 +535,12 @@ func _next() -> void:
 ## Урок пройден: флаг в сохранение (не покажется снова) и дальше.
 func _complete() -> void:
 	var id: StringName = step_id()
+	var guard_done := step_kind() == &"guard_push"
 	_passed[id] = true
 	Campaign.mark_hint_seen(flag(world.map_id, id))
 	_next()
+	if guard_done:
+		world.toast(Controls.text(LegionGuardLesson.DONE_TEXT), &"good")
 
 
 ## Условие урока посреди боя есть сейчас — урок встаёт в очередь; ушло — урок на плашке гаснет.
@@ -581,11 +593,26 @@ func _withdraw() -> void:
 ## (trigger_met) и то, на чём учить, — свободные бойцы для «Сбора», свежий труп для Дубль-вэ,
 ## готовая способность, пустая площадка.
 func present(l: Dictionary) -> bool:
-	if not trigger_met(l):
+	var after: StringName = l.get("after", &"")
+	var after_met := after == &"" or _passed.has(after) \
+		or Campaign.hint_seen(flag(world.map_id, after))
+	if not after_met or not trigger_met(l):
 		return false
+	var available := true
 	match l["kind"]:
+		&"guard_push":
+			if guard_lesson == null:
+				guard_lesson = LegionGuardLesson.new(self)
+			available = guard_lesson.present(l)
 		&"rally":
-			return world.rally_cd <= 0.0 and world.can_pay_ability(LegionCfg.RALLY_SLOT) \
+			# Дать первую возможность оттеснения, но не запирать Сбор за успешным зачётом.
+			if index_of(&"guard_push") >= 0 and not _passed.has(&"guard_push") \
+					and not _voiced.has(&"guard_push"):
+				if guard_lesson == null:
+					guard_lesson = LegionGuardLesson.new(self)
+				available = not guard_lesson.available() \
+					or not guard_lesson.upcoming(lessons[index_of(&"guard_push")])
+			return available and world.rally_cd <= 0.0 and world.can_pay_ability(LegionCfg.RALLY_SLOT) \
 				and idle_cluster() >= LessonsCfg.RALLY_MIN
 		&"hero_w":
 			return _slot_ready(l) and target_corpse() != null
@@ -594,7 +621,7 @@ func present(l: Dictionary) -> bool:
 		&"stun_hit":
 			# есть кого сорвать — или Ку готова, чтобы оглушить
 			return _slot_ready(l) or stunned_foe() != null
-	return true
+	return available
 
 
 ## То, чему учит урок посреди боя, уже сделано в этом бою (постройка этого вида стоит, предмет
@@ -680,6 +707,7 @@ func _set_hold(on: bool, secs: float) -> void:
 
 
 func _finish(completed: bool) -> void:
+	_clear_guard_lesson()
 	var was_start := _step >= 0 and bool(lessons[_step]["start"])
 	if _skip_requested:
 		for l in lessons:
@@ -705,6 +733,12 @@ func _finish(completed: bool) -> void:
 	finished.emit()
 
 
+func _clear_guard_lesson() -> void:
+	if guard_lesson != null:
+		guard_lesson.tut = null
+		guard_lesson = null
+
+
 func _all_start() -> bool:
 	for l in lessons:
 		if not l["start"]:
@@ -715,6 +749,7 @@ func _all_start() -> bool:
 ## Отписка сигналов и снос плашки — без отметки «пройдено» (зовёт world._clear() на рестарте
 ## карты и go_to_menu(), когда уроки прервали, а не прошли/пропустили).
 func teardown() -> void:
+	_clear_guard_lesson()
 	active = false
 	if world != null and world.audio != null:
 		# реплика урока, звучащая сейчас, — тоже прочь (конец боя, рестарт, меню)
@@ -774,6 +809,8 @@ func _tick_material(dt: float) -> bool:
 	var moved := false
 	_staff_t -= dt
 	match step_kind():
+		&"guard_push":
+			guard_lesson.tick()
 		&"draw", &"figure", &"figure_ult", &"figure_mini", &"figure_slung":
 			if hold:
 				world.contracts.mana = world.contracts.mana_max

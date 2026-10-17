@@ -29,12 +29,12 @@ const ITEMS_SKIP: Array[String] = [
 ]
 
 
-## Сверка полей классов (тест): [скрипт, учтённые имена]. У LegionItemEffects полей нет —
+## Сверка полей классов (тест): [скрипт, учтённые имена]. Ссылки Effects не сериализуются —
 ## новое поле без решения уронит тест.
 static func coverage() -> Array:
 	return [
 		[LegionItems, ITEMS_SAVED + ITEMS_SKIP],
-		[LegionItemEffects, ["world", "items"]],
+		[LegionItemEffects, ["world", "items", "_items_ref"]],
 	]
 
 

@@ -30,6 +30,7 @@ extends SceneTree
 ##     догоняет применённый ход, а не застревает;
 ## 12) ревью 03.10 (3): снимок больше предела — судья слать не будет, ретранслятор по «heal_fail»
 ##     сразу снимает ожидание (без 60 с) и пишет игроку «разошёлся».
+## 13) slow/net-rejoin: снимок, пришедший во время досылки хвоста после возврата (RESYNC), принят.
 ## Итог «LEGION NET HEAL: N/M OK», код выхода 1 при провале.
 ##
 
@@ -73,6 +74,7 @@ func _run() -> void:
 	_test_relay_forged_healed()
 	_test_relay_heal_fail()
 	await _test_ack_jump()
+	await _test_heal_resync()
 	Campaign.reset()
 	print("LEGION NET HEAL: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails > 0 else 0)
@@ -325,6 +327,33 @@ func _test_heal() -> void:
 
 ## 6) Клиент ещё бьётся в разошедшемся бою, а у судьи матч решён: снимок решённого матча кончает
 ## бой клиента один раз — итогом судьи от стороны клиента.
+## 13) slow/net-rejoin (живая проба net_rejoin.sh healcut 11.10): снимок судьи пришёл, пока
+## вернувшийся клиент досылает хвост своих ходов (RESYNC), — подтяжка принимается, как в бою;
+## прежде «матч не идёт»: отказ, подтяжка потрачена зря, расхождение ждало следующей.
+func _test_heal_resync() -> void:
+	print("— снимок судьи во время досылки после переподключения")
+	var j := await _new_world()
+	j.start_net_match(MAP, SEED, 0)
+	var c := await _new_world()
+	c.start_net_match(MAP, SEED, 1)
+	_setup_judge(j)
+	var s := _client(c)
+	await _lock(j, c, s, 300)
+	c.sides[0].cauldron_hp -= 1.0
+	await _lock(j, c, s, 60)
+	var snap := _wire(j.snapshot())
+	await _lock(j, c, s, 30)
+	s.stage = NetSession.Stage.RESYNC
+	s._rejoin.start_resend(s._next_out, Time.get_ticks_msec())
+	var why := s.heal(snap)
+	_check(why == "" and _same(j, c) and s.stage == NetSession.Stage.RESYNC,
+		"снимок в RESYNC принят, клиент вровень с судьёй, досылка продолжается%s"
+			% ("" if why == "" else " — " + why))
+	await _free(s)
+	await _free(j)
+	await _free(c)
+
+
 func _test_decided() -> void:
 	print("— снимок решённого матча в клиента, который ещё в бою")
 	var j := await _new_world()

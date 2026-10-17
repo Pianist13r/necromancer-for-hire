@@ -45,6 +45,10 @@ var audio: LegionAudio = null
 ## flow-тест ведёт игру, эмитируя сигналы прямо у этого узла, как реальные клики.
 var screen: Control = null
 var _loading_battle := false
+## Истинно только для сюжетного выхода Прораба, запущенного началом боя.
+var _boss_intro_waiting := false
+## Возврат в меню отменяет ещё не завершившуюся подготовку и её callback.
+var _battle_request_generation := 0
 ## Аргументы командной строки из `_ready()`: `_ensure_audio()` создаёт узел до появления `world`.
 var _args: Dictionary = {}
 var _pause_screen: LegionPause = null
@@ -192,6 +196,9 @@ func _ensure_audio() -> LegionAudio:
 # ── Экраны кампании ────────────────────────────────────────────────────────
 
 func show_menu() -> void:
+	_battle_request_generation += 1
+	_loading_battle = false
+	_boss_intro_waiting = false
 	# mode: меню — всегда кампания (забег продолжает жить в своей секции сохранения, «Продолжить
 	# забег» перечитает его заново при следующем входе в _start_endless_flow()). Пауза → «Меню»
 	# посреди забега не проходит через _on_match_ended (verifier 27.09, п.1) — снимаем флаг здесь
@@ -294,9 +301,15 @@ func show_briefing(map_id: String, on_back: Callable = Callable()) -> void:
 ## КАМПАНИИ явно ставит СВОЙ режим у себя же — сбрасывает _in_endless_battle и Campaign-scope,
 ## а не наследует их от того, что шло до него (в т.ч. от забега, из которого вышли паузой в
 ## меню, минуя _on_match_ended).
+func battle_preparation_pending() -> bool:
+	return _loading_battle or _boss_intro_waiting
+
+
 func request_battle(map_id: String, on_back: Callable = Callable()) -> void:
 	if _loading_battle:
 		return
+	_battle_request_generation += 1
+	var request_generation := _battle_request_generation
 	if world != null:
 		start_battle(map_id)
 		return
@@ -305,6 +318,8 @@ func request_battle(map_id: String, on_back: Callable = Callable()) -> void:
 	var loading := _make_battle_loading()
 	_set_screen(loading)
 	var prepared: bool = await loading.call("prepare")
+	if request_generation != _battle_request_generation:
+		return
 	_loading_battle = false
 	if not prepared:
 		show_briefing(map_id, on_back)
@@ -326,6 +341,7 @@ func _make_battle_loading() -> Control:
 
 func start_battle(map_id: String) -> void:
 	if _settle_abandoned_daily():
+		_boss_intro_waiting = false
 		return
 	_in_endless_battle = false
 	_in_collection_battle = false
@@ -333,9 +349,11 @@ func start_battle(map_id: String) -> void:
 	# Пакет cuts: выход Прораба — перед боем на его карте, один раз за сессию.
 	if _has_boss(map_id) and not _boss_cutscene_shown:
 		_boss_cutscene_shown = true
+		_boss_intro_waiting = true
 		# голос — тем же узлом, который уже озвучивал экраны кампании (до первого боя он ещё
 		# не встроен в мир, но живой и играющий)
-		_play_cutscene(_boss_frames(), _ensure_audio(), func() -> void: start_battle(map_id))
+		_play_cutscene(_boss_frames(), _ensure_audio(),
+			_continue_boss_battle.bind(map_id, _battle_request_generation))
 		return
 	_teardown_screen()
 	_ensure_world()
@@ -349,9 +367,15 @@ func start_battle(map_id: String) -> void:
 	# A1: подготовка «Конторы» — в бой ДО старта вместе со списанием (J3: без него — даром).
 	world.battle_preparation = RunProgression.consume_preparation_for_battle()
 	world.start_map(map_id)
+	_boss_intro_waiting = false
 	# Кампания v20 (D-0926-46): у каждой карты свои уроки (поле lessons её JSON) — ещё не пройденные
 	# идут поверх боя; флаги уроков в сохранении не дают показать урок повторно (TUTORIAL_SPEC.md).
 	world.start_lessons()
+
+
+func _continue_boss_battle(map_id: String, request_generation: int) -> void:
+	if request_generation == _battle_request_generation and _boss_intro_waiting:
+		start_battle(map_id)
 
 
 ## Мир создаётся один раз на сеанс и переживает и кампанию, и «Бесконечный подряд» (mode line):
@@ -418,6 +442,7 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 		_in_endless_battle = false
 		_on_endless_match_ended(victory, stats)
 		return
+	var debrief_available := _debrief_available()
 	var map_id := world.map_id
 	var max_hp: float = maxf(1.0, world.cauldron_max)
 	var ratio := clampf(float(stats.get("hp", 0.0)) / max_hp, 0.0, 1.0)
@@ -445,6 +470,9 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 
 	var view_stats := {
 		"map_title": String(world.map.get("title", map_id)),
+		# Этап 5 ROADMAP: следствие победы — поле `aftermath` JSON карты (карты 1–7). Только здесь,
+		# в кампании: забег/Схватка/коллекция строят свои stats и строки не получают.
+		"aftermath": String(world.map.get("aftermath", "")),
 		"cauldron_hp": float(stats.get("hp", 0.0)),
 		"cauldron_max": max_hp,
 		"kills": int(stats.get("kills", 0)),
@@ -454,6 +482,7 @@ func _on_match_ended(victory: bool, stats: Dictionary) -> void:
 		"releases": int(stats.get("releases", 0)),
 		"releases_manual": int(stats.get("releases_manual", 0)),
 		"debrief": stats.get("debrief", {}),
+		"debrief_available": debrief_available,
 		"time": float(stats.get("t", 0.0)),
 		"record": record,
 	}
@@ -610,9 +639,39 @@ func show_endless_briefing() -> void:
 	_set_screen(b)
 	b.call_deferred("populate", data, k, LegionRunStore.endless_tenure(_endless_daily),
 		LegionRunStore.endless_souls(_endless_daily), _endless_daily, LegionRunStore.endless_daily_date())
-	b.start.connect(_start_endless_battle)
+	b.start.connect(request_endless_battle)
 	b.back.connect(show_menu)
 	b.prep_bought.connect(_voice_prep_bought)
+
+
+## Холодный мир готовится за видимым загрузчиком; до успеха забег не расходует подготовку
+## и не закрепляет сложность/открытый объект дня. Тёплый путь остаётся синхронным.
+func request_endless_battle(map_id: String) -> void:
+	if _loading_battle:
+		return
+	_battle_request_generation += 1
+	var request_generation := _battle_request_generation
+	if world != null:
+		_start_endless_battle(map_id)
+		return
+	_loading_battle = true
+	_teardown_screen()
+	var loading := _make_battle_loading()
+	_set_screen(loading)
+	var prepared: bool = await loading.call("prepare")
+	if request_generation != _battle_request_generation:
+		return
+	_loading_battle = false
+	if not prepared:
+		show_endless_briefing()
+		var notice := AcceptDialog.new()
+		notice.dialog_text = I18n.t("Не удалось подготовить бой. Попробуйте ещё раз.")
+		add_child(notice)
+		notice.confirmed.connect(notice.queue_free)
+		notice.canceled.connect(notice.queue_free)
+		notice.popup_centered()
+		return
+	_start_endless_battle(map_id)
 
 
 ## mode (verifier 27.09, п.1): бой забега ЯВНО ставит СВОЙ режим у себя — по _endless_daily, не по
@@ -676,6 +735,7 @@ func _notification(what: int) -> void:
 ## «Дальше». Пауза → «Заново» на счёт не влияет: restart() зовёт start_map() напрямую, минуя
 ## endless_object_won().
 func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
+	var debrief_available := _debrief_available()
 	var map_title := String(world.map.get("title", world.map_id))
 	# D-0927-162: «В коллекцию» и с итога/некролога, не только из паузы — та же проверка id.
 	var collectible := _collectible_map_id(world.map_id)
@@ -683,6 +743,7 @@ func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
 		var last_type := String(stats.get("last_hit_foe_type", ""))
 		var report := LegionRunStore.endless_end_run()
 		report["debrief"] = stats.get("debrief", {})
+		report["debrief_available"] = debrief_available
 		Campaign.use_campaign_scope()
 		_show_necrolog(report, last_type, map_title, collectible)
 		return
@@ -710,6 +771,7 @@ func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
 		"souls": LegionRunStore.endless_souls(_endless_daily),
 		"bounty": bounty_earned,
 		"debrief": stats.get("debrief", {}),
+		"debrief_available": debrief_available,
 	}
 	LegionKassa.grant(true, stats, view_stats)   # «Касса»: в премию забега и строкой на итоге
 	Campaign.end_update()   # J2: как и в кампании — не откатываем, повтор кнопкой на плашке
@@ -721,6 +783,16 @@ func _on_endless_match_ended(victory: bool, stats: Dictionary) -> void:
 	r.menu.connect(show_menu)
 	if collectible:
 		r.collect_pressed.connect(func() -> void: LegionCollectionFlow.save_current(self))
+
+
+## Снимок инструментов завершённого боя до наград и переключения scope.
+## Только данные экрана: не пишем в сохранение и не восстанавливаем их догадкой.
+func _debrief_available() -> Dictionary:
+	var available := {}
+	for key: StringName in [&"kind_unlocked_guard", &"ability_unlocked_e",
+			&"kind_unlocked_clerk", &"ability_unlocked_q"]:
+		available[String(key)] = world.camp_stat(key) > 0.5
+	return available
 
 
 func _show_necrolog(report: Dictionary, foe_type: String, map_title: String,

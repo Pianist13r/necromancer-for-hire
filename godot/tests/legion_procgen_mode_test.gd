@@ -70,8 +70,8 @@ func _check_daily_seed() -> void:
 	var s3 := LegionEndless.daily_seed("2026-09-28")
 	_check(s1 == s2, "daily_seed одинаков для одной и той же даты")
 	_check(s1 != s3, "daily_seed различается для разных дат")
-	_check(LegionEndless.daily_seed("2026-10-08") == 4280396687,
-		"эталон сида 08.10 для генератора 2")
+	_check(("daily|2026-10-08|2").hash() == 4280396687,
+		"исторический эталон сида 08.10 для генератора 2")
 
 
 func _check_generator_version() -> void:
@@ -83,7 +83,8 @@ func _check_generator_version() -> void:
 			Campaign.use_endless_scope()
 		LegionRunStore.endless_start(7, "2026-10-08" if daily else "")
 		Campaign.set_save_path(TEST_PATH)  # перечитать с диска, а не из кэша
-		_check(LegionRunStore.procgen_version(daily) == 2, "версия забега пережила загрузку")
+		_check(LegionRunStore.procgen_version(daily) == ProcGen.VERSION,
+			"версия забега пережила загрузку")
 		var fixture := {"id": "gen:7:1", "hint": "Подсказка."}
 		_check(LegionRunStore.annotate_generated(fixture.duplicate()).hint == "Подсказка.",
 			"совпавшая версия не создаёт предупреждения")
@@ -103,23 +104,28 @@ func _check_generator_version() -> void:
 	_check(LegionRunStore.annotate_generated({"id": "gen:7:1", "hint": "x"}).hint == "x",
 		"предупреждение не попадает в коллекцию")
 	Campaign.use_daily_scope()
-	# Дневная попытка v1 продолжается: вход в тот же день v2 закрывает именно старую.
+	# Дневная попытка v1 продолжается: вход в тот же день новой версии закрывает старую.
 	LegionRunStore.endless_object_won(25)
-	_check(LegionRunStore.daily_enter("2026-10-08"), "версия 2 открывает собственную попытку дня")
+	_check(LegionRunStore.daily_enter("2026-10-08"),
+		"новая версия открывает собственную попытку дня")
 	var done: Dictionary = Campaign.raw_file().get_value(Campaign.DAILY_SECTION, "done_dates", {})
-	_check(done.has("2026-10-08|v1") and not done.has("2026-10-08|v2"),
+	_check(done.has("2026-10-08|v1") and not done.has(LegionRunStore.daily_key("2026-10-08")),
 		"незавершённый старый день записан под старой версией")
-	_check(LegionRunStore.endless_seed(true) == 4280396687, "новая попытка получила эталонный сид")
-	_check(not LegionRunStore.daily_attempt_done("2026-10-08"), "v1 не закрыла v2")
+	_check(LegionRunStore.endless_seed(true) == LegionEndless.daily_seed("2026-10-08"),
+		"новая попытка получила сид текущей версии")
+	_check(not LegionRunStore.daily_attempt_done("2026-10-08"), "v1 не закрыла новую версию")
 	LegionRunStore.endless_object_won(50)
 	LegionRunStore.endless_end_run()
 	Campaign.set_save_path(TEST_PATH)
-	_check(LegionRunStore.daily_attempt_done("2026-10-08"), "v2 закрыта после перезагрузки")
-	_check(not LegionRunStore.daily_enter("2026-10-08"), "повтор v2 в тот же день запрещён")
-	_check(LegionRunStore.daily_done_result("2026-10-08").souls == 50, "итог относится к v2")
-	_check(LegionRunStore.endless_best_souls("2026-10-08") == 50, "рекорд относится к v2")
+	_check(LegionRunStore.daily_attempt_done("2026-10-08"), "новая версия закрыта после перезагрузки")
+	_check(not LegionRunStore.daily_enter("2026-10-08"), "повтор новой версии в тот же день запрещён")
+	_check(LegionRunStore.daily_done_result("2026-10-08").souls == 50,
+		"итог относится к новой версии")
+	_check(LegionRunStore.endless_best_souls("2026-10-08") == 50,
+		"рекорд относится к новой версии")
 	_check(LegionRunStore._record_key(true, "2026-10-08", "normal", 1)
-		!= LegionRunStore._record_key(true, "2026-10-08", "normal", 2), "ключи рекордов разделены")
+		!= LegionRunStore._record_key(true, "2026-10-08", "normal", ProcGen.VERSION),
+		"ключи рекордов разделены")
 	Campaign.reset()
 	Campaign.use_campaign_scope()
 

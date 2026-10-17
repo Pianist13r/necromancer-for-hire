@@ -29,7 +29,10 @@ const PHASE_DECIDED := -1
 ## Ключи --dev, которые меняют только вид (у сервера noview=1, у клиента — нет): в сверку
 ## совместимости не входят и при подготовке у мира остаются свои.
 ## intuit и save — из LegionWorld.NET_DEV_KEEP («только вид»: подсказки и путь сохранения).
-const VIEW_DEV_KEYS: Array[String] = ["noview", "gfx", "fx", "corr", "intuit", "save"]
+## escort_trace — локальная dev-трасса свиты (B-478): только печать, бой её не читает; снимок
+## её не переносит и из-за неё мир не перестраивает (сетевой матч её всё равно снимает).
+const VIEW_DEV_KEYS: Array[String] = ["noview", "gfx", "fx", "corr", "intuit", "save",
+	"escort_trace"]
 ## Ключи args, влияющие на бой: кто из сторон бот.
 const SIM_ARGS: Array[String] = ["pvp_bots", "bot"]
 
@@ -56,6 +59,7 @@ const WORLD_OTHER_CHUNKS: Array[String] = [
 	"items",                                             # К6 (артефакты стороны 0)
 ]
 const WORLD_SKIP: Array[String] = [
+	"qa_solo_capture", # QA-only passive Callable; diagnostic owner retains the sink.
 	"harmony",   # вид: кэш цветов итоговой подложки, пересоздаётся через _build_ground
 	# сторона 0 (_s0 = sides[0]) и прокси к ней (К1)
 	"_s0", "cauldron_hp", "cauldron_max", "cauldron_pos", "cauldron_view_pos", "souls", "rally_cd",
@@ -69,6 +73,8 @@ const WORLD_SKIP: Array[String] = [
 	"battle_preparation", "amendment_runtime",
 	# пауза экрана и «думает над ходом» (переписка) — этого клиента
 	"paused", "hold",
+	# локальный хозяин corr: реакция на потерю OS-фокуса, не состояние боя
+	"synthetic_input",
 	# только одиночный бой: обучение и бот одиночки (в «Схватке» null; save предупреждает)
 	"tutorial", "bot", "_lessons_force", "_pending_ground_lessons",
 	"_pending_ground_lessons_force", "_pending_ground_lessons_generation",
@@ -88,6 +94,9 @@ const WORLD_SKIP: Array[String] = [
 	"_trace_t", "_frames", "_bench_s", "_bench_el", "_bench_n", "_bench_tick_us",
 	# разделы шага мира (трек оптимизации 11.10, D-1010-P1): в игре выключено, бой не читает
 	"prof_on", "prof", "_prof_t",
+	# dev-трасса свиты Прораба (B-478): печатает, бой не читает; её метку на врагах несёт
+	# снимок врагов (meta); load_snapshot закрывает отрезок трассы и открывает новый
+	"escort_trace",
 	"_bench_ticks", "_bench_wall0", "_shot_path", "_shot_frame",
 ]
 const SIDE_SAVED: Array[String] = [

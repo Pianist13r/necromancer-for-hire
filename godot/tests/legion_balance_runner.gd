@@ -114,13 +114,17 @@ class BalanceWorld extends LegionWorld:
 		var f := super._add_foe(type, path, opts)
 		if type == "ghost" and dev.has("ghost_speed"):
 			f.speed = float(dev["ghost_speed"])
-		if type == "boss" and dev.has("boss_hp"):
-			f.hp = float(dev["boss_hp"])
-			f.max_hp = f.hp
+		if type == "boss" and (dev.has("boss_hp") or dev.has("escort_n")):
+			# Foe.setup берёт общий LegionCfg.FOES: рычаги — только в копии конкретного босса.
 			f.def = f.def.duplicate()
-			f.def["ram_cd"] = float(dev.get("ram_cd", f.def["ram_cd"]))
-			f.def["dmg"] = float(dev.get("boss_dmg", f.def["dmg"]))
-			f.def["ram_dmg"] = float(dev.get("ram_dmg", f.def["ram_dmg"]))
+			if dev.has("boss_hp"):
+				f.hp = float(dev["boss_hp"])
+				f.max_hp = f.hp
+				f.def["ram_cd"] = float(dev.get("ram_cd", f.def["ram_cd"]))
+				f.def["dmg"] = float(dev.get("boss_dmg", f.def["dmg"]))
+				f.def["ram_dmg"] = float(dev.get("ram_dmg", f.def["ram_dmg"]))
+			if dev.has("escort_n"):
+				f.def["escort"] = int(dev["escort_n"])
 		return f
 
 

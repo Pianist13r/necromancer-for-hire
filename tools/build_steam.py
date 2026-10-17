@@ -3,6 +3,7 @@
 
 Шаблоны достаются из уже скачанного официального архива (.tpz, SHA512 сверен 08.10) в песочницу
 APPDATA — в %APPDATA% владельца ничего не ставится (как tools/build_linux.py). Скачивания нет.
+Одноразовая песочница удаляется и при ошибке; сборка и журналы остаются в dist/steam/.
 Результат — депо SteamPipe (tools/steam/*.vdf):
     dist/steam/windows/Necromancer.exe      pck вшит, иконка и свойства файла из пресета
     dist/steam/linux/Necromancer.x86_64     pck вшит
@@ -257,78 +258,80 @@ def main() -> None:
     for d in (win_exe.parent, linux_bin.parent, logs):
         d.mkdir(parents=True, exist_ok=True)
 
-    sandbox = Path(tempfile.mkdtemp(prefix="necro-steam-"))
-    appdata = sandbox / "appdata"
-    tdir = appdata / TEMPLATE_DIR
-    tdir.mkdir(parents=True)
-    with zipfile.ZipFile(tpz) as z:
-        for name in NEED:
-            (tdir / Path(name).name).write_bytes(z.read(name))
-    env = {**os.environ, "APPDATA": str(appdata), "NECRO_NO_DEV_BRIDGE": "1",
-           "NECRO_NO_METRICS": "1"}
-    print(f"[build] версия {version} → {numeric}; песочница {sandbox}")
+    # TemporaryDirectory cleans only this invocation's sandbox, including on failure.
+    with tempfile.TemporaryDirectory(prefix="necro-steam-") as sandbox_dir:
+        sandbox = Path(sandbox_dir)
+        appdata = sandbox / "appdata"
+        tdir = appdata / TEMPLATE_DIR
+        tdir.mkdir(parents=True)
+        with zipfile.ZipFile(tpz) as z:
+            for name in NEED:
+                (tdir / Path(name).name).write_bytes(z.read(name))
+        env = {**os.environ, "APPDATA": str(appdata), "NECRO_NO_DEV_BRIDGE": "1",
+               "NECRO_NO_METRICS": "1"}
+        print(f"[build] версия {version} → {numeric}; песочница {sandbox}")
 
-    base = [godot, "--headless", "--path", REPO / "godot", "--fixed-fps", "60"]
-    if not a.skip_import:
-        print("[build] import")
-        if run([*base, "--import", "--", "--mute"], env, logs / "import.log"):
-            fail(f"импорт, журнал {logs / 'import.log'}")
-    for preset, out, log in ((WIN_PRESET, win_exe, "export-windows.log"),
-                             (LINUX_PRESET, linux_bin, "export-linux.log")):
-        print(f"[build] export-release {preset}")
-        code = run([*base, "--export-release", preset, out, "--", "--mute"], env, logs / log)
-        if code or not out.is_file():
-            fail(f"экспорт {preset} (код {code}), журнал {logs / log}")
-        if out.stat().st_size < 50 * 2**20:
-            fail(f"подозрительно мал: {out} ({out.stat().st_size} байт)")
-        if out.read_bytes()[-4:] != b"GDPC":
-            fail(f"в конце {out.name} нет вшитого pck (GDPC)")
+        base = [godot, "--headless", "--path", REPO / "godot", "--fixed-fps", "60"]
+        if not a.skip_import:
+            print("[build] import")
+            if run([*base, "--import", "--", "--mute"], env, logs / "import.log"):
+                fail(f"импорт, журнал {logs / 'import.log'}")
+        for preset, out, log in ((WIN_PRESET, win_exe, "export-windows.log"),
+                                 (LINUX_PRESET, linux_bin, "export-linux.log")):
+            print(f"[build] export-release {preset}")
+            code = run([*base, "--export-release", preset, out, "--", "--mute"], env, logs / log)
+            if code or not out.is_file():
+                fail(f"экспорт {preset} (код {code}), журнал {logs / log}")
+            if out.stat().st_size < 50 * 2**20:
+                fail(f"подозрительно мал: {out} ({out.stat().st_size} байт)")
+            if out.read_bytes()[-4:] != b"GDPC":
+                fail(f"в конце {out.name} нет вшитого pck (GDPC)")
 
-        packed = re.findall(r"savepack\S* \| [^:]*: (res://\S+?)(?:\x1b|\s|$)",
-                            (logs / log).read_text(encoding="utf-8", errors="replace"))
-        leaked = leaked_files(packed, preset_options(preset).get("exclude_filter", ""))
-        if len(packed) < 1000 or leaked:
-            fail(f"{preset}: в pck {len(packed)} файлов, лишние: {leaked[:5]} — журнал {logs / log}")
-        print(f"[build] {preset}: в pck {len(packed)} файлов, исключённое не попало")
+            packed = re.findall(r"savepack\S* \| [^:]*: (res://\S+?)(?:\x1b|\s|$)",
+                                (logs / log).read_text(encoding="utf-8", errors="replace"))
+            leaked = leaked_files(packed, preset_options(preset).get("exclude_filter", ""))
+            if len(packed) < 1000 or leaked:
+                fail(f"{preset}: в pck {len(packed)} файлов, лишние: {leaked[:5]} — журнал {logs / log}")
+            print(f"[build] {preset}: в pck {len(packed)} файлов, исключённое не попало")
 
-    # Проба 1: версия и фичи изнутри сборки (`--script` release-шаблон игнорирует — через игру).
-    probe_log = logs / "probe-build.log"
-    code = run([win_exe, "--headless", "--", "--mute", "--dev", "build_probe=1"], env, probe_log,
-               timeout=120)
-    probe = probe_log.read_text(encoding="utf-8", errors="replace")
-    want = f"PROBE version={version} steam=true is_steam=true ship=true debug=false"
-    if code or want not in probe:
-        fail(f"проба сборки (код {code}): ждали «{want}», журнал {probe_log}")
+        # Проба 1: версия и фичи изнутри сборки (`--script` release-шаблон игнорирует — через игру).
+        probe_log = logs / "probe-build.log"
+        code = run([win_exe, "--headless", "--", "--mute", "--dev", "build_probe=1"], env, probe_log,
+                   timeout=120)
+        probe = probe_log.read_text(encoding="utf-8", errors="replace")
+        want = f"PROBE version={version} steam=true is_steam=true ship=true debug=false"
+        if code or want not in probe:
+            fail(f"проба сборки (код {code}): ждали «{want}», журнал {probe_log}")
 
-    # Проба 2: запуск игры как у игрока, но на своём сохранении и в песочнице, 300 кадров.
-    game_log = logs / "probe-game.log"
-    code = run([win_exe, "--headless", "--quit-after", "300", "--", "--mute", "--dev",
-                "save=user://steam_probe.cfg"], env, game_log, timeout=300)
-    game = game_log.read_text(encoding="utf-8", errors="replace")
-    bad = [ln for ln in game.splitlines() if BAD_LOG.search(ln)]
-    if code or bad:
-        fail(f"запуск игры (код {code}), ошибок {len(bad)}: {bad[:3]} — журнал {game_log}")
+        # Проба 2: запуск игры как у игрока, но на своём сохранении и в песочнице, 300 кадров.
+        game_log = logs / "probe-game.log"
+        code = run([win_exe, "--headless", "--quit-after", "300", "--", "--mute", "--dev",
+                    "save=user://steam_probe.cfg"], env, game_log, timeout=300)
+        game = game_log.read_text(encoding="utf-8", errors="replace")
+        bad = [ln for ln in game.splitlines() if BAD_LOG.search(ln)]
+        if code or bad:
+            fail(f"запуск игры (код {code}), ошибок {len(bad)}: {bad[:3]} — журнал {game_log}")
 
-    # После проб: они проверили запуск без GodotSteam (так игра обязана работать всегда).
-    steam_note = stage_godotsteam(None if a.no_godotsteam else a.godotsteam.resolve(),
-                                  {"windows": win_exe.parent, "linux": linux_bin.parent}, logs)
-    for d in (win_exe.parent, linux_bin.parent):
-        copy_licenses(d)
-    pe = pe_info(win_exe)
-    files = sorted(p for p in dist.rglob("*") if p.is_file() and p.parent != logs)
-    sums = [f"{sha256(p)}  {p.relative_to(dist).as_posix()}" for p in files]
-    (dist / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
+        # После проб: они проверили запуск без GodotSteam (так игра обязана работать всегда).
+        steam_note = stage_godotsteam(None if a.no_godotsteam else a.godotsteam.resolve(),
+                                      {"windows": win_exe.parent, "linux": linux_bin.parent}, logs)
+        for d in (win_exe.parent, linux_bin.parent):
+            copy_licenses(d)
+        pe = pe_info(win_exe)
+        files = sorted(p for p in dist.rglob("*") if p.is_file() and p.parent != logs)
+        sums = [f"{sha256(p)}  {p.relative_to(dist).as_posix()}" for p in files]
+        (dist / "SHA256SUMS.txt").write_text("\n".join(sums) + "\n", encoding="utf-8")
 
-    probe_lines = [ln for ln in probe.splitlines() if ln.startswith("PROBE")]
-    rows = "\n".join(f"| {p.relative_to(dist).as_posix()} | {p.stat().st_size:,} | "
-                     f"{p.stat().st_size / 2**20:.1f} МБ |".replace(",", " ")
-                     for p in (win_exe, linux_bin))
-    pe_rows = "\n".join(f"- {k}: {v}" for k, v in sorted(pe.items()))
-    commit = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
-                            capture_output=True, text=True).stdout.strip()
-    dirty = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "--untracked-files=no"],
-                           capture_output=True, text=True).stdout.strip()
-    (dist / "BUILD.md").write_text(f"""# Steam-сборка {version}
+        probe_lines = [ln for ln in probe.splitlines() if ln.startswith("PROBE")]
+        rows = "\n".join(f"| {p.relative_to(dist).as_posix()} | {p.stat().st_size:,} | "
+                         f"{p.stat().st_size / 2**20:.1f} МБ |".replace(",", " ")
+                         for p in (win_exe, linux_bin))
+        pe_rows = "\n".join(f"- {k}: {v}" for k, v in sorted(pe.items()))
+        commit = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
+                                capture_output=True, text=True).stdout.strip()
+        dirty = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "--untracked-files=no"],
+                               capture_output=True, text=True).stdout.strip()
+        (dist / "BUILD.md").write_text(f"""# Steam-сборка {version}
 
 Собрано {time.strftime('%d.%m.%Y %H:%M %z')} скриптом tools/build_steam.py; коммит {commit}{' (+ незакоммиченные правки)' if dirty else ''}.
 Шаблоны: {tpz.name} (release-шаблоны 4.7.2), фичи пресетов: ship, steam.
@@ -351,14 +354,14 @@ def main() -> None:
 Контрольные суммы — SHA256SUMS.txt; журналы — logs/.
 """, encoding="utf-8")
 
-    print(f"[OK] {win_exe} {win_exe.stat().st_size / 2**20:.1f} МБ")
-    print(f"[OK] {linux_bin} {linux_bin.stat().st_size / 2**20:.1f} МБ")
-    for ln in probe_lines:
-        print(f"[OK] {ln}")
-    print(f"[{'OK' if steam_note.startswith('GodotSteam') else 'WARN'}] Steam-сеть: {steam_note}")
-    for k, v in sorted(pe.items()):
-        print(f"     {k}: {v}")
-    print(f"[OK] {dist / 'BUILD.md'}; песочница (не удаляется): {sandbox}")
+        print(f"[OK] {win_exe} {win_exe.stat().st_size / 2**20:.1f} МБ")
+        print(f"[OK] {linux_bin} {linux_bin.stat().st_size / 2**20:.1f} МБ")
+        for ln in probe_lines:
+            print(f"[OK] {ln}")
+        print(f"[{'OK' if steam_note.startswith('GodotSteam') else 'WARN'}] Steam-сеть: {steam_note}")
+        for k, v in sorted(pe.items()):
+            print(f"     {k}: {v}")
+        print(f"[OK] {dist / 'BUILD.md'}")
 
 
 if __name__ == "__main__":

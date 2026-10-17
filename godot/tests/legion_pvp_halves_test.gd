@@ -92,6 +92,24 @@ const GOLDEN := {
 	"8:9": "6e1038af920ded0b",
 }
 
+## Исходные 48 GOLDEN — полный словарь v2. У восьми карт v3 намеренно меняет раскладку:
+## все восемь имели дорогу с волной без собственного front; фиксированный v2/v3 JSON-diff
+## лежит в QA 2026-10-15-procgen-road-coverage/pvp-golden-comparison.json.
+## Хэш кандидата считаем с ТОЛЬКО полем procgen.version, временно поставленным в 2;
+## реальные карты обязаны оставаться с текущей версией генератора. Остальные 40 сверяются с
+## исходным GOLDEN. v4 меняет только расстановку front на PvP-половинах (B532), поэтому
+## одиночные карты при нормализации одного поля metadata остаются равны v2/v3 эталонам.
+const V3_NORMALIZED_V2_METADATA_GOLDEN := {
+	"13:1": "f06f0830ec0ae55d",
+	"13:4": "d5279a2fea99c03e",
+	"1:9": "1fbebfe6b8ee2da1",
+	"21:1": "96c7b7f9b74c30f4",
+	"34:9": "af13bfbb89512e6d",
+	"3:1": "e87db8b054a325ee",
+	"5:2": "237fd01c26e32117",
+	"8:1": "98ad49156218491c",
+}
+
 var _checks := 0
 var _fails := 0
 var _pvp: GDScript = null
@@ -124,13 +142,23 @@ func _check(ok: bool, what: String) -> void:
 
 func _golden(when: String) -> void:
 	var bad: Array[String] = []
+	_check(ProcGen.VERSION == 4, "эталон одиночных карт сохранён при генераторе v4")
 	for key: String in GOLDEN:
-		var want := String(GOLDEN[key])
 		var p := key.split(":")
-		var got := ProcGen.digest(ProcGen.generate(p[0].to_int(), p[1].to_int())).left(16)
+		var map := ProcGen.generate(p[0].to_int(), p[1].to_int())
+		if map.is_empty():
+			bad.append("%s пустая карта" % key)
+			continue
+		if int(map["procgen"].get("version", 0)) != ProcGen.VERSION:
+			bad.append("%s неверная версия %s" % [key, map["procgen"].get("version")])
+		var normalized := map.duplicate(true)
+		normalized["procgen"]["version"] = 2
+		var want := String(V3_NORMALIZED_V2_METADATA_GOLDEN.get(key, GOLDEN[key]))
+		var got := ProcGen.digest(normalized).left(16)
 		if got != want:
 			bad.append("%s %s≠%s" % [key, got, want])
-	_check(bad.is_empty(), "одиночные карты — те же digest, %s: %s" % [when, bad])
+	_check(bad.is_empty(), "одиночные карты — v2 metadata-normalized digest, %s: %s" % [
+		when, bad])
 
 
 # ── 2. поля ──────────────────────────────────────────────────────────────────

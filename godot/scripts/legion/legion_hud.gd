@@ -313,6 +313,31 @@ func _toast_nodes() -> Array[Control]:
 	return out
 
 
+## B-487: тост на экране для щелчка — сам, предки и холсты над ним видимы, итоговая альфа заметна.
+## Спрятанный предком тост сохраняет свой visible: кино-режим прячет столбик, меню мира и
+## режиссёр — HUD и его холст тостов. Раскладка (_free_spot, toast_rects) учитывает и гаснущие,
+## и спрятанные тосты: место за ними держится, пока они живы.
+func _toast_seen(t: Control) -> bool:
+	if not t.is_inside_tree():
+		return false
+	var alpha := t.self_modulate.a
+	var in_layer := true   # модуляция и видимость предков действуют только до своего холста
+	var n: Node = t
+	while n != null:
+		var canvas := n as CanvasLayer
+		if canvas != null:
+			if not canvas.visible:
+				return false
+			in_layer = false
+		var item := n as CanvasItem
+		if in_layer and item != null:
+			if not item.visible:
+				return false
+			alpha *= item.modulate.a
+		n = n.get_parent()
+	return alpha > LegionCfg.HUD_TOAST_TAP_ALPHA
+
+
 ## Сколько тостов ждут закрытия меню участка (тест).
 func queued_toasts() -> int:
 	return _toast_queue.size()
@@ -527,14 +552,18 @@ func _press_call() -> void:
 
 ## B-055: короткий щелчок поля (ContractField._release, экран вьюпорта) по кнопке HUD, которая
 ## сама мышь не ловит, — карточке вида или «Вызвать». true — щелчок разобран (не tap площадки).
-## act=false — только проверить попадание (ничего не нажимать).
-func ui_tap(screen: Vector2, act := true) -> bool:
-	# B-273: щелчок по тосту убирает его (тост мышь не ловит — штрих через него чертится)
-	for t in _toast_nodes():
-		if t.get_global_rect().has_point(screen):
-			if act:
-				t.queue_free()
-			return true
+## act=false — только проверить попадание (ничего не нажимать). plot=true — под точкой площадка,
+## которую откроет меню участка (PlotMenu.takes_tap): тосты такой щелчок не забирают (B-487).
+func ui_tap(screen: Vector2, act := true, plot := false) -> bool:
+	# B-273: щелчок по тосту убирает его (тост мышь не ловит — штрих через него чертится).
+	# B-487: только тост, который игрок видит, и не над площадкой: плашка над площадкой требовала
+	# второго щелчка для меню участка, а спрятанная или прозрачная съедала щелчок поля.
+	if not plot:
+		for t in _toast_nodes():
+			if _toast_seen(t) and t.get_global_rect().has_point(screen):
+				if act:
+					t.queue_free()
+				return true
 	if _kind_bar != null and _kind_bar.tap(screen, act):
 		return true
 	if _call != null and _call.is_visible_in_tree() and _call.get_global_rect().has_point(screen):
@@ -585,7 +614,12 @@ func _update_preview() -> void:
 	if wr.is_climax(wr.index + 1):
 		lines[0] = title.replace(I18n.t("Следующая волна"), I18n.t("[color=#%s]КУЛЬМИНАЦИЯ[/color]")
 			% LegionUi.STAMP.to_html(false))
-		hint = LegionChallenge.answer_hint(wr.next_wave_groups())
+		hint = LegionChallenge.answer_hint(wr.next_wave_groups(), {
+			"kind_unlocked_guard": world.camp_stat(&"kind_unlocked_guard") > 0.5,
+			"ability_unlocked_e": world.camp_stat(&"ability_unlocked_e") > 0.5,
+			"kind_unlocked_clerk": world.camp_stat(&"kind_unlocked_clerk") > 0.5,
+			"ability_unlocked_q": world.camp_stat(&"ability_unlocked_q") > 0.5,
+		})
 		has_hint = hint != ""
 	# Одна строка на ВИД врага, без переносов (B-203): панель ограничена 200 px по нижнему краю
 	# (генератор резервирует под неё только y 0–200), а старая раскладка «вид × ворота» на трёх

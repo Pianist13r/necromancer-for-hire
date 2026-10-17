@@ -44,6 +44,9 @@ func _run() -> void:
 	impact._tick_haste(1.0)
 	_check(impact._haste_tinted.is_empty(), "удалённый боец пропускается без обращения к side")
 	world.hero._haste_units.clear()
+	world.hero.free()
+	world.hero = null
+	side.hero = null
 	world.free()
 	impact.free()
 	view.queue_free()

@@ -1,6 +1,18 @@
 NECROMANCER FOR HIRE — Windows
 Death, guaranteed by contract.
-Alpha version 0.4.1-alpha.
+Alpha version 0.4.2-alpha.
+
+NEW IN 0.4.2
+  Archives and Gatehouse lessons are rewritten: early release cost, Overtime,
+  pushing a shield bearer from the Cauldron; lesson voice lines updated.
+  Audit lanes fire visible homing seals; damage lands on arrival.
+  Victory shows consequences for the next site; the debrief offers a retry.
+  Pause settings, reset confirmation, Dossier Enter and plot clicks fixed;
+  cutscenes match the contractor canon.
+  Endless and Daily cold start shows preparation; daily records are kept
+  per generator version. The shared Daily board is not yet available.
+  Generated maps v4: bot fronts on every road and PvP halves. Online rejoin
+  after a drop (45 s / 90 s). Online needs 0.4.2 on both sides.
 
 NEW IN 0.4.1
   Campaign briefings show a loading screen before the first battle.
@@ -121,7 +133,19 @@ HELP AND LICENSES
 
 НЕКРОМАНТ ПО НАЙМУ (Necromancer for Hire)
 Смерть с гарантией по договору.
-Альфа-версия 0.4.1-alpha.
+Альфа-версия 0.4.2-alpha.
+
+НОВОЕ В 0.4.2
+  Уроки Архива и Проходной переписаны: цена раннего выпуска, «Сверхурочные»,
+  оттеснение щитоносца от Котла; озвучка уроков обновлена.
+  Полосы Аудита выпускают видимые самонаводящиеся печати; урон — по прилёту.
+  После победы показаны последствия для следующего объекта; в разборе — повтор.
+  Исправлены настройки на паузе, подтверждение сброса, Enter в Досье и щелчок
+  по площадке под бумажкой; кат-сцены приведены к канону подрядчиков.
+  Холодный старт «Подряда» и «Вызова дня» показывает подготовку; дневные
+  рекорды — по версии генератора. Общая таблица «Вызова дня» пока недоступна.
+  Генератор карт v4: фронты бота на каждой дороге и половинах PvP. Возврат в
+  онлайн-матч после обрыва (45 с / 90 с). Для онлайна у обоих нужна 0.4.2.
 
 НОВОЕ В 0.4.1
   Перед первым боем из брифинга кампании показывается экран загрузки.

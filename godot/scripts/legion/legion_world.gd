@@ -111,6 +111,8 @@ const TUTORIAL_DRIVER := "res://scripts/dev/legion_tutorial_driver.gd"
 const CORR_PLAY := "res://scripts/dev/corr_play.gd"
 ## Режиссёр записи промо (--dev director=сценарий.json); грузится только по этому ключу.
 const DIRECTOR := "res://scripts/dev/legion_director.gd"
+## B-478: dev-трасса свиты Прораба (--dev escort_trace=1, scripts/legion/escort_trace.gd).
+const ESCORT_TRACE := preload("res://scripts/legion/escort_trace.gd")
 
 ## Пакет flow: true — мир встроен в LegionMain и сам не стартует карту в _ready() (интегратор
 ## сам решает, когда и какую карту начать через start_map()). false (по умолчанию) — старое
@@ -136,6 +138,10 @@ var paused := false
 ## думает над ходом. В отличие от paused, ввод и интерфейс продолжают работать — ход вводится
 ## настоящими событиями в стоящий мир.
 var hold := false
+## Ввод — синтетический (corr_play шлёт события устройством 8, B-505): рука агента не живёт в
+## окне ОС, и потеря фокуса окна (соседний запуск, щелчок владельца в своей игре) не должна рвать
+## начатый ею штрих/натяжку/прицел. Ставит corr_play; у человека всегда false.
+var synthetic_input := false
 ## Подписи HUD идут за камерой (world_to_hud) — ставит только режиссёр записи с крупным планом.
 var hud_follows_camera := false
 var units: Array[Legionnaire] = []
@@ -219,6 +225,8 @@ var bot: LegionBot = null
 var hud: LegionHud = null
 var entities: Node2D = null
 var stats: Dictionary = {}
+## Opt-in diagnostic sink; absent during ordinary play. Never applies commands.
+var qa_solo_capture: Callable = Callable()
 var args: Dictionary = {}
 var dev: Dictionary = {}
 var dev_invuln := false
@@ -302,6 +310,9 @@ var battle_preparation: Dictionary = {}
 ## prof_on = false, и цена — одна проверка на раздел. prof — раздел → мкс нарастающим итогом.
 var prof_on := false
 var prof: Dictionary = {}
+## B-478: трасса свиты Прораба этого боя; null — ключа --dev escort_trace нет (обычная игра,
+## сетевой матч). Создаётся в start_map, бой из неё ничего не читает.
+var escort_trace: ESCORT_TRACE = null
 
 ## Сторона 0: хранит поля одиночки (cauldron_hp, souls… — свойства выше читают её).
 var _pvp_item_stage := 0
@@ -748,6 +759,11 @@ func _sync_gfx_layers() -> void:
 # ── Матч ────────────────────────────────────────────────────────────────────
 
 func start_map(id: String, map_data: Dictionary = {}) -> void:
+	# B-478: бой без итога («Заново», следующая карта, подготовка снимка) закрывает свою трассу
+	# строкой restart, пока его враги ещё в массивах; новая трасса — ниже, по ключу этого боя
+	if escort_trace != null:
+		escort_trace.finish(&"restart")
+		escort_trace = null
 	if net_mode and not _net_starting:
 		# обычный бой после сетевого матча: сид из --seed, интерфейс и ввод — стороны 0
 		net_mode = false
@@ -866,8 +882,17 @@ func start_map(id: String, map_data: Dictionary = {}) -> void:
 		pvp_menu.setup(self)
 	if pvp_menu != null:
 		pvp_menu.close()
+	# B-506: сетка — с первого кадра боя, а не с первого шага. Игра по переписке держит мир (hold)
+	# ещё до первого _step, а peek черновика зовёт update_preview → assignment_plan → _busy →
+	# grid.nearest_foe: на свежем мире сетка была пуста (_gw = 0, индекс −1 — 18 SCRIPT ERROR,
+	# Архив turn006/t0), на мире с историей («Заново», следующая карта) хранила индексы прошлой
+	# карты мимо уже очищенных foes/units. Инвариант: после start_map сетка отвечает текущим
+	# массивам мира; шаг мира перестраивает её, как прежде (tests/legion_grid_hold_test.gd).
+	grid.rebuild()
 	now = 0.0
 	phase = Phase.BATTLE
+	if String(dev.get("escort_trace", "0")) != "0":
+		escort_trace = ESCORT_TRACE.new(self)   # часы и карта — уже этого боя
 	contracts.active = true
 	for s in _others():
 		s.contracts.active = true
@@ -1089,7 +1114,22 @@ func snapshot() -> Dictionary:
 ## Загрузить снимок судьи: дальше бой идёт побитово как у снявшего. Ответ — реестр загрузки
 ## (misses — неразрешённые ссылки, errors — несовместимость снимка и мира).
 func load_snapshot(d: Dictionary) -> NetSnap.Reg:
-	return NetSnap.load(self, d)
+	# Отклонённая версия не меняет мир и не начинает новый отрезок трассы.
+	if int(d.get("v", -1)) != NetSnap.VERSION:
+		return NetSnap.load(self, d)
+	# B-478: снимок может откатить бой назад — отрезок трассы свиты закрывается ДО загрузки
+	# (финал snapshot), а после неё открывается новый с нуля (живая свита снимка — в base).
+	# null на время загрузки: start_map подготовки снимка не печатает лишний restart.
+	var seg := -1
+	if escort_trace != null:
+		seg = escort_trace.segment
+		escort_trace.finish(&"snapshot")
+		escort_trace = null
+	var reg := NetSnap.load(self, d)
+	# ключ локальный (SnapWorld.VIEW_DEV_KEYS): решает dev этого мира, а не снимка
+	escort_trace = ESCORT_TRACE.new(self, seg + 1, "snapshot") \
+		if String(dev.get("escort_trace", "0")) != "0" else null
+	return reg
 
 
 ## «Касса» (D-1001-01; клавиша Дэ и кнопка HUD в одиночке, бот с --dev bot_kassa=1): порция
@@ -1258,6 +1298,8 @@ func my_hero() -> LegionHero:
 ## Действие человека за этим экраном: вне сети — сразу командой своей стороны; в сети — в net_out
 ## (мир не меняется, команда вернётся через net_apply у обоих клиентов).
 func local_cmd(cmd: Dictionary) -> Dictionary:
+	if qa_solo_capture.is_valid():
+		qa_solo_capture.call(&"local_cmd", cmd)
 	if not net_mode:
 		return command(local_side, cmd)
 	var out := cmd.duplicate()
@@ -1754,6 +1796,8 @@ func _near_cauldron() -> Vector2:
 # ── Кадр ────────────────────────────────────────────────────────────────────
 
 func _process(delta: float) -> void:
+	if qa_solo_capture.is_valid():
+		qa_solo_capture.call(&"frame_enter", delta)
 	_frames += 1
 	var t0 := Time.get_ticks_usec()
 	# verifier 26.09: LegionMain создаёт LegionWorld один раз на сессию (не на бой) — «со
@@ -1768,6 +1812,8 @@ func _process(delta: float) -> void:
 		if prof_on:
 			_prof_t = Time.get_ticks_usec()
 		var scale := contracts.real_tick(delta)
+		if qa_solo_capture.is_valid():
+			qa_solo_capture.call(&"real_tick", scale)
 		for i in range(1, sides.size()):
 			sides[i].contracts.real_tick(delta)
 		if prof_on:
@@ -1792,6 +1838,8 @@ func _process(delta: float) -> void:
 		_bench_tick(delta, Time.get_ticks_usec() - t0)
 	if _shot_path != "" and _frames >= _shot_frame and _shot_due():
 		_take_shot()
+	if qa_solo_capture.is_valid():
+		qa_solo_capture.call(&"frame_exit", delta)
 
 
 func _prof_mark(key: StringName) -> void:
@@ -1801,6 +1849,8 @@ func _prof_mark(key: StringName) -> void:
 
 
 func _step(dt: float) -> void:
+	if qa_solo_capture.is_valid():
+		qa_solo_capture.call(&"step_enter", dt)
 	if prof_on:
 		_prof_t = Time.get_ticks_usec()
 	now += dt
@@ -1913,12 +1963,16 @@ func _step(dt: float) -> void:
 		if _trace_t <= 0.0:
 			_trace_t = LegionCfg.TRACE_PERIOD
 			print_trace()
+	if escort_trace != null:
+		escort_trace.tick(dt)
 	if pvp:
 		_check_pvp_end()
 	elif cauldron_hp <= 0.0 and phase == Phase.BATTLE:
 		_end(false)
 	if prof_on:
 		_prof_mark(&"tail")
+	if qa_solo_capture.is_valid():
+		qa_solo_capture.call(&"step_exit", dt)
 
 
 func _input(event: InputEvent) -> void:
@@ -2449,8 +2503,10 @@ func _try_dev_hero_cast() -> void:
 
 
 ## Снаряд дальнего бойца: летит к цели самонаведением, урон — по попаданию.
-func fire_projectile(from: Legionnaire, target: Node2D, dmg: float) -> void:
-	projectiles.fire(from, target, dmg)
+## barrage/charged — печать огневого вала счетоводов (LegionProjectiles.fire).
+func fire_projectile(from: Legionnaire, target: Node2D, dmg: float,
+		barrage := false, charged := false) -> void:
+	projectiles.fire(from, target, dmg, barrage, charged)
 
 
 ## Бойцы в радиусе (SLICE_SPEC §3). Аллоцирует массив — для редких вызовов, не для кадра.
@@ -2983,7 +3039,13 @@ func rally_preview(at: Vector2, side := 0) -> Dictionary:
 
 
 func _notification(what: int) -> void:
+	# B-478: бой без итога (--quit-after серии на таймауте, закрытие окна) — финал трассы свиты
+	if what == NOTIFICATION_EXIT_TREE and escort_trace != null:
+		escort_trace.finish(&"exit")
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		# B-505: жест синтетической руки (corr_play) к фокусу окна не привязан — не трогаем.
+		if synthetic_input:
+			return
 		# Прогоны без окна и скрытые агентные окна не зависят от фокуса рабочего стола.
 		if not Settings.is_agent_run() and DisplayServer.get_name() != "headless":
 			focus_lost()
@@ -3231,6 +3293,8 @@ func on_unit_died(u: Legionnaire) -> void:
 
 
 func on_foe_died(f: Foe) -> void:
+	if escort_trace != null:
+		escort_trace.on_gone(f, false)
 	if f.type_id == "boss":
 		stats["boss_killed"] = 1
 	stats["kills"] = int(stats["kills"]) + 1
@@ -3258,6 +3322,8 @@ func foe_reached_cauldron(f: Foe) -> void:
 	if pvp:
 		sides[f.goal_side].leaked_waves[int(f.origin.get("wave", 0))] = true
 	damage_cauldron(float(f.def.get("cauldron", 10.0)), f.type_id, f.goal_side, f.origin)
+	if escort_trace != null:
+		escort_trace.on_gone(f, true)
 	f.vanish()
 
 
@@ -3399,6 +3465,9 @@ func _end(victory: bool) -> void:
 			if foe.alive and foe.type_id == "boss":
 				return
 	phase = Phase.VICTORY if victory else Phase.DEFEAT
+	# B-478: финал трассы свиты — до итоговой строки --quit-on-end и выхода
+	if escort_trace != null:
+		escort_trace.finish(&"victory" if victory else &"defeat")
 	# уроки на экране итога не нужны: плашка, шаблон и голос урока уходят вместе с боем
 	# (проверяющий 27.09, кадр vv_fork_victory_banner)
 	if tutorial != null:

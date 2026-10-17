@@ -84,6 +84,15 @@ func populate(map_data: Dictionary) -> void:
 		threats_row.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		threats_row.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(threats_row)
+	# Спящие враги уже на карте: не смешиваем их с приходящими волнами.
+	if not Array(map_data.get("sleepers", [])).is_empty():
+		var sleepers := UiStyle.label(I18n.t("На объекте есть спящие надгробия. "
+			+ "Приближение подрядчика будит их — подходите с прикрытием."),
+			16, UiStyle.FONT_TEXT, UiStyle.WARN)
+		sleepers.name = "SleepersNote"
+		sleepers.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sleepers.autowrap_mode = TextServer.AUTOWRAP_WORD
+		box.add_child(sleepers)
 
 	add_prep_block(box).changed.connect(func(bought: bool) -> void:
 		if bought:

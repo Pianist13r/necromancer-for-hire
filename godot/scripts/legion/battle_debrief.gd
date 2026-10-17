@@ -63,7 +63,33 @@ static func lines(report: Dictionary) -> Array[String]:
 	return out
 
 
-static func panel(report: Dictionary, color: Color = UiStyle.TEXT_DIM) -> Control:
+## Только вариант действия на повторе: источник — максимум фактически потерянного HP.
+## Дороги и волны — отдельные маргинальные наблюдения, их нельзя склеивать с видом врага.
+## Все четыре флага обязательны: без контекста открытия нельзя советовать кампанийный инструмент.
+static func next_plan(report: Dictionary, available: Dictionary) -> String:
+	var total := float(report.get("damage", 0.0))
+	if not is_finite(total) or total <= 0.0:
+		return ""
+	for key: String in ["kind_unlocked_guard", "ability_unlocked_e", "kind_unlocked_clerk",
+			"ability_unlocked_q"]:
+		if not available.has(key) or not (available[key] is bool):
+			return ""
+	var sources: Dictionary = report.get("sources", {})
+	var foe := _largest(sources)
+	if foe == "" or foe == "unknown" or not is_finite(float(sources[foe])):
+		return ""
+	var advice := ""
+	if foe in ["ghost", "shield_inspector", "signer", "boss"]:
+		advice = LegionChallenge.answer_hint([{"type": foe}], available)
+	elif foe in ["zombie", "beetle"]:
+		advice = I18n.t("проверьте ближайший подход и оставьте свободных бойцов в резерве")
+	if advice == "":
+		return ""
+	return I18n.t("Вариант для повтора: %s") % advice
+
+
+static func panel(report: Dictionary, color: Color = UiStyle.TEXT_DIM,
+		available: Dictionary = {}) -> Control:
 	var box := VBoxContainer.new()
 	box.name = "BattleDebrief"
 	box.add_theme_constant_override("separation", 3)
@@ -75,6 +101,11 @@ static func panel(report: Dictionary, color: Color = UiStyle.TEXT_DIM) -> Contro
 	box.add_child(UiStyle.label(I18n.t("Разбор полётов"), 19, UiStyle.FONT_TITLE, color))
 	for text in observations:
 		var label := UiStyle.label(text, 16, UiStyle.FONT_TEXT, color)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		box.add_child(label)
+	var advice := next_plan(report, available)
+	if advice != "":
+		var label := UiStyle.label(advice, 16, UiStyle.FONT_TEXT, color)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		box.add_child(label)
 	return box

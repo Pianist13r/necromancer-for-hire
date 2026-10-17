@@ -91,6 +91,15 @@ func _steps(n: int) -> void:
 		w._step(DT)
 
 
+## B-494: печать огневого вала бьёт по прилёту. Досчитать полёт уже выпущенных печатей, не
+## двигая бойцов: освободившиеся стрелки не успевают добавить обычные печати.
+func _land_shots() -> void:
+	for i in 120:
+		if w.projectiles.shots.is_empty():
+			return
+		w.projectiles.tick(DT)
+
+
 func _guard_contact() -> void:
 	_fresh()
 	var c := _line(LegionCfg.KIND_GUARD)
@@ -287,6 +296,7 @@ func _depth_and_water() -> void:
 	var f := _foe(squad[0].position + Vector2(190, 0))
 	w.release_segment_aimed(c, 0, Vector2.RIGHT, 1.0, false)
 	_steps(80)
+	_land_shots()
 	_check(f.hp < f.max_hp, "огневой вал пересекает воду без перевода стрелков")
 	_fresh()
 	c = _line(LegionCfg.KIND_CLERK)
@@ -296,6 +306,7 @@ func _depth_and_water() -> void:
 	f = _foe(squad[0].position + Vector2(190, 0))
 	w.release_segment_aimed(c, 0, Vector2.RIGHT, 1.0, false)
 	_steps(80)
+	_land_shots()
 	_check(f.hp == f.max_hp, "непрозрачная стена закрывает огневую полосу")
 
 

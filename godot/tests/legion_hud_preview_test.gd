@@ -54,6 +54,7 @@ func _run() -> void:
 	await _test_synthetic_max()
 	await _test_synthetic_two_gates()
 	await _test_campaign_waves()
+	await _test_climax_availability()
 	Campaign.reset()
 	print("LEGION HUD PREVIEW: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails > 0 else 0)
@@ -133,12 +134,76 @@ func _test_campaign_waves() -> void:
 				[map_id, i + 1, wr.total(), roundi(bottom), int(MAX_BOTTOM)])
 
 
+## Превью реального HUD не должно советовать закрытый вид/навык на «Развилке».
+## Вне кампании прежний полный совет остаётся; переназначение проходит через Controls.text.
+func _test_climax_availability() -> void:
+	print("— кульминация: доступные ответы RU/EN и текущие клавиши")
+	Settings.path = "user://settings_climax_preview_test.cfg"
+	Settings._cfg = ConfigFile.new()
+	Settings.apply()
+	Controls.reset()
+	Campaign.reset()
+	Campaign._file().set_value("progress", "unlocked", ["fork"])
+	Campaign._mods_cache_valid = false
+	w.in_campaign = true
+	w.start_map("fork")
+	w.set_process(false)
+	await process_frame
+	_check(w.camp_stat(&"ability_unlocked_q") > 0.5 and w.camp_stat(&"ability_unlocked_e") > 0.5
+		and w.camp_stat(&"kind_unlocked_guard") > 0.5
+		and w.camp_stat(&"kind_unlocked_clerk") < 0.5,
+		"реальная Развилка: Ку/Е/охрана открыты, аудит закрыт")
+	_set_synthetic_wave([
+		{"type": "shield_inspector", "road": "north", "count": 4},
+		{"type": "ghost", "road": "south", "count": 4},
+	], true)
+	var hint := w.hud._preview_text.text
+	_check(hint.contains("щиты — охрана или Е") and hint.contains("призраки — Ку"),
+		"RU: охрана/Е и Ку: %s" % hint)
+	_check(not hint.contains("аудит"), "RU: не советует закрытый аудит")
+	_check(Controls.swap(&"cast_q", KEY_W).is_empty(), "Ку переназначена на Дубль-вэ")
+	w.hud._update_preview()
+	hint = w.hud._preview_text.text
+	_check(hint.contains("призраки — Дубль-вэ") and not hint.contains("призраки — Ку"),
+		"RU: подсказка читает текущую клавишу Ку: %s" % hint)
+	I18n.language = "en"
+	w.hud._update_preview()
+	hint = w.hud._preview_text.text
+	_check(hint.contains("shields — Security or E") and hint.contains("ghosts — W")
+		and not hint.contains("Audit"),
+		"EN: только доступные ответы и переназначенная клавиша: %s" % hint)
+	w.in_campaign = false
+	w.hud._update_preview()
+	hint = w.hud._preview_text.text
+	_check(hint.contains("Security or E") and hint.contains("Audit or W"),
+		"вне кампании сохранён полный совет: %s" % hint)
+	var unavailable := {
+		"kind_unlocked_guard": false,
+		"ability_unlocked_e": false,
+		"kind_unlocked_clerk": false,
+		"ability_unlocked_q": false,
+	}
+	var fallback := LegionChallenge.answer_hint([
+		{"type": "shield_inspector"}, {"type": "ghost"},
+	], unavailable)
+	_check(fallback.contains("shields — from the flank")
+		and fallback.contains("ghosts — free fighters"),
+		"EN: закрытые ответы дают играбельный совет: %s" % fallback)
+	I18n.language = "ru"
+	fallback = LegionChallenge.answer_hint([
+		{"type": "shield_inspector"}, {"type": "ghost"},
+	], unavailable)
+	_check(fallback.contains("щиты — с фланга") and fallback.contains("призраки — свободные бойцы"),
+		"RU: закрытые ответы дают играбельный совет: %s" % fallback)
+	Controls.reset()
+
+
 ## Подсовывает волне синтетический состав групп напрямую в WaveRunner (без спавна и таймеров) —
 ## next_wave_groups() читает waves[index+1], index=-1 указывает на неё как на «следующую».
-func _set_synthetic_wave(groups: Array[Dictionary]) -> void:
+func _set_synthetic_wave(groups: Array[Dictionary], climax := false) -> void:
 	var wr := WaveRunner.new()
 	wr.world = w
-	wr.waves = [{"pause": 10, "next_in": 40, "groups": groups}]
+	wr.waves = [{"pause": 10, "next_in": 40, "groups": groups, "climax": climax}]
 	wr.index = -1
 	wr.phase = WaveRunner.Phase.PAUSE
 	w.wave_runner = wr

@@ -9,7 +9,7 @@ extends SceneTree
 ##       --script res://tests/legion_tutorial_lesson_1010_test.gd -- --mute
 ##
 ## 1) данные: на «Прорабе» урока рогатки нет; в «Архиве» он второй, за восьмёркой, держит волну,
-##    шаблон — восьмёрка (открыта этой картой), голос — прежний lg_tut_sling_one;
+##    шаблон — восьмёрка (открыта этой картой), голос учит текущему правилу (B-483);
 ##    это первая карта лестницы, где открыта фигура, которую рогатка срывает целиком;
 ## 2) игрок настоящим вводом: штрих восьмёрки → урок рогатки встаёт следом, волна ждёт, шаблон
 ##    не рисуется (восьмёрка уже стоит) → ПКМ, оттяжка, отпускание → урок зачтён, волна не шла;
@@ -65,7 +65,9 @@ func _run() -> void:
 	root.add_child(w)
 	await _frames(2)
 	_test_data()
+	_test_tradeoff_text()
 	await _test_player()
+	await _test_natural_melt()
 	await _test_bot()
 	await _test_classic()
 	Settings.scheme_override = ""
@@ -120,9 +122,8 @@ func _test_data() -> void:
 	var unlocks: Array = LegionWorld.load_map(LESSON_MAP).get("unlocks", [])
 	_check(unlocks.has("shape_unlocked_" + String(l["arg"])),
 		"фигура шаблона открывается этой картой (%s)" % str(unlocks))
-	_check(l["voice"] == &"lg_tut_sling_one"
-		and ResourceLoader.exists(LegionAudio.VOICE_DIR + "lg_tut_sling_one.ogg"),
-		"голос — прежняя запись lg_tut_sling_one, файл на месте")
+	_check(l["voice"] == &"lg_tut_sling_one",
+		"B-483: рогатка выбирает голос без несуществующей соседней фигуры")
 	# первая карта лестницы, где открыта фигура, которую рогатка срывает целиком
 	var first := ""
 	for m in Campaign.maps():
@@ -134,6 +135,27 @@ func _test_data() -> void:
 			first = String(m.get("id", ""))
 			break
 	_check(first == LESSON_MAP, "это первая карта с такой фигурой (%s)" % first)
+
+
+func _test_tradeoff_text() -> void:
+	var tut := LegionTutorial.new()
+	tut.lessons = LegionTutorial.parse(LegionWorld.load_map(LESSON_MAP))
+	_check(tut.lessons[tut.index_of(&"eight")]["voice"] == &"lg_tut_eight",
+		"B-483: восьмёрка выбирает голос естественного таяния")
+	var old_language := I18n.language
+	for language in ["ru", "en"]:
+		I18n.select(language)
+		var draw_text := tut.step_text(tut.index_of(&"eight"))
+		var sling_text := tut.step_text(tut.index_of(ID))
+		var fill := str(roundi(FigureCfg.OVERTIME_FILL * 100.0)) + "%"
+		_check(draw_text.contains(fill), "%s: порог естественного бонуса из конфига" % language)
+		_check(not draw_text.contains("{") and not sling_text.contains("{"),
+			"%s: учебные токены раскрыты" % language)
+		_check(sling_text.contains("без «Сверхурочных»") if language == "ru"
+			else sling_text.contains("without Overtime"), "%s: цена раннего выпуска явная" % language)
+		_check(not sling_text.contains("соседняя") and not sling_text.contains("next one"),
+			"%s: нет обещания про отсутствующую соседнюю фигуру" % language)
+	I18n.select(old_language)
 
 
 # ── 2. Игрок настоящим вводом ────────────────────────────────────────────────
@@ -224,8 +246,35 @@ func _test_player() -> void:
 	await _frames(3)
 	_check(tut.passed(ID) or not tut.active, "ПКМ, оттяжка, отпускание — урок рогатки зачтён")
 	_check(Campaign.hint_seen(LegionTutorial.flag(LESSON_MAP, ID)), "флаг урока в сохранении")
+	_check(int(w.stats.get("overtime_armed", 0)) == 0,
+		"B-483: ранний выпуск не обещает бонус таяния")
 	_check(w.wave_runner.wave_no() == wave0,
 		"пока шли оба урока, волна не начиналась (%d → %d)" % [wave0, w.wave_runner.wave_no()])
+
+
+## Тот же штрих, но игрок выбирает подождать. Зачёт рогатки не подменяется таймером;
+## бонус должен случиться, а после него должна остаться возможность дорисовать упражнение.
+func _test_natural_melt() -> void:
+	var tut := await _start(LESSON_MAP)
+	await _stroke(tut.figure_points())
+	var eights := _eights()
+	_check(eights.size() == 1, "B-483: для сравнения нарисована одна восьмёрка")
+	if eights.is_empty():
+		return
+	var c := eights[0]
+	for i in int(3.0 * FPS):
+		w._step(1.0 / FPS)
+	_check(c.posted_posts() >= ceili(c.posts.size() * FigureCfg.OVERTIME_FILL),
+		"B-483: учебная восьмёрка набирает порог бонуса обычной вербовкой")
+	for i in int((c.ttl + FigureCfg.OVERTIME_DELAY + FigureCfg.OVERTIME_WAIT) * FPS):
+		w._step(1.0 / FPS)
+	_check(int(w.stats.get("overtime_armed", 0)) == 1 and int(w.stats.get("overtimes", 0)) == 1,
+		"B-483: естественное таяние даёт второй приказ")
+	_check(not tut.passed(ID) and tut.step_id() == ID,
+		"B-483: таяние не выдаётся за выполненную рогатку")
+	_check(not tut.figure_standing(), "B-483: после таяния вновь доступен шаблон для штриха")
+	await _stroke(tut.figure_points())
+	_check(tut.figure_standing(), "B-483: после ожидания можно начертить новую восьмёрку")
 
 
 # ── 3. Бот уроков ────────────────────────────────────────────────────────────

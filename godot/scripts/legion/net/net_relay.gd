@@ -8,7 +8,7 @@ extends SceneTree
 ## Запуск (с 04.10.2026 — отдельная машина за HTTPS-прокси Caddy, который пускает только WebSocket):
 ##   Godot_console --headless --path godot --script res://scripts/legion/net/net_relay.gd -- \
 ##       [--port 18765] [--bind 127.0.0.1] [--judges N] [--judge-port P] [--lobby-idle МС]
-##       [--ready-timeout МС] [--stats-grace МС] [--judge-snap-limit N]
+##       [--ready-timeout МС] [--stats-grace МС] [--judge-snap-limit N] [--rejoin-grace МС]
 ## По умолчанию слушает только loopback: снаружи до него доходит лишь туннель. `--bind 0.0.0.0`
 ## — для проверки по домашней сети. Судьи входят на отдельный loopback-порт (по умолчанию порт
 ## игроков + 1): Caddy виден как 127.0.0.1, поэтому IP не доказывает роль судьи — на этом входе всё
@@ -38,6 +38,8 @@ func _initialize() -> void:
 			core.judge_port = int(args[i + 1])
 		elif args[i] == "--lobby-idle" and i + 1 < args.size():
 			core.lobby_idle = maxi(1, int(args[i + 1]))
+		elif args[i] == "--rejoin-grace" and i + 1 < args.size():
+			core.rejoin_grace = maxi(1, int(args[i + 1]))
 		elif args[i] == "--judge-snap-limit" and i + 1 < args.size():
 			core.judge_snap_limit = int(args[i + 1])
 		elif args[i] == "--bind" and i + 1 < args.size():

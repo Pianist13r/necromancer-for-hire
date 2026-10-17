@@ -594,6 +594,31 @@ static func check(map: Dictionary) -> Array[String]:
 				break
 		if _in(hud, a, 0.0) or _in(hud, b, 0.0):
 			out.append("%s под HUD" % bl["id"])
+	# Физический контракт половины: у каждой входящей дороги есть направленный
+	# навстречу волне front её стороны. Общий рубеж покрывает несколько дорог
+	# только при фактическом пересечении и назначении хотя бы одному участку.
+	for road: Dictionary in map["roads"]:
+		var path: PackedVector2Array = paths[road["id"]]
+		var total := PgGeom.length(path)
+		var covered := false
+		for line: Dictionary in map["bot_lines"]:
+			if String(line.get("role", "")) != "front" or int(line["side"]) != int(road["side"]):
+				continue
+			var hit: Variant = LegionMapChecks.line_cross(_v(line["a"]), _v(line["b"]), path)
+			if hit == null:
+				continue
+			var at := PgGeom.project(path, hit)
+			if at <= 64.0 or at >= total - 130.0 or \
+					_v(line["dir"]).normalized().dot(PgGeom.tangent_at(path, at)) >= -0.7:
+				continue
+			for plot: Dictionary in map["plots"]:
+				if int(plot["side"]) == int(road["side"]) and line["id"] in plot["serves_lines"]:
+					covered = true
+					break
+			if covered:
+				break
+		if not covered:
+			out.append("%s без доступного переднего рубежа по ходу к Котлу" % road["id"])
 	for g: Dictionary in map["gates"]:
 		var p := _v(g["pos"])
 		if p.y > 0.5:

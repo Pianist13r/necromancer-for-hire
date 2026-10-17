@@ -25,6 +25,12 @@ const REAPPEAR_KINDS: Array[StringName] = [&"spring", &"hero_e", &"hero_w", &"ra
 ## типы советов LegionIntuit). Раньше непройденный урок глушил советы до конца боя («пружину»
 ## проигнорировали 120 с — советов не было вовсе). Уроки начала боя (держат волну) глушат всё.
 const ADVICE_QUIET_T := 6.0
+## Только геометрия/зачёт урока B-499; параметры движения и удара остаются боевыми.
+const GUARD_APPROACH_R := 260.0
+const GUARD_LANE_HALF := 65.0
+const GUARD_LINE_R := 100.0
+const GUARD_PUSH_CREDIT := 24.0
+const GUARD_AIM_DOT := 0.8
 const MUTES := {
 	&"spring": [&"spring", &"e"], &"hero_e": [&"e", &"spring"], &"hero_q": [&"q"],
 	&"hero_w": [&"w"], &"stun_hit": [&"q", &"gold"], &"perfect": [&"gold"],
@@ -58,4 +64,4 @@ const VOICE_KEYS := {
 ## B-448: реплики, называющие кнопку мыши вслух («левую кнопку», «правой кнопкой»). В режиме
 ## левши голос спорил бы с плашкой — молчат (voice_muted), текст плашки остаётся.
 const VOICE_MOUSE: Array[StringName] = [&"lg_tut_1", &"lg_tut_2", &"lg_tut_perfect_w",
-	&"lg_tut_spring", &"lg_tut_ring", &"lg_tut_sling_one"]
+	&"lg_tut_spring", &"lg_tut_ring"]

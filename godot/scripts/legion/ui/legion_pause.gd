@@ -122,6 +122,8 @@ func _ready() -> void:
 		I18n.t("Продолжить"), func() -> void: resume_pressed.emit())
 	# Esc остаётся дублем продолжения, а не подтверждением выхода.
 	(nav.get_node("NavBack") as Button).shortcut = null
+	# Enter в модальном Досье принадлежит его фокусу, а не скрытой под ним паузе.
+	(nav.get_node("NavPrimary") as Button).shortcut_context = self
 	(nav.get_node("NavPrimary") as Button).grab_focus.call_deferred()
 
 

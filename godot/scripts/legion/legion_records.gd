@@ -136,7 +136,7 @@ static func rows(mode: String) -> Array[Dictionary]:
 
 ## Рекорды «Подряда» (daily = false) или лучший «Вызов дня» по сложности (daily = true) из
 ## Campaign.ENDLESS_RECORDS_SECTION: {сложность: {tenure, souls[, date]}}; нет записи — нет ключа.
-## «Вызов дня» хранит рекорд на каждую дату — берём дату с наибольшим стажем (при равном — душами).
+## «Вызов дня»: только текущая версия генератора, лучшая дата по стажу (при равном — душам).
 static func endless_rows(daily: bool) -> Dictionary:
 	var out := {}
 	var f := Campaign.raw_file()
@@ -159,6 +159,8 @@ static func endless_rows(daily: bool) -> Dictionary:
 			continue
 		var d := stem.substr(cut + 1)
 		var day_key := stem.substr(0, cut)
+		if not day_key.ends_with("|v%d" % ProcGen.VERSION):
+			continue
 		var row := {"tenure": int(f.get_value(rs, k, 0)),
 			"souls": int(f.get_value(rs, "daily_%s_%s_souls" % [day_key, d], 0)),
 			"date": day_key.get_slice("|", 0)}

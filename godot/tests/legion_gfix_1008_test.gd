@@ -85,8 +85,8 @@ func test_plot_shares() -> void:
 func test_road_note() -> void:
 	var note := PlotMenu.road_note(0.287)
 	print("NOTE ", note)
-	check(note.contains("около 70 %"), "предупреждение называет долю рождений под удар")
-	check(PlotMenu.road_note(0.0).contains("почти все"), "все рождения под удар — без «около 100 %»")
+	check(note.contains("около 70 %"), "предупреждение называет долю рождений у дороги")
+	check(PlotMenu.road_note(0.0).contains("почти все"), "все рождения у дороги — без «около 100 %»")
 
 
 ## Проба verifier (batches/verifier-1008/probe_shake.gd): камера освобождается посреди тряски.

@@ -597,8 +597,8 @@
   "Срочный найм — все на местах": "Urgent Recruitment — everyone is here",
   "Срочный найм · %d — %d душ": "Urgent Recruitment · %d — %d souls",
   "Продать — +%d душ": "Sell — +%d souls",
-  "У дороги: почти все бойцы рождаются под удар. Прикройте выход строем.": "By the road: nearly all troops spawn under attack. Cover the exit with a formation.",
-  "У дороги: около %d %% бойцов рождаются под удар. Прикройте выход строем.": "By the road: about %d %% of troops spawn under attack. Cover the exit with a formation.",
+  "У дороги: почти все бойцы появляются рядом с дорогой. Прикройте выход строем.": "By the road: nearly all troops spawn near the road. Cover the exit with a formation.",
+  "У дороги: около %d %% бойцов появляются рядом с дорогой. Прикройте выход строем.": "By the road: about %d %% of troops spawn near the road. Cover the exit with a formation.",
   "душ": "souls",
   "Найм возвращает павших, но не увеличивает штат.": "Recruitment brings back the fallen but does not increase staff.",
   "Лимит армии: пополнение ждёт свободного места.": "Army limit: reinforcements are waiting for a free slot.",
@@ -626,6 +626,7 @@
   "Поражения рекорд не меняют.": "Defeats do not affect the record.",
   "Кампания": "Campaign",
   "Подряд и «Вызов дня»": "Contract and “Daily Challenge”",
+  "«Вызов дня»: рекорды текущей версии генератора (v%d).": "Daily Challenge: records for the current generator version (v%d).",
   "стаж %d · души %d": "service %d · souls %d",
   "«Схватка» с ботом": "“Skirmish” against a bot",
   "побед %d · поражений %d · ничьих %d": "wins %d · losses %d · draws %d",
@@ -650,5 +651,6 @@
   " +%d душ": " +%d souls",
   "Нотариус бьёт печатью издалека по толпе бойцов (оранжевый круг — замах). Сорвите строй на него или сбейте печать {key:cast_q}.": "Notaries strike distant crowds of fighters with a seal (orange circle: wind-up). Launch a formation at them or interrupt the seal with {key:cast_q}.",
   "{key:cast_e} бережёт строй, когда его продавливают, — нажмите, пока дуга красная.": "{key:cast_e} protects a formation under pressure — press it while the arc is red.",
-  "Оцепление!": "Cordon!"
+  "Оцепление!": "Cordon!",
+  "На объекте есть спящие надгробия. Приближение подрядчика будит их — подходите с прикрытием.": "Dormant gravestones lie on this site. A nearby worker wakes them — approach with support."
 }

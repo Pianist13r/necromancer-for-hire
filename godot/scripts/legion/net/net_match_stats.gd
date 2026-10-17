@@ -18,6 +18,9 @@ var delay_go := -1
 var fallback_tick := -1
 var go_ms := 0
 var relay_rtts: Array[int] = []
+## Переподключений за матч и сколько всего были вне связи (с).
+var rejoins := 0
+var away_s := 0.0
 
 
 func reset() -> void:
@@ -29,6 +32,8 @@ func reset() -> void:
 	fallback_tick = -1
 	go_ms = 0
 	relay_rtts.clear()
+	rejoins = 0
+	away_s = 0.0
 
 
 ## Кадр простоя: before — сколько уже стоим, show — с какого простоя игрок видит «Ждём соперника».
@@ -56,7 +61,7 @@ func packet(s: NetSession, end: String) -> Dictionary:
 		"stall_n": stall_n, "d0": delay_go, "d1": s.delay, "p2p50": pct(arr, 0.5),
 		"p2p90": pct(arr, 0.9), "rel50": pct(relay_rtts, 0.5), "rel90": pct(relay_rtts, 0.9),
 		"nat": p2p.nat if p2p != null else "off", "desync": s._desync_first, "heal": s.heals,
-		"ticks": ticks,
+		"ticks": ticks, "rj": rejoins, "away_s": snappedf(away_s, 0.1),
 		"wall": snappedf((Time.get_ticks_msec() - go_ms) / 1000.0, 0.1) if go_ms > 0 else 0.0,
 		"end": end}
 

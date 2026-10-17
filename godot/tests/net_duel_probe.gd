@@ -16,6 +16,11 @@ extends SceneTree
 ## --freeze-ms N (раз в 6 с боя замереть на N мс — заминки медленной машины),
 ## --vhold K --vhold-ms N (с хода K копия своих ходов на сервер уходит на N мс позже — «лагающий»
 ## или придерживающий ходы клиент), --loopback (кандидат 127.0.0.1; без него — частные адреса).
+## Переподключение (tools/net_rejoin.sh): --cut-at T (на тике T связь рвётся: сокет закрывается, и
+## --cut-ms M мс попытки вернуться не проходят — «сеть лежит»), --cut-silent (вместо закрытия связь
+## молчит M мс: сокет не опрашивается и не закрывается), --cut-every N --cut-n K (повторять обрыв
+## каждые N тиков, всего K раз — «мигающая» сеть), --cut-on-heal (обрыв, когда судья начал снимать
+## снимок для этого клиента — подтяжка в пути).
 ## Итог — строка «NET_DUEL {json}» и код выхода 0 (дошёл до конца без рассинхрона) / 1.
 ##
 
@@ -65,6 +70,18 @@ var _max_hold := 0.0
 var _ends := 0
 ## --after-s N: сколько секунд ждать после итога (вердикт судьи, запоздавший снимок); было 1,5.
 var after_s := 1.5
+var cut_at := -1
+var cut_ms := 5000
+var cut_silent := false
+var cut_on_heal := false
+var cut_every := 0
+var cut_n := 1
+var _cuts := 0
+var _next_cut := -1
+var _down_until := 0
+## Сколько раз соперник был «переподключается» (opp_away) — по смене поля сессии.
+var _opp_away_seen := 0
+var _opp_away_was := false
 
 
 func _initialize() -> void:
@@ -109,7 +126,18 @@ func _initialize() -> void:
 				down_stall_ms = int(args[i + 1])
 			"--race-ms":
 				race_ms = int(args[i + 1])
+			"--cut-at":
+				cut_at = int(args[i + 1])
+			"--cut-ms":
+				cut_ms = int(args[i + 1])
+			"--cut-every":
+				cut_every = int(args[i + 1])
+			"--cut-n":
+				cut_n = int(args[i + 1])
 	udp_off = "--udp-off" in args
+	cut_silent = "--cut-silent" in args
+	cut_on_heal = "--cut-on-heal" in args
+	_next_cut = cut_at
 	loopback = "--loopback" in args
 	_born = Time.get_ticks_msec()
 	_run.call_deferred()
@@ -142,7 +170,18 @@ func _run() -> void:
 	session.dbg_down_stall_tick = down_stall_tick
 	session.dbg_down_stall_ms = down_stall_ms
 	session.dbg_race_ms = race_ms
+	if (cut_at >= 0 or cut_on_heal) and not cut_silent:
+		# попытки вернуться не проходят, пока «сеть лежит»; потом — новый WebSocket на тот же адрес
+		session.rejoin_link = _attempt_link
 	session.connect_lobby(url, "probe-" + role)
+
+
+func _attempt_link() -> NetLink:
+	if Time.get_ticks_msec() < _down_until:
+		return null
+	# Прямой static-вызов удерживает граф GDScript-ресурсов этой пробы при выходе.
+	var link: NetLink = load("res://scripts/legion/net/net_link_ws.gd").client()
+	return link if link.connect_to_url(url) == OK else null
 
 
 func _on_lobby(rooms: Array, _players: Array, _in_game: int) -> void:
@@ -178,8 +217,28 @@ func _process(_delta: float) -> bool:
 	if Time.get_ticks_msec() - _born > TIMEOUT_MS:
 		_finish("timeout")
 		return false
+	if session != null:
+		var away := session._rejoin.opp_away_until > 0
+		if away and not _opp_away_was:
+			_opp_away_seen += 1
+		_opp_away_was = away
 	if session == null or session.stage != NetSession.Stage.PLAYING and \
 			session.stage != NetSession.Stage.OVER:
+		return false
+	# --cut-on-heal: обрыв, как только судья взялся снимать снимок для этого клиента (desync с
+	# heal) — подтяжка в пути в момент обрыва
+	var heal_cut := cut_on_heal and _cuts < cut_n and session._heal_wait >= 0
+	if (heal_cut or _next_cut >= 0 and _cuts < cut_n and w.net_tick >= _next_cut) \
+			and session.stage == NetSession.Stage.PLAYING:
+		_cuts += 1
+		_next_cut = _next_cut + cut_every if cut_every > 0 else -1
+		_down_until = Time.get_ticks_msec() + cut_ms
+		print("NET_CUT ", JSON.stringify({"n": _cuts, "tick": w.net_tick, "ms": cut_ms,
+			"silent": cut_silent}))
+		if cut_silent:
+			session.dbg_freeze_until = _down_until
+		else:
+			session._chan.close(1000, "probe cut")
 		return false
 	_max_stall = maxf(_max_stall, session._stall)
 	_max_hold = maxf(_max_hold, session._hold_stall)
@@ -222,7 +281,9 @@ func _finish(why: String) -> void:
 		"p2p": session._p2p.stats if session._p2p != null else {},
 		"p2p_state": NetP2P.State.keys()[session._p2p.state] if session._p2p != null else "none",
 		"wall_s": (Time.get_ticks_msec() - _born) / 1000.0, "heals": _sv("heals"),
-		"desync_first": _sv("_desync_first"), "ends": _ends,
+		"desync_first": _sv("_desync_first"), "ends": _ends, "cuts": _cuts,
+		"rejoins": session._rejoin.count, "away_ms": session._rejoin.away_ms,
+		"opp_away_seen": _opp_away_seen,
 		"result": NetMatchStats.end_result(w, session.side) if w != null else ""}
 	if w != null and w.pvp and w.sides.size() == 2:
 		res["hp"] = [w.sides[0].cauldron_hp, w.sides[1].cauldron_hp]
@@ -235,6 +296,18 @@ func _finish(why: String) -> void:
 		"verdict": session.verdict, "phase": int(w.phase) if w != null else -1}))
 	var ok := why == "ok" and session._desync_tick < 0
 	session.close()
+	# The probe owns these objects. Release the bot's world callback and drain queued
+	# node deletion before SceneTree.quit(), including on failed/aborted runs.
+	if bot != null:
+		bot.sink = Callable()
+		bot = null
+	session.queue_free()
+	if w != null:
+		w.queue_free()
+	session = null
+	w = null
+	await process_frame
+	await process_frame
 	quit(0 if ok else 1)
 
 

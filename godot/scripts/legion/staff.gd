@@ -315,7 +315,7 @@ func plot_safe_share(p: Dictionary) -> float:
 	return share
 
 
-## Больше половины пополнения (порог PLOT_SAFE_WARN) рождается у дороги, под удар.
+## Больше половины пополнения (порог PLOT_SAFE_WARN) рождается у дороги; атаки не измеряются.
 func plot_near_road(p: Dictionary) -> bool:
 	return plot_safe_share(p) < LegionCfg.PLOT_SAFE_WARN
 

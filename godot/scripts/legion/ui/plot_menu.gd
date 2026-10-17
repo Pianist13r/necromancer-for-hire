@@ -111,12 +111,23 @@ func _on_tap(pos: Vector2) -> void:
 	if _swallow_tap:
 		_swallow_tap = false
 		return
-	if world.phase != LegionWorld.Phase.BATTLE:
-		return
-	# радиус выбора — экранный, как в одиночке: в «Схватке» (вид ×0,8) не ужимается (P5a)
-	var p := world.my_side().staff.plot_at(pos, LegionCfg.PLOT_PICK_R / world.view_scale())
+	var p := _plot_for(pos)
 	if not p.is_empty():
 		open(p, pos)
+
+
+## Площадка, которую откроет щелчок поля в точке мира pos; {} — щелчок не про участок.
+func _plot_for(pos: Vector2) -> Dictionary:
+	if world.phase != LegionWorld.Phase.BATTLE:
+		return {}
+	# радиус выбора — экранный, как в одиночке: в «Схватке» (вид ×0,8) не ужимается (P5a)
+	return world.my_side().staff.plot_at(pos, LegionCfg.PLOT_PICK_R / world.view_scale())
+
+
+## B-487: короткий щелчок поля field в точке мира pos откроет меню участка — тост HUD над
+## площадкой его не забирает (LegionHud.ui_tap), иначе меню открывалось только вторым щелчком.
+func takes_tap(field: ContractField, pos: Vector2) -> bool:
+	return field == _field and not _plot_for(pos).is_empty()
 
 
 ## ContractField.press_consumer: нажатие мимо открытого меню закрывает его. false — нажатие
@@ -253,13 +264,15 @@ func _title(text: String) -> void:
 	_box.add_child(rule)
 
 
-## B-043: предупреждение «у дороги» называет долю рождений под удар (с шагом 10 %, «около»):
-## игрок видит, насколько площадка плоха, а не только что она «у дороги».
+## B-043: доля мест рождения у дороги (с шагом 10 %, «около»), не вероятность атаки:
+## геометрическая выборка не учитывает врагов, прикрытие и урон.
 static func road_note(safe_share: float) -> String:
 	var hit := roundi((1.0 - safe_share) * 10.0) * 10
 	if hit >= 100:
-		return I18n.t("У дороги: почти все бойцы рождаются под удар. Прикройте выход строем.")
-	return I18n.t("У дороги: около %d %% бойцов рождаются под удар. Прикройте выход строем.") % hit
+		return I18n.t("У дороги: почти все бойцы появляются рядом с дорогой. Прикройте выход строем.")
+	return I18n.t(
+		"У дороги: около %d %% бойцов появляются рядом с дорогой. Прикройте выход строем."
+	) % hit
 
 
 ## Пояснение под пунктом: мелко, тусклыми чернилами, с переносом по ширине карточки — читается

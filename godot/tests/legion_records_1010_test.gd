@@ -43,6 +43,7 @@ func _run() -> void:
 	Campaign.reset()
 	Campaign.use_campaign_scope()
 	_test_store()
+	_test_daily_versions()
 	_test_persist_and_reset()
 	await _test_battle_flow()
 	await _test_ui()
@@ -96,10 +97,10 @@ func _test_store() -> void:
 	var rs := Campaign.ENDLESS_RECORDS_SECTION
 	f.set_value(rs, "endless_normal_tenure", 4)
 	f.set_value(rs, "endless_normal_souls", 210)
-	f.set_value(rs, "daily_2026-10-09|v3_hell_tenure", 2)
-	f.set_value(rs, "daily_2026-10-09|v3_hell_souls", 90)
-	f.set_value(rs, "daily_2026-10-10|v3_hell_tenure", 5)
-	f.set_value(rs, "daily_2026-10-10|v3_hell_souls", 300)
+	f.set_value(rs, "daily_2026-10-09|v%d_hell_tenure" % ProcGen.VERSION, 2)
+	f.set_value(rs, "daily_2026-10-09|v%d_hell_souls" % ProcGen.VERSION, 90)
+	f.set_value(rs, "daily_2026-10-10|v%d_hell_tenure" % ProcGen.VERSION, 5)
+	f.set_value(rs, "daily_2026-10-10|v%d_hell_souls" % ProcGen.VERSION, 300)
 	Campaign.save_raw()
 	var e := LegionRecords.endless_rows(false)
 	var d := LegionRecords.endless_rows(true)
@@ -111,6 +112,55 @@ func _test_store() -> void:
 	for k: String in f.get_section_keys(LegionRecords.RECORDS_SECTION):
 		dup = dup or k.begins_with("endless") or k.begins_with("daily")
 	_check(not dup, "забег в records не дублируется")
+
+
+func _daily_fixture(day: String, version: int, difficulty: String, tenure: int, souls: int) -> void:
+	var key := "daily_%s|v%d_%s" % [day, version, difficulty]
+	var file := Campaign.raw_file()
+	file.set_value(Campaign.ENDLESS_RECORDS_SECTION, key + "_tenure", tenure)
+	file.set_value(Campaign.ENDLESS_RECORDS_SECTION, key + "_souls", souls)
+
+
+func _test_daily_versions() -> void:
+	# Фикстура содержит архивный максимум, превосходящий все текущие результаты.
+	# Меняем только изолированное сохранение теста; чтение таблицы обязано быть чистым.
+	var file := Campaign.raw_file()
+	file.erase_section(Campaign.ENDLESS_RECORDS_SECTION)
+	var old_version := ProcGen.VERSION - 1
+	_daily_fixture("2026-10-01", old_version, "hell", 99, 9999)
+	_daily_fixture("2026-10-01", old_version, "intern", 88, 8888)
+	Campaign.save_raw()
+	var disk := FileAccess.get_file_as_bytes(SAVE)
+	var cached := file.encode_to_text()
+	_check(LegionRecords.endless_rows(true).is_empty(),
+		"только архивная версия — текущая дневная таблица пуста")
+	_check(FileAccess.get_file_as_bytes(SAVE) == disk and file.encode_to_text() == cached,
+		"чтение только старых рекордов не меняет диск и кэш")
+	_daily_fixture("2026-10-10", ProcGen.VERSION, "hell", 3, 100)
+	_daily_fixture("2026-10-11", ProcGen.VERSION, "hell", 5, 120)
+	_daily_fixture("2026-10-12", ProcGen.VERSION, "hell", 5, 180)
+	_daily_fixture("2026-10-13", ProcGen.VERSION, "hell", 4, 900)
+	_daily_fixture("2026-10-11", ProcGen.VERSION, "normal", 7, 210)
+	Campaign.save_raw()
+	disk = FileAccess.get_file_as_bytes(SAVE)
+	var backup := FileAccess.get_file_as_bytes(SAVE + ".bak")
+	cached = file.encode_to_text()
+	var rows := LegionRecords.endless_rows(true)
+	_check(rows.get("hell", {}) == {"tenure": 5, "souls": 180, "date": "2026-10-12"},
+		"текущие даты: стаж важнее душ, при равном стаже больше душ; архив исключён: %s" % rows)
+	_check(rows.get("normal", {}) == {"tenure": 7, "souls": 210, "date": "2026-10-11"},
+		"сложность Штатного имеет отдельный текущий рекорд")
+	_check(not rows.has("intern"), "архив Стажёра не создаёт строку текущей версии")
+	_check(LegionRecords.endless_rows(true) == rows, "повторное чтение таблицы стабильно")
+	_check(FileAccess.get_file_as_bytes(SAVE) == disk
+		and FileAccess.get_file_as_bytes(SAVE + ".bak") == backup
+		and file.encode_to_text() == cached, "чтение не переписывает cfg, backup или кэш")
+	var probe := ConfigFile.new()
+	_check(probe.load(SAVE) == OK, "независимое чтение сохранённых исторических ключей")
+	var old_key := "daily_2026-10-01|v%d_hell" % old_version
+	_check(probe.get_value(Campaign.ENDLESS_RECORDS_SECTION, old_key + "_tenure", 0) == 99
+		and probe.get_value(Campaign.ENDLESS_RECORDS_SECTION, old_key + "_souls", 0) == 9999,
+		"старые результаты остаются на диске без миграции")
 
 
 func _test_persist_and_reset() -> void:

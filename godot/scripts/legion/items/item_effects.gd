@@ -24,7 +24,13 @@ const COLOR_SOUL := Color(0.45, 0.75, 1.0)
 const COLOR_MANA := Color(0.62, 0.43, 1.0)
 
 var world: LegionWorld = null
-var items: LegionItems = null
+## Effects принадлежит Items; обратная ссылка не должна удерживать владельца после боя.
+var items: LegionItems:
+	get:
+		return _items_ref.get_ref() as LegionItems if _items_ref != null else null
+	set(value):
+		_items_ref = weakref(value) if value != null else null
+var _items_ref: WeakRef = null
 
 
 func setup(w: LegionWorld, it: LegionItems) -> void:

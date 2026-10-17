@@ -16,14 +16,19 @@ extends SceneTree
 ##   8 — обманщик гонит ходы до предела объёма матча (LOG_CAP) и отключается сервером: честный
 ##       на связи, получает «left»; SCRIPT ERROR в ретрансляторе нет (проверяет tools/net_attack.sh;
 ##       verifier B-378 — хвост ходов читал строку хода, не записанную при отключении).
+##   9 — переподключение (slow/net-rejoin): честный оборвался, чужак 20 раз пробует занять его
+##       сторону неверным rj — каждому отказ и разрыв; честный возвращается своим rj, сопернику не
+##       «left».
+##   A — двойной возврат с ВЕРНЫМ rj при живом прежнем канале: первый вытесняет прежний (тот
+##       закрыт сервером), второй с другим id попытки сразу — «busy»; сопернику не «left».
 ## Честный не должен получить ни «доказанной подмены», ни разрыва за «ходы не доходят».
 ##   godot --headless --path godot --script res://tests/net_attack_probe.gd -- --mute --port N
-## Ретранслятор поднимает tools/net_attack.sh. Итог «NET ATTACK: N/8 OK», код выхода 1 при провале.
+## Ретранслятор поднимает tools/net_attack.sh. Итог «NET ATTACK: N/10 OK», код выхода 1 при провале.
 ##
 var _port := 18851
 var _ok := 0
 var _socks: Array[WebSocketPeer] = []
-var _which := "12345678"
+var _which := "123456789A"
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -115,6 +120,10 @@ func _run() -> void:
 		_ok += int(await _attack_no_ready_denied(url))
 	if "8" in _which:
 		_ok += int(await _attack_log_cap(url))
+	if "9" in _which:
+		_ok += int(await _attack_rejoin_guess(url))
+	if "A" in _which:
+		_ok += int(await _attack_rejoin_double(url))
 	print("NET ATTACK: %d/%d OK" % [_ok, _which.length()])
 	quit(0 if _ok == _which.length() else 1)
 
@@ -272,6 +281,85 @@ func _attack_log_cap(url: String) -> bool:
 	return ok
 
 
+## Новый канал с caps «rejoin», после welcome — rejoin; ответ (rejoined / rejoin_denied / timeout).
+func _rejoin_try(url: String, build: String, code: String, side: int, rj: String, have: int,
+		rid: String) -> Array:
+	var z := await _connect(url)
+	z.send_text(JSON.stringify({"t": "hello", "v": 2, "build": build, "name": "Back" + build,
+		"caps": ["rejoin"]}))
+	await _recv_t(z, "welcome")
+	z.send_text(JSON.stringify({"t": "rejoin", "code": code, "side": side, "rj": rj, "have": have,
+		"rid": rid}))
+	for i in 40:
+		var m := await _recv(z)
+		if m.get("t") in ["rejoined", "rejoin_denied", "timeout"]:
+			return [z, m]
+	return [z, {"t": "timeout"}]
+
+
+## 9: поток rejoin с неверным rj, пока честный отсутствует.
+func _attack_rejoin_guess(url: String) -> bool:
+	var pr := await _pair(url, "rjg9", true)
+	var x: WebSocketPeer = pr[0]
+	var y: WebSocketPeer = pr[1]
+	var sx: Dictionary = pr[2]
+	x.send_text(JSON.stringify({"t": "ready"}))
+	y.send_text(JSON.stringify({"t": "ready"}))
+	await _drain(y, 300)
+	x.close()   # честный оборвался
+	var gy := await _drain(y, 500)
+	var denied := 0
+	for i in 20:
+		var r := await _rejoin_try(url, "rjg9", String(sx.get("code", "")), 0,
+			"%032x" % i, -1, "g%d" % i)
+		denied += int((r[1] as Dictionary).get("t") == "rejoin_denied"
+			and (r[1] as Dictionary).get("why") == "token")
+		await _drain(r[0], 900)
+		denied -= int((r[0] as WebSocketPeer).get_ready_state() != WebSocketPeer.STATE_CLOSED)
+		(r[0] as WebSocketPeer).close()
+	var back := await _rejoin_try(url, "rjg9", String(sx.get("code", "")), 0,
+		String(sx.get("rj", "")), -1, "honest")
+	gy.append_array(await _drain(y, 300))
+	var ny := _count(gy)
+	var ok: bool = String(sx.get("rj", "")).length() == 32 and denied == 20 \
+		and (back[1] as Dictionary).get("t") == "rejoined" and int(ny.get("opp_away", 0)) == 1 \
+		and int(ny.get("opp_back", 0)) == 1 and int(ny.get("left", 0)) == 0
+	print("ATTACK9 rejoin guess: %s — denied+closed %d/20, honest %s, opponent got %s" % [
+		"OK" if ok else "FAIL", denied, (back[1] as Dictionary).get("t"), ny])
+	(back[0] as WebSocketPeer).close()
+	y.close()
+	return ok
+
+
+## A: двойной возврат с верным rj при живом прежнем канале.
+func _attack_rejoin_double(url: String) -> bool:
+	var pr := await _pair(url, "rjd10", true)
+	var x: WebSocketPeer = pr[0]
+	var y: WebSocketPeer = pr[1]
+	var sx: Dictionary = pr[2]
+	x.send_text(JSON.stringify({"t": "ready"}))
+	y.send_text(JSON.stringify({"t": "ready"}))
+	await _drain(y, 300)
+	var code := String(sx.get("code", ""))
+	var a := await _rejoin_try(url, "rjd10", code, 0, String(sx.get("rj", "")), -1, "first")
+	var b := await _rejoin_try(url, "rjd10", code, 0, String(sx.get("rj", "")), -1, "second")
+	await _drain(x, 1200)
+	var gy := await _drain(y, 300)
+	var ny := _count(gy)
+	var ok: bool = (a[1] as Dictionary).get("t") == "rejoined" \
+		and (b[1] as Dictionary).get("why") == "busy" \
+		and x.get_ready_state() == WebSocketPeer.STATE_CLOSED \
+		and (a[0] as WebSocketPeer).get_ready_state() == WebSocketPeer.STATE_OPEN \
+		and int(ny.get("left", 0)) == 0
+	print("ATTACK10 double rejoin: %s — first %s, second %s, old channel closed %s, opponent got %s"
+		% ["OK" if ok else "FAIL", (a[1] as Dictionary).get("t"), (b[1] as Dictionary).get("why"),
+		x.get_ready_state() == WebSocketPeer.STATE_CLOSED, ny])
+	(a[0] as WebSocketPeer).close()
+	(b[0] as WebSocketPeer).close()
+	y.close()
+	return ok
+
+
 ## Заминка честного: он не зовёт poll() — не читает сокет, сервер копит отправку к нему.
 func _poll_except(skip: WebSocketPeer) -> void:
 	for o in _socks:
@@ -305,11 +393,16 @@ func _count(got: Array) -> Dictionary:
 	return n
 
 
-func _pair(url: String, build: String) -> Array:
+func _pair(url: String, build: String, caps := false) -> Array:
 	var x := await _connect(url)
 	var y := await _connect(url)
-	x.send_text(JSON.stringify({"t": "hello", "v": 2, "build": build, "name": "Honest" + build}))
-	y.send_text(JSON.stringify({"t": "hello", "v": 2, "build": build, "name": "Cheat" + build}))
+	var hx := {"t": "hello", "v": 2, "build": build, "name": "Honest" + build}
+	var hy := {"t": "hello", "v": 2, "build": build, "name": "Cheat" + build}
+	if caps:
+		hx["caps"] = ["rejoin"]
+		hy["caps"] = ["rejoin"]
+	x.send_text(JSON.stringify(hx))
+	y.send_text(JSON.stringify(hy))
 	await _recv_t(x, "welcome")
 	await _recv_t(y, "welcome")
 	x.send_text(JSON.stringify({"t": "create", "map": "pvp:duel"}))

@@ -18,6 +18,7 @@ static func build() -> VBoxContainer:
 	box.name = "RecordsTab"
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_theme_constant_override("separation", 10)
+	box.add_child(DailyBoard.new())
 	box.add_child(_note(I18n.t("Лучшая победа на карте: больше HP Котла, при равенстве — быстрее. ")
 		+ I18n.t("Поражения рекорд не меняют.")))
 	var campaign_rows: Array = []
@@ -36,6 +37,8 @@ static func build() -> VBoxContainer:
 		box.add_child(_section(I18n.t("Коллекция"), "CollectionRecords", rows))
 	box.add_child(_section(I18n.t("Подряд и «Вызов дня»"), "EndlessRecords", [
 		[I18n.t("Подряд"), _endless_cells(false)], [I18n.t("Вызов дня"), _endless_cells(true)]]))
+	box.add_child(_note(I18n.t("«Вызов дня»: рекорды текущей версии генератора (v%d).")
+		% ProcGen.VERSION))
 	box.add_child(_pvp_section())
 	return box
 

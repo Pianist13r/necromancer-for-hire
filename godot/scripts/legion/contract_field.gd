@@ -83,6 +83,8 @@ const POPUP_POP := 1.6
 ## Онлайн-«Схватка»: стрелка живого договора под Пробелом уходит командой не чаще раза в столько
 ## мс (и последней точкой на отпускание) — поток AIM на каждое движение мыши забил бы канал.
 const NET_AIM_GAP_MS := 100
+## Собственные короткие эффекты поля могут накладываться; после лимита повторно занимаем голос.
+const SFX_POOL_SIZE := 8
 
 ## Общий Input принадлежит приложению: обе стороны PvP и тестовые миры не должны
 ## возвращать накопление, пока на экране ещё осталось поле для рисования.
@@ -221,7 +223,8 @@ var _vis_frame := 0
 var _fading: Array[Dictionary] = []
 ## Переиспользуемый буфер штрихов течения/искр — в кадре не аллоцируем.
 var _strokes := PackedVector2Array()
-var _sfx: AudioStreamPlayer = null
+var _sfx_players: Array[AudioStreamPlayer] = []
+var _sfx_next_index := 0
 ## slow/intuit: штрих, начатый в скале, — вспышка «стена» у курсора {pos, ms} и когда последняя
 ## (не чаще IntuitCfg.WALL_GAP реальных секунд).
 var _wall_fx: Array[Dictionary] = []
@@ -1193,9 +1196,12 @@ func _release(at: Vector2) -> void:
 
 
 ## Щелчок поля по кнопке HUD, которая сама мышь не ловит (B-055). act=false — только проверка.
+## B-487: щелчок по площадке под тостом достаётся площадке — меню участка с первого щелчка.
 func _hud_tap(act: bool) -> bool:
-	return world != null and world.hud != null \
-		and world.hud.ui_tap(world.world_to_screen(_press_pos), act)
+	if world == null or world.hud == null:
+		return false
+	var plot := world.plot_menu != null and world.plot_menu.takes_tap(self, _press_pos)
+	return world.hud.ui_tap(world.world_to_screen(_press_pos), act, plot)
 
 
 ## Выбор вида человеком (клавиши 1/2/3, карточка): откат вида колесом (B-057) больше не про него.
@@ -1665,8 +1671,11 @@ func _sling_cancel_event(event: InputEvent) -> bool:
 ## «залипал» — следующий штрих ЛКМ не чертился, а крутил стрелку (пакет «ввод», 26.09).
 ## B-056: и штрих ЛКМ — снимается с возвратом маны, как натяжка без выпуска. Без этого после
 ## Alt+Tab он оставался открытым и тянулся за курсором без кнопки, пока не щёлкнешь.
+## B-505: ввод corr_play синтетический (LegionWorld.synthetic_input) — его штрих от фокуса окна ОС
+## не зависит, отпускание придёт тем же путём; отмена здесь молча теряла бы договор агента.
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT \
+			and not (world != null and world.synthetic_input):
 		cancel_gestures()
 
 
@@ -1850,16 +1859,28 @@ func _on_spring_released(c: Contract, seg: int, bend: float) -> void:
 
 
 func _sound(id: String, pitch: float) -> void:
-	if _sfx == null:
-		_sfx = AudioStreamPlayer.new()
-		_sfx.bus = &"SFX"
-		add_child(_sfx)
 	var stream := SfxGen.get_stream(id)
 	if stream == null:
 		return
-	_sfx.stream = stream
-	_sfx.pitch_scale = pitch
-	_sfx.play()
+	var idx := -1
+	for offset in _sfx_players.size():
+		var candidate := (_sfx_next_index + offset) % _sfx_players.size()
+		if not _sfx_players[candidate].playing:
+			idx = candidate
+			break
+	if idx < 0 and _sfx_players.size() < SFX_POOL_SIZE:
+		var player := AudioStreamPlayer.new()
+		player.bus = &"SFX"
+		add_child(player)
+		idx = _sfx_players.size()
+		_sfx_players.append(player)
+	if idx < 0:
+		idx = _sfx_next_index
+	_sfx_next_index = (idx + 1) % _sfx_players.size()
+	var voice := _sfx_players[idx]
+	voice.stream = stream
+	voice.pitch_scale = pitch
+	voice.play()
 
 
 ## Пробел или колесо нажаты/отпущены: прицел включается первым нажатым и гаснет с последним
@@ -1911,6 +1932,8 @@ func aim_at(at: Vector2) -> void:
 
 
 func begin(at: Vector2) -> void:
+	if is_instance_valid(world) and world.qa_solo_capture.is_valid():
+		world.qa_solo_capture.call(&"child_entry", &"begin", at)
 	if not active or not bool(unlocked.get(current_kind, true)) or mana <= 0.0:
 		return
 	var raw := Vector2.INF
@@ -2046,6 +2069,8 @@ static func _locked_text(fig: StringName) -> String:
 
 # gdlint: disable=max-returns
 func extend(to: Vector2) -> void:
+	if is_instance_valid(world) and world.qa_solo_capture.is_valid():
+		world.qa_solo_capture.call(&"child_entry", &"extend", to)
 	if not _drawing:
 		return
 	if _space:
@@ -2114,6 +2139,8 @@ func _extend_ink(to: Vector2) -> void:
 
 
 func finish() -> void:
+	if is_instance_valid(world) and world.qa_solo_capture.is_valid():
+		world.qa_solo_capture.call(&"child_entry", &"finish")
 	if not _drawing:
 		return
 	if _pen_sample != Vector2.INF:
@@ -2260,6 +2287,8 @@ func dismiss(c: Contract) -> void:
 
 
 func cancel() -> void:
+	if is_instance_valid(world) and world.qa_solo_capture.is_valid():
+		world.qa_solo_capture.call(&"child_entry", &"cancel")
 	if _drawing and not _draft_net:
 		_refund(_draft_cost)
 	_drawing = false
@@ -3356,7 +3385,7 @@ func on_rite(c: Contract, r: float) -> void:
 	_popups.append({"pos": c.center + Vector2(0.0, -r * 0.35), "t": 0.0,
 		"text": FigureCfg.RITE_LABEL, "color": FigureCfg.TRI_COLOR.lerp(Color.WHITE, 0.35),
 		"size": float(FigureCfg.RITE_LABEL_SIZE)})
-	_sound("mine_boom", 0.6)   # один плеер поля: второй звук перебил бы первый
+	_sound("mine_boom", 0.6)   # один акцент обряда
 
 
 ## Правый край видимого мира (подписи у курсора не уходят за экран; в «Схватке» — вид ×0,8).

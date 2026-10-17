@@ -47,7 +47,8 @@ func _run() -> void:
 	LegionRunStore.endless_start(1, "2026-10-08")
 	LegionRunStore.endless_end_run()
 	var done: Dictionary = Campaign.raw_file().get_value(Campaign.DAILY_SECTION, "done_dates", {})
-	check(done.has("2026-10-08|v2"), "daily completion key includes version")
+	check(done.has(LegionRunStore.daily_key("2026-10-08")),
+		"daily completion key includes current generator version")
 	Campaign.reset()
 	Campaign.use_campaign_scope()
 	var w := LegionWorld.new()
@@ -89,7 +90,8 @@ func _run() -> void:
 	check(hint.modulate.a < first, "generated intro fades during flash")
 	w.queue_free()
 	await process_frame
-	check(LegionEndless.daily_seed("2026-10-08") == 4280396687, "daily seed v2 golden value")
+	check(("daily|2026-10-08|2").hash() == 4280396687,
+		"historical daily seed v2 golden value")
 	# Fast rejection must agree with the diagnostic filter, including broken dictionaries.
 	for fixture: Dictionary in [{}, {"roads": []}, map]:
 		check(PgFilter.accepts(fixture) == PgFilter.evaluate(fixture).problems.is_empty(),

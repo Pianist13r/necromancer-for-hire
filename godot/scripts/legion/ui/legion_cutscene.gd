@@ -109,6 +109,8 @@ func _ready() -> void:
 
 	var hint := UiStyle.label(
 		I18n.t("ЛКМ / Пробел — дальше · Esc — пропустить"), 14, UiStyle.FONT_TEXT, UiStyle.TEXT_DIM)
+	hint.add_theme_color_override("font_outline_color", LegionUi.OUTLINE)
+	hint.add_theme_constant_override("outline_size", 3)
 	hint.anchor_left = 1.0
 	hint.anchor_right = 1.0
 	hint.offset_left = -440.0

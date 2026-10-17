@@ -108,6 +108,12 @@ func _clerk(side: int, axis: Vector2, mode: String) -> float:
 		"%s: metadata действующего приказа согласована с прицелом" % label)
 	for i in 75:
 		w._step(DT)
+	# B-494: печать последней полосы бьёт по прилёту. Досчитать только полёт печатей: после конца
+	# приказа (1,35 с) свободные стрелки добавили бы обычные печати мимо стены.
+	for i in 120:
+		if w.projectiles.shots.is_empty():
+			break
+		w.projectiles.tick(DT)
 	var damage := f.max_hp - f.hp
 	_check(int(job["band"]) == LegionCfg.CLERK_BARRAGE_BANDS,
 		"%s: приказ выпускает все конечные полосы" % label)

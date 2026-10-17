@@ -1,0 +1,15 @@
+{
+  "schema": "legion-gate-resource-policy-v1",
+  "tests": {
+    "legion_solo_input_capture_test": {
+      "execution": "exclusive",
+      "resource_class": "daily_solo_capture_unmeasured",
+      "admission_gib": 8,
+      "floor_gib": 6,
+      "native_timeout_s": 120,
+      "cleanup_reserve_s": 12,
+      "measured_peak_bytes": null,
+      "measurement_evidence": null
+    }
+  }
+}

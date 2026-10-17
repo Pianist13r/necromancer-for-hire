@@ -81,6 +81,14 @@ func _draw() -> void:
 	var pulse := 0.5 + 0.5 * sin(_t * PULSE_RATE) if template_motion_active(_step_t) else 0.5
 	var bob := sin(_t * BOB_RATE) * BOB
 	match tut.step_kind():
+		&"guard_push":
+			var guard := tut.guard_lesson
+			if guard.line() == null and not guard.front_active():
+				_draw_ghost(pulse)
+			elif guard.ready():
+				_draw_rmb(guard.release_target(), pulse, bob)
+			if is_instance_valid(guard.target) and guard.target.is_active():
+				_draw_ring(guard.target.position, FOE_RING_R, PLOT_RING_SQUASH, pulse)
 		&"draw":
 			if tut.ghost_points().size() >= 2:
 				_draw_ghost(pulse)

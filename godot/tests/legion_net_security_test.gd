@@ -27,6 +27,9 @@ func _run() -> void:
 	_history_checks()
 	_role_checks()
 	_log_checks()
+	_protocol_rejection_status()
+	await process_frame
+	await process_frame
 	_reset()
 	var code := 0 if _ok == _all else 1
 	print("legion_net_security_test: %d/%d OK" % [_ok, _all])
@@ -83,6 +86,50 @@ func _last_error(id: int) -> String:
 	if q.is_empty():
 		return ""
 	return String((JSON.parse_string(String(q.back())) as Dictionary).get("code", ""))
+
+
+## Протокол отвергнут ещё до welcome: клиент обязан показать код сервера в лобби.
+## Таймер закрытия ускорен, но error и закрытие идут через настоящее ядро и NetLinkPipe.
+func _protocol_rejection_status() -> void:
+	var previous_language := I18n.language
+	I18n.language = "ru"
+	var session := NetSession.new()
+	root.add_child(session)
+	session.set_process(false)
+	var lobby := NetLobby.new().setup(session)
+	root.add_child(lobby)
+	lobby.set_process(false)
+	var ends := NetLinkPipe.pair()
+	var client_link: NetLinkPipe = ends[1]
+	var relay := NetRelayCore.new()
+	var peer_id := relay.add_link(ends[0], false)
+	session.connect_link(client_link, "Тест")
+	session._pending_hello["v"] = NetSession.PROTO + 1
+	session._process(1.0 / 60.0)
+	relay.process()
+	var sent: Variant = JSON.parse_string(client_link._in[0]) if client_link.available() == 1 else null
+	_check(peer_id > 0 and relay._peers.has(peer_id) and sent is Dictionary
+		and (sent as Dictionary).get("t") == "error" and (sent as Dictionary).get("code") == "proto",
+		"несовместимый hello получил error:proto до закрытия")
+	if relay._peers.has(peer_id):
+		relay._peers[peer_id]["kick_at"] = 0
+	relay.process()
+	session._process(1.0 / 60.0)
+	lobby._process(0.0)
+	_check(session.stage == NetSession.Stage.IDLE and not session.is_online(),
+		"отказ протокола завершил подключение")
+	_check(lobby._status.text == "Версия сервера не совпадает с игрой",
+		"лобби показывает конкретную несовместимость: %s" % lobby._status.text)
+	var silent := NetLinkPipe.pair()
+	session.connect_link(silent[1], "Тест")
+	(silent[0] as NetLink).close(1000, "без ответа")
+	session._process(1.0 / 60.0)
+	lobby._process(0.0)
+	_check(lobby._status.text == NetLobby.SERVER_DOWN,
+		"закрытие без error оставляет общий статус: %s" % lobby._status.text)
+	lobby.queue_free()
+	session.queue_free()
+	I18n.language = previous_language
 
 
 func _start_budget() -> void:

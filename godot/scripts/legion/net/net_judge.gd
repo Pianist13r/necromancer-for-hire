@@ -74,7 +74,8 @@ func _process(_delta: float) -> bool:
 		return false
 	if not _hello_sent:
 		_hello_sent = true
-		_send({"t": "judge", "v": NetSession.PROTO, "room": _room, "key": _key})
+		_send({"t": "judge", "v": NetSession.PROTO, "room": _room, "key": _key,
+			"gen_version": ProcGen.VERSION})
 	while _ws.get_available_packet_count() > 0:
 		var msg: Variant = JSON.parse_string(_ws.get_packet().get_string_from_utf8())
 		if msg is Dictionary:
@@ -98,7 +99,13 @@ func _pump_snap() -> void:
 func _handle(msg: Dictionary) -> void:
 	match String(msg.get("t", "")):
 		"start":
-			_start(String(msg.get("map", "pvp:duel")), int(msg.get("seed", 1)))
+			var map_id := String(msg.get("map", "pvp:duel"))
+			if map_id.begins_with(ProcGen.ID_PREFIX) \
+					and NetSession._wire_gen_version(msg.get("gen_version")) != ProcGen.VERSION:
+				print("[judge %s] несовместимая версия генератора в start" % _room)
+				quit(1)
+				return
+			_start(map_id, int(msg.get("seed", 1)))
 		"in":
 			# ход игрока — его исходный текст, разобранный ровно так, как у соперника (NetSession)
 			var s := int(msg.get("s", -1))

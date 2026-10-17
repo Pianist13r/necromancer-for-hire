@@ -7,6 +7,9 @@ extends NetLink
 ## Одиночный (непарный) конец — заглушка в тестах: CONNECTING, отправка не проходит.
 ##
 
+## Проба: столько следующих отправок отказать (ERR_BUSY — как переполненный исходящий буфер
+## WebSocket). 0 — нет.
+var dbg_refuse := 0
 ## Второй конец. Не типизирован своим же классом и зовётся через call(): страховка от падений
 ## движка на выходе при самоссылочных типах (legion_net_security_test 08.10.2026 падал с кодом 139
 ## раз в ~6 прогонов, пока заглушки игроков были NetLinkPipe; причина до конца не установлена).
@@ -21,8 +24,9 @@ var _last_size := 0
 
 ## Два открытых конца: [a, b].
 static func pair() -> Array:
-	var a := NetLinkPipe.new()
-	var b := NetLinkPipe.new()
+	var pipe_script: Variant = load("res://scripts/legion/net/net_link_pipe.gd")
+	var a: Variant = pipe_script.new()
+	var b: Variant = pipe_script.new()
 	a._peer = b
 	b._peer = a
 	a._state = State.OPEN
@@ -37,6 +41,9 @@ func state() -> int:
 func send_text(text: String) -> Error:
 	if _state != State.OPEN or _peer == null:
 		return ERR_UNAVAILABLE
+	if dbg_refuse > 0:
+		dbg_refuse -= 1
+		return ERR_BUSY
 	_peer.call(&"_receive", text)
 	return OK
 

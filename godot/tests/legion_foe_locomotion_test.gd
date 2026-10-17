@@ -26,7 +26,8 @@ func _step(foe: Foe) -> void:
 
 func _sleep_wake() -> void:
 	var start := Vector2(500, 300)
-	var mimic := world.spawn_foe_on_path("mimic", PackedVector2Array([start, start + Vector2.DOWN * 300]), start)
+	var mimic := world.spawn_foe_on_path("mimic",
+		PackedVector2Array([start, start + Vector2.DOWN * 300]), start)
 	mimic.state = Foe.State.SLEEP
 	mimic.view.set_process(false)
 	mimic.view.set_loop_state(&"sleep")
@@ -48,6 +49,28 @@ func _sleep_wake() -> void:
 	check(mimic.view.current_state() == &"walk", "real wake recovery resumes locomotion")
 
 
+func _proximity_wake() -> void:
+	# Тот же способ создания, что у map.sleepers; урон не участвует в пробуждении.
+	var start := Vector2(800, 400)
+	var mimic := world._add_foe("mimic", PackedVector2Array(), {"pos": start, "sleep": true})
+	mimic.view.set_process(false)
+	var radius := float(LegionCfg.FOES["mimic"]["wake_radius"])
+	var unit := world.spawn_unit(&"laborer", start + Vector2.RIGHT * (radius + 1.0))
+	var hp := mimic.hp
+	for i in 12:
+		_step(mimic)
+	check(mimic.state == Foe.State.SLEEP and mimic.position == start,
+		"worker outside configured wake radius leaves gravestone asleep")
+	unit.position = start + Vector2.RIGHT * (radius - 1.0)
+	_step(mimic)
+	check(mimic.state == Foe.State.WAKE and mimic.view.current_state() == &"wake",
+		"nearby worker wakes gravestone at configured radius without damage")
+	check(mimic.hp == hp, "proximity wake did not require damage")
+	for i in 25:
+		_step(mimic)
+	check(mimic.state == Foe.State.WALK, "proximity wake completes into walking")
+
+
 func _run() -> void:
 	Campaign.set_save_path("user://legion_foe_locomotion_test.cfg")
 	Campaign.reset()
@@ -59,9 +82,11 @@ func _run() -> void:
 	world.start_map("wasteland")
 	world.set_process(false)
 	world.terrain = LegionTerrain.new().setup({})
-	for kind: String in ["zombie", "ghost", "beetle", "signer", "lawyer", "mimic", "boss", "shield_inspector"]:
+	for kind: String in ["zombie", "ghost", "beetle", "signer", "lawyer", "mimic", "boss",
+			"shield_inspector"]:
 		var start := Vector2(500, 300)
-		var foe := world.spawn_foe_on_path(kind, PackedVector2Array([start, start + Vector2(0, 300)]), start)
+		var foe := world.spawn_foe_on_path(kind,
+			PackedVector2Array([start, start + Vector2(0, 300)]), start)
 		foe._skill_cd = 1000.0
 		foe._roar_cd = 1000.0
 		foe.view.set_process(false)
@@ -92,6 +117,7 @@ func _run() -> void:
 		foe.view._process(DT)
 		check(foe.view.current_state() == &"death", kind + ": corpse cannot resume walking")
 	_sleep_wake()
+	_proximity_wake()
 	# Разомкнуть RefCounted-цикл items↔effects у изолированного тестового мира.
 	world.items.effects.items = null
 	world.items.effects = null

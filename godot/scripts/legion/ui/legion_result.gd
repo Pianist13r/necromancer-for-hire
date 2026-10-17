@@ -48,6 +48,7 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 		stamp_text = I18n.t("Кампания пройдена") if campaign_complete else I18n.t("Договор исполнен")
 	var shell := ProgressionUi.shell(self, stamp_text, map_title,
 		{"shade": 0.64, "title_color": UiStyle.GOOD if victory else UiStyle.BAD})
+	_add_aftermath(shell, victory, campaign_complete, String(stats.get("aftermath", "")))
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 24)
 	shell["body"].add_child(columns)
@@ -67,7 +68,8 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 	_add_record_line(box, stats.get("record", {}))
 	# Полная ширина сохраняет три строки разбора даже с длинными названиями подходов.
 	# Он не растягивает ни статистику, ни награду до высоты соседней панели.
-	shell["body"].add_child(_debrief_panel(stats.get("debrief", {})))
+	shell["body"].add_child(_debrief_panel(stats.get("debrief", {}),
+		stats.get("debrief_available", {})))
 
 	if not rewards.is_empty():
 		reward_box.add_child(_rewards_block(rewards, victory))
@@ -124,6 +126,24 @@ func show_result(victory: bool, stats: Dictionary, stars: int, has_next: bool,
 	appear.tween_property(columns, "modulate:a", 1.0, 0.2)
 
 
+## Этап 5 ROADMAP: следствие победы на картах кампании 1–7 — одна спокойная строка сразу под
+## штампом и названием карты, до прокручиваемого итога: история читается раньше чисел, а ряд
+## кнопок внизу закреплён и не сдвигается. Текст — поле `aftermath` JSON карты, его кладёт в
+## stats только кампания (LegionMain._on_match_ended). Поражение показывает прежний экран;
+## финал Прораба и забег/Схватка/коллекция поля не получают — у них свои катсцены и итоги.
+## RU/EN — I18n.map_text, клавишные токены раскрывает ProgressionUi.text один раз (урок B-523).
+func _add_aftermath(shell: Dictionary, victory: bool, campaign_complete: bool,
+		source: String) -> void:
+	if not victory or campaign_complete or source == "":
+		return
+	var story := ProgressionUi.text(I18n.map_text(source), 18, UiStyle.TEXT)
+	story.name = "VictoryAftermath"
+	var note: Label = shell["note"]
+	var column := note.get_parent()
+	column.add_child(story)
+	column.move_child(story, note.get_index() + 1)
+
+
 func _result_panel(parent: HBoxContainer, title: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
 	panel.name = "BattlePanel" if title == I18n.t("Этот бой") else "RewardPanel"
@@ -146,7 +166,7 @@ func _result_panel(parent: HBoxContainer, title: String) -> VBoxContainer:
 	return box
 
 
-func _debrief_panel(report: Dictionary) -> Control:
+func _debrief_panel(report: Dictionary, available: Dictionary) -> Control:
 	var panel := PanelContainer.new()
 	panel.visible = not BattleDebrief.lines(report).is_empty()
 	var style := UiStyle.panel_style(Color(0.09, 0.075, 0.13, 0.94), 6)
@@ -157,7 +177,7 @@ func _debrief_panel(report: Dictionary) -> Control:
 	style.content_margin_top = 6
 	style.content_margin_bottom = 6
 	panel.add_theme_stylebox_override("panel", style)
-	panel.add_child(BattleDebrief.panel(report, UiStyle.TEXT))
+	panel.add_child(BattleDebrief.panel(report, UiStyle.TEXT, available))
 	return panel
 
 

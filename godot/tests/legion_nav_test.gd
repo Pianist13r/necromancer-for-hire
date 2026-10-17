@@ -197,6 +197,7 @@ func _pause_checks() -> void:
 	_click(main._pause_screen, "Продолжить")
 	await _frames()
 	_check(not paused and hud.visible, "продолжение вернуло боевые слои")
+	await _dossier_enter_checks()
 	# Прямой open/close обязан вернуть и первоначально видимый слой.
 	var dossier := LegionItemDossier.new()
 	main.add_child(dossier)
@@ -206,6 +207,71 @@ func _pause_checks() -> void:
 	dossier.close()
 	_check(hud.visible, "досье close возвращает видимый HUD")
 	dossier.queue_free()
+
+
+func _enter_key() -> void:
+	# Проверяем маршрутизацию синтетического клавиатурного события, не нажатие ОС.
+	var event: InputEventKey = InputEventKey.new()
+	event.keycode = KEY_ENTER
+	event.physical_keycode = KEY_ENTER
+	event.pressed = true
+	_check(event.is_action_pressed("ui_accept"), "Enter соответствует ui_accept")
+	if not event.is_action_pressed("ui_accept"):
+		return
+	Input.parse_input_event(event)
+	await _frames()
+	var release: InputEventKey = event.duplicate() as InputEventKey
+	release.pressed = false
+	Input.parse_input_event(release)
+	await _frames()
+
+
+func _dossier_enter_checks() -> void:
+	var deadline: int = Time.get_ticks_msec() + 60000
+	while main.world.is_ground_loading() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(not main.world.is_ground_loading(), "мир готов перед проверкой Enter")
+	if main.world.is_ground_loading():
+		return
+	main.world.set_paused(true)
+	await _frames()
+	var resume: Button = main._pause_screen.find_child("NavPrimary", true, false) as Button
+	resume.grab_focus()
+	main._show_dossier()
+	await _frames()
+	_check(root.gui_get_focus_owner() == main._dossier._close, "Досье фокусирует Close")
+	var stopped_at: float = main.world.now
+	await _enter_key()
+	_check(not is_instance_valid(main._dossier), "Enter на Close закрыл Досье")
+	_check(paused and main.world.paused, "Enter на Close сохранил обе паузы")
+	_check(main.world.now == stopped_at, "закрытие Досье не продвинуло время боя")
+	_check(is_instance_valid(resume) and root.gui_get_focus_owner() == resume,
+		"после Close фокус вернулся к прежней кнопке")
+	# Не скрываем RED последующими обращениями к уже удалённой паузе.
+	if not paused or not main.world.paused:
+		main.world.set_paused(true)
+		await _frames()
+	if is_instance_valid(main._dossier):
+		main._dossier.close()
+		await _frames()
+	await _enter_key()
+	_check(not paused and not main.world.paused, "отдельный Enter продолжил бой")
+	main.world.set_paused(true)
+	await _frames()
+	main._show_dossier()
+	await _frames()
+	var tab: Button = main._dossier.view.find_child("TabUpgrades", true, false) as Button
+	tab.grab_focus()
+	await _enter_key()
+	_check(is_instance_valid(main._dossier) and paused and main.world.paused,
+		"Enter на вкладке не закрывает Досье и не продолжает бой")
+	if is_instance_valid(main._dossier):
+		_check(main._dossier.view.tab() == DossierView.TAB_UPGRADES,
+			"Enter активирует сфокусированную вкладку")
+		main._dossier.close()
+		await _frames()
+	main.world.set_paused(false)
+	await _frames()
 
 
 func _other_screens() -> void:

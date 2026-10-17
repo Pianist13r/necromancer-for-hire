@@ -8,15 +8,15 @@ English · [Русский](README.md)
 
 Choose the language from the main menu in **Settings → Language / Язык**. The setting covers the interface, tutorials, cutscenes and spoken instructions. You can keep your existing saves when switching languages.
 
-Download: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Windows.exe) ·
-[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-macOS.zip) ·
-[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Linux.tar.gz) ·
+Download: [**Windows**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-Windows.exe) ·
+[macOS](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-macOS.zip) ·
+[Linux](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-Linux.tar.gz) ·
 [Game website](https://necromancer-for-hire.ru/en/) · [All releases](https://github.com/Pianist13r/necromancer-for-hire/releases) ·
 [itch.io](https://pianist13r.itch.io/necromancer-for-hire) ·
 [Telegram news](https://t.me/necromancer_for_hire) · [Community chat](https://t.me/necromancer_for_hire_chat) ·
 [Feedback form](https://forms.yandex.ru/u/6ac606b3f47e73002a8eaf4e)
 
-**Alpha version 0.4.1-alpha.** Made with Godot 4.7.2.
+**Alpha version 0.4.2-alpha.** Made with Godot 4.7.2.
 
 | Draw contracts | Cast spells | Skirmish |
 |---|---|---|
@@ -31,6 +31,20 @@ Contracts expire in segments: contractors charge, guards move the front, and cle
 | ![Two opposing armies in Skirmish](media/readme/en/05_duel.jpg) | ![A Ritual formation faces the inspectors](media/readme/en/09_last_wave.jpg) |
 
 Screenshots and silent GIFs are captured from gameplay in the English version.
+
+## What's new in 0.4.2-alpha
+
+**Clearer lessons.** The Archives lesson explains the cost of releasing a contract early and the Overtime second order from a whole shape. The Gatehouse lesson teaches pushing a shield bearer away from the Cauldron, gives separate hints about direction and position, and picks a reachable practice spot. Russian and English lesson voice lines are updated for the new texts.
+
+**Visible rolling barrage.** Audit lanes now fire homing seals: damage lands on arrival and a short ring marks the hit. Damage, wave and economy numbers are unchanged.
+
+**Results and campaign.** Victory shows its consequences for the next site. The loss debrief offers a context-aware retry, and battle unlocks appear right away in the result and necrolog advice. The Swamp briefing warns about sleeping gravestones.
+
+**Menus and controls.** Settings open on an opaque background while paused; the progress-reset confirmation is fully visible and returns focus after cancel; Enter in the Dossier no longer unpauses the battle; clicking a plot under a toast works on the first try. Four cutscene frames match the contractor canon, and the skip hint is easier to read.
+
+**Endless and Daily Challenge.** A cold start shows battle preparation instead of freezing; the daily attempt and purchases are not spent until preparation completes. Daily records are kept per map-generator version. The Records tab now has a shared Daily Challenge board section; the board itself is not yet available, and personal records are kept.
+
+**Maps and online.** Every road on generated solo maps has a bot front, and PvP map halves have physical fronts (generator v4). Contract sounds overlap instead of cutting each other off. You can rejoin an online match after a connection drop (45 s grace, 90 s budget); reconnection and server refusal messages are translated. Versions before 0.4.2 are incompatible online: both players need 0.4.2, and service availability is checked separately from the release version.
 
 ## What's new in 0.4.1-alpha
 
@@ -156,10 +170,10 @@ You do not need Git or the source code to play. Archives include English and Rus
 
 | System | Download | Launch |
 |---|---|---|
-| **Windows 10/11, 64-bit** | [**Single executable**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Windows.exe) | Download and run; no installation. It is unsigned. If Windows shows “Windows protected your PC”, and you trust this download, choose More info → Run anyway. |
-| Windows archive | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Windows.zip) | Extract the whole archive and run `Necromancer.exe`. Keep `Necromancer.pck` beside it with that exact name. |
-| **macOS, Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-macOS.zip) | Double-click the ZIP to extract it with Archive Utility, then move the .app to Applications. It is ad-hoc signed and not notarized by Apple. If you trust it, permit this app through System Settings → Privacy & Security → Open Anyway. |
-| **Linux, x86_64** | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.1-alpha/NecromancerForHire-Linux.tar.gz) | Run `tar -xzf NecromancerForHire-Linux.tar.gz`, then `./Necromancer/Necromancer.x86_64`. |
+| **Windows 10/11, 64-bit** | [**Single executable**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-Windows.exe) | Download and run; no installation. It is unsigned. If Windows shows “Windows protected your PC”, and you trust this download, choose More info → Run anyway. |
+| Windows archive | [NecromancerForHire-Windows.zip](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-Windows.zip) | Extract the whole archive and run `Necromancer.exe`. Keep `Necromancer.pck` beside it with that exact name. |
+| **macOS, Intel 11.0+ / Apple Silicon 13.0+** | [**NecromancerForHire-macOS.zip**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-macOS.zip) | Double-click the ZIP to extract it with Archive Utility, then move the .app to Applications. It is ad-hoc signed and not notarized by Apple. If you trust it, permit this app through System Settings → Privacy & Security → Open Anyway. |
+| **Linux, x86_64** | [**NecromancerForHire-Linux.tar.gz**](https://github.com/Pianist13r/necromancer-for-hire/releases/download/0.4.2-alpha/NecromancerForHire-Linux.tar.gz) | Run `tar -xzf NecromancerForHire-Linux.tar.gz`, then `./Necromancer/Necromancer.x86_64`. |
 
 Windows and Linux require a Vulkan-capable graphics card and driver. The macOS universal build requires Metal-capable graphics. The macOS package has been checked structurally but not run on a physical Mac. Linux launch has been checked headlessly on Ubuntu 24.04; desktop support remains alpha.
 

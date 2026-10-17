@@ -34,7 +34,11 @@ signal welcomed
 ## (проверка 01.10).
 signal aborted(text: String)
 
-enum Stage { IDLE, CONNECTING, LOBBY, LOADING, PLAYING, OVER }
+## RECONNECTING — сокет оборвался в бою, мир стоит, идут попытки вернуться в ту же комнату;
+## RESYNC — вернулись, досылаем хвост своих ходов (мир стоит, новые ходы не создаются, пока хвост не
+## ушёл: иначе свежий ход обогнал бы старый, и сервер выкинул бы за «вне очереди»).
+## Добавлены в конец: номера прежних стадий в пробах и журналах не меняются.
+enum Stage { IDLE, CONNECTING, LOBBY, LOADING, PLAYING, OVER, RECONNECTING, RESYNC }
 
 ## 2 — прямое соединение (cand/path/late/p2p_mismatch, токен p2p в start, задержка по пути).
 const PROTO := 2
@@ -43,7 +47,10 @@ const PROTO := 2
 ## 2026-10-08b — штрих: флаг stack (Шифт, B-044), подновление линии любого вида, пеньки (B-345).
 ## 2026-10-09a — автомарш только из резерва у дома, ближний первым (D-1009-C1, 0.3.1).
 ## 2026-10-12-040 — приказы ролей и доработка фигур; отдельная совместимость выпуска 0.4.0.
-const BUILD := "net-2026-10-12-040"
+## 2026-10-13-b494 — огневой вал счетоводов бьёт летящими печатями, урон по прилёту (B-494).
+## 2026-10-16-b532-g4 — другая геометрия PvP-половин: старые клиенты/судья несовместимы.
+## 2026-10-16-rj-g4 — возврат после обрыва вместе с проверкой генератора v4.
+const BUILD := "net-2026-10-16-rj-g4"
 const DT := 1.0 / 60.0
 ## Ход — 3 тика (50 мс); ввод хода t стороны применяется в начале хода t + её задержки у обоих.
 const TURN := 3
@@ -126,6 +133,8 @@ const SNAP_RAW_MAX := 32 * 1024 * 1024
 ## Сколько применённых ходов помнить: снимок судьи бывает старше своего тика (снимок идёт по сети,
 ## пока клиент играет дальше) — до своего тика клиент досчитывает его этими ходами. 1200 — 60 с.
 const HIST_KEEP := 1200
+## «void» отложен сервером (соперник переподключается): простой не обнуляется, повтор — через это.
+const VOID_RETRY_MS := 2000
 
 var stage := Stage.IDLE
 var side := -1
@@ -135,6 +144,8 @@ var seed_value := 0
 var rtt_ms := -1
 var my_name := ""
 var opponent_name := ""
+## Версия генератора, явно объявленная relay. Старый сервер не объявляет её: gen-PvP запрещён.
+var server_gen_version := -1
 ## Проба: остановиться ровно на этом тике (оба клиента — на одном), -1 — до конца матча.
 var stop_at_tick := -1
 ## Итог по счёту сервера-судьи ({"why", "winner", "hp", "tick"}), пусто — судьи нет или ещё рано.
@@ -180,6 +191,15 @@ var last_close := ""
 var mismatch_report: Dictionary = {}
 ## Удачных подтяжек снимком судьи за матч.
 var heals := 0
+## Канал для попытки переподключения (NetLink или null — не вышло). Не задан — новый WebSocket на
+## адрес лобби; задают пробы в одном процессе (NetLinkPipe), позже — гость Steam.
+var rejoin_link: Callable
+## Проба: задержка ввода постоянная (не по замеру пути и не растёт) — прогоны с обрывом и без
+## должны давать один и тот же бой. -1 — как обычно.
+var dbg_fixed_delay := -1
+## Проба «связь молчит» (tools/net_rejoin.sh silent): до этого времени (мс) сокет не опрашивается
+## — ни приёма, ни отправки, ни пинга; сокет не закрывается. 0 — нет.
+var dbg_freeze_until := 0
 
 var _desync_judge := false
 var _p2p: NetP2P
@@ -234,6 +254,12 @@ var _hist: Dictionary = {}
 var _snap_id := -1
 var _snap_n := 0
 var _snap_parts := PackedStringArray()
+## Переподключение: адрес лобби (пусто — канал дан готовым), попытки, кольцо своих ходов.
+var _url := ""
+var _hello_name := ""
+var _rejoin := NetRejoin.new()
+## Не раньше этого времени повторить «void», отложенный сервером из-за отсрочки соперника.
+var _void_next_ms := 0
 
 ## Канал к ретранслятору: WebSocket (сервер), пара концов в процессе (хозяин Steam-игры) или
 ## соединение Steam (гость). Протокол выше канала один и тот же.
@@ -294,18 +320,33 @@ func _ready() -> void:
 # ── Лобби ───────────────────────────────────────────────────────────────────
 
 func connect_lobby(url: String, player_name: String) -> void:
-	_open(url, {"t": "hello", "v": PROTO, "build": BUILD, "name": player_name})
+	_open(url, _hello(player_name, true))
 
 
 ## Лобби по готовому каналу (Steam: NetLinkSteam гостя или конец NetLinkPipe хозяина): дальше всё
-## как через сервер — hello, комнаты, матч.
+## как через сервер — hello, комнаты, матч. Вернуться после обрыва — только если задан rejoin_link
+## (у Steam пока нет: переподключение гостя Steam — отдельный шаг).
 func connect_link(link: NetLink, player_name: String) -> void:
 	close()
-	_open_link(link, {"t": "hello", "v": PROTO, "build": BUILD, "name": player_name})
+	_url = ""
+	_open_link(link, _hello(player_name, rejoin_link.is_valid()))
+
+
+## caps «rejoin» — сервер даст отсрочку при обрыве, только если умеют оба игрока комнаты.
+func _hello(player_name: String, can_rejoin: bool) -> Dictionary:
+	_hello_name = player_name   # тем же именем — и при переподключении
+	var h := {"t": "hello", "v": PROTO, "build": BUILD, "name": player_name,
+		"gen_version": ProcGen.VERSION}
+	if can_rejoin:
+		h["caps"] = ["rejoin"]
+	return h
 
 
 ## Открыть свою комнату и ждать соперника (map: «pvp:duel» или «gen:» — поле выберет сервер).
 func create_room(map: String) -> void:
+	if map.begins_with(ProcGen.ID_PREFIX) and server_gen_version != ProcGen.VERSION:
+		failed.emit(_error_text("gen_version"))
+		return
 	_send({"t": "create", "map": map})
 
 
@@ -321,6 +362,14 @@ func cancel_room() -> void:
 
 ## Матч кончился или брошен — вернуться в лобби, не разрывая соединения.
 func leave_match() -> void:
+	if stage == Stage.RECONNECTING:
+		# связи нет — сказать серверу «ухожу» некому: попытки прекращаем, сторона не вернётся, и по
+		# истечении отсрочки сервер засчитает уход (как и явный leave — сдача)
+		_stop_reconnect()
+		_detach_world()
+		room_code = ""
+		side = -1
+		return
 	_send_stats("leave")
 	_send({"t": "leave"})
 	_detach_world()
@@ -346,10 +395,12 @@ func _open(url: String, hello: Dictionary) -> void:
 	if err != OK:
 		failed.emit(I18n.t("Не удалось подключиться к %s (ошибка %d)") % [u, err])
 		return
+	_url = u
 	_open_link(link, hello)
 
 
 func _open_link(link: NetLink, hello: Dictionary) -> void:
+	server_gen_version = -1
 	_chan = link
 	_pending_hello = hello
 	_close_reason = ""
@@ -363,7 +414,10 @@ func close() -> void:
 	if _chan != null:
 		_chan.close(1000, "bye")
 	_chan = null
+	server_gen_version = -1
 	stage = Stage.IDLE
+	_rejoin.active = false
+	_rejoin.resend_k = -1
 	_detach_world()
 	_stop_p2p()
 
@@ -415,6 +469,9 @@ func attach(world: LegionWorld) -> void:
 	_stall_turn = -1
 	_delay_start = DELAY_MIN
 	_mstats.reset()
+	_void_next_ms = 0
+	# токен возврата — из start этого матча (reset_match там), ходы прежнего матча — прочь
+	_rejoin.reset_match(_rejoin.token, _rejoin.code, _rejoin.side)
 	stage = Stage.LOADING
 	_open_log()
 	# первые DELAY_MIN ходов у обоих пусты — иначе нечего было бы применить в ходе 0; остальные
@@ -425,7 +482,8 @@ func attach(world: LegionWorld) -> void:
 
 
 func _on_local_cmd(cmd: Dictionary) -> void:
-	if stage != Stage.PLAYING and stage != Stage.LOADING:
+	# пока связь восстанавливается, мир стоит, но набранное уйдёт ближайшим ходом
+	if not stage in [Stage.PLAYING, Stage.LOADING, Stage.RECONNECTING, Stage.RESYNC]:
 		return
 	var enc := NetCodec.encode(cmd)
 	if NetCodec.decode(JSON.parse_string(JSON.stringify(enc))).is_empty():
@@ -435,6 +493,11 @@ func _on_local_cmd(cmd: Dictionary) -> void:
 
 
 func _process(delta: float) -> void:
+	if dbg_freeze_until > 0 and Time.get_ticks_msec() < dbg_freeze_until:
+		return
+	if stage == Stage.RECONNECTING:
+		_tick_reconnect()
+		return
 	if _chan == null:
 		return
 	_hitch = delta > HITCH_S
@@ -485,6 +548,8 @@ func _process(delta: float) -> void:
 		_tick_loading()
 	elif stage == Stage.PLAYING:
 		_tick_playing(delta)
+	elif stage == Stage.RESYNC:
+		_tick_resync()
 
 
 func _tick_loading() -> void:
@@ -559,7 +624,8 @@ func _tick_playing(delta: float) -> void:
 		_acc = minf(_acc, DT)
 		_mstats.on_stall(_hold_stall, delta, STALL_SHOW)   # в сводке — тоже простой
 		_hold_stall += delta
-		if _hold_stall > RELAY_HOLD_ABORT and _req_wait < 0.0:
+		if _hold_stall > RELAY_HOLD_ABORT and _req_wait < 0.0 \
+				and Time.get_ticks_msec() >= _void_next_ms:
 			_request("void")   # запрос: принят — оба в лобби без итога; отклонён — ждём дальше
 	else:
 		_hold_stall = 0.0
@@ -593,7 +659,8 @@ func _watch_late(delta: float) -> void:
 
 ## Соперник стоит из-за нас — ещё ход задержки (следующее закрытие хода вставит пустой ход).
 func _on_late() -> void:
-	if stage != Stage.PLAYING or delay >= mini(DELAY_MAX, _delay_start + LATE_ADD_MAX):
+	if stage != Stage.PLAYING or delay >= mini(DELAY_MAX, _delay_start + LATE_ADD_MAX) \
+			or dbg_fixed_delay >= 0:
 		return
 	delay += 1
 	_log({"ev": "delay", "delay": delay, "tick": _world.net_tick if _world != null else -1})
@@ -603,7 +670,8 @@ func _on_late() -> void:
 ## Выбор задержки на старте боя: по замеренной задержке пути до соперника (в одну сторону).
 func _choose_delay() -> void:
 	path_mode = "p2p" if _p2p != null and _p2p.is_active() else "relay"
-	delay = delay_for(_oneway_ms(true))
+	delay = delay_for(_oneway_ms(true)) if dbg_fixed_delay < 0 \
+		else clampi(dbg_fixed_delay, DELAY_MIN, DELAY_MAX)
 	_delay_start = delay
 	_report_path()
 
@@ -651,10 +719,19 @@ func _send_turn(k: int, cmds: Array) -> void:
 	(_turns[side] as Dictionary)[k] = cmds
 	_next_out = k + 1
 	var raw := JSON.stringify({"t": "in", "k": k, "c": cmds})
-	if dbg_hold_from >= 0 and k >= dbg_hold_from:
+	# та же строка — в кольцо: после обрыва досылается серверу байт в байт (сверка путей)
+	_rejoin.remember(k, raw)
+	if _rejoin.resend_k >= 0:
+		pass   # идёт досылка хвоста — этот ход уйдёт за ним по порядку (_tick_resync)
+	elif dbg_hold_from >= 0 and k >= dbg_hold_from:
 		_hold_q.append([Time.get_ticks_msec() + dbg_hold_ms, raw])
-	elif _chan != null:
-		_chan.send_text(raw)
+	elif _chan != null and _chan.send_text(raw) != OK and stage == Stage.PLAYING \
+			and _chan.state() == NetLink.State.OPEN:
+		# канал не взял ход (исходящий буфер полон): следующий ушёл бы вперёд него, и сервер
+		# выкинул бы «вне очереди». Ход ждёт в кольце — досылка по порядку, мир стоит
+		_log({"ev": "send_refused", "k": k})
+		_rejoin.start_resend(k, Time.get_ticks_msec())
+		stage = Stage.RESYNC
 	if _p2p == null or _p2p.state == NetP2P.State.FAILED or _p2p.state == NetP2P.State.OFF:
 		return
 	if dbg_forge_at >= 0 and k >= dbg_forge_at and not cmds.is_empty() and not _forged:
@@ -705,6 +782,9 @@ func _update_label() -> void:
 			else I18n.t("Сервер засчитал вам поражение: ход напрямую не совпал с отправленным серверу")
 	elif _remote_left:
 		_label.text = I18n.t("Соперник отключился")
+	elif _rejoin.opp_away_text(Time.get_ticks_msec()) != "":
+		var away_text := _rejoin.opp_away_text(Time.get_ticks_msec())
+		_label.text = I18n.t("Соперник переподключается… %s") % away_text
 	elif _desync_tick >= 0 and verdict.has("winner"):
 		var win := int(verdict["winner"])
 		var who := I18n.t("ничья") if win < 0 else (I18n.t(
@@ -753,6 +833,7 @@ func _handle(msg: Dictionary) -> void:
 	match String(msg.get("t", "")):
 		"welcome":
 			my_name = String(msg.get("name", ""))
+			server_gen_version = _wire_gen_version(msg.get("gen_version"))
 			stage = Stage.LOBBY
 			_ping_t = PING_EVERY   # первый замер RTT до сервера — сразу (по нему задержка ввода)
 			status.emit(I18n.t("Вы в лобби как «%s»") % my_name)
@@ -766,10 +847,23 @@ func _handle(msg: Dictionary) -> void:
 			room_created.emit(room_code)
 			status.emit(I18n.t("Комната %s открыта — ждём соперника") % room_code)
 		"start":
+			var start_map := String(msg.get("map", "pvp:duel"))
+			if start_map.begins_with(ProcGen.ID_PREFIX) and (server_gen_version != ProcGen.VERSION
+					or _wire_gen_version(msg.get("gen_version")) != ProcGen.VERSION):
+				# У старого relay нет версии ни в welcome, ни в start. До сигнала мир не создавать.
+				_send({"t": "leave"})
+				room_code = ""
+				side = -1
+				stage = Stage.LOBBY
+				failed.emit(_error_text("gen_version"))
+				return
 			seed_value = int(msg.get("seed", 1))
-			map_id = String(msg.get("map", "pvp:duel"))
+			map_id = start_map
 			side = clampi(int(msg.get("side", 0)), 0, 1)
 			room_code = String(msg.get("code", room_code))
+			# секрет возврата — только этого start; без него (старый сервер, соперник без caps)
+			# обрыв ведёт в лобби, как прежде
+			_rejoin.reset_match(msg.get("rj"), room_code, side)
 			opponent_name = String(msg.get("opponent", "соперник"))
 			status.emit(I18n.t("Соперник — «%s», загрузка…") % opponent_name)
 			# пробивка — до запуска мира: идёт параллельно загрузке поля
@@ -787,7 +881,13 @@ func _handle(msg: Dictionary) -> void:
 		"late":
 			_on_late()
 		"void_denied":
-			_on_request_denied("void")
+			_on_request_denied("void", msg.get("away") == true)
+		"opp_away":
+			_rejoin.set_opp_away(msg.get("ms"), Time.get_ticks_msec())
+			_log({"ev": "opp_away", "ms": msg.get("ms")})
+		"opp_back":
+			_rejoin.opp_away_until = 0
+			_log({"ev": "opp_back"})
 		"no_ready_denied":
 			_on_request_denied("no_ready")
 		"desync":
@@ -826,15 +926,18 @@ func _handle(msg: Dictionary) -> void:
 		"error":
 			var code := String(msg.get("code", ""))
 			# отказы внутри лобби («нет комнаты», «занята», «другая версия») не рвут соединение
-			if code in ["no_ready", "void"]:
-				if stage == Stage.LOADING or stage == Stage.PLAYING:
+			if code in ["no_ready", "void", "overload"]:
+				# и во время досылки после возврата: комнаты уже нет, хвост досылать некуда
+				if stage in [Stage.LOADING, Stage.PLAYING, Stage.RESYNC]:
+					_rejoin.resend_k = -1
 					_req_wait = -1.0
 					_send_stats(code)   # «прерван/отменён без итога», а не «обрыв»
 					# не загрузился вовремя сам — свой текст, а не «соперник отключился»
 					_abort(I18n.t("Матч отменён: поле не загрузилось вовремя") if code == "no_ready"
 						and not _ready_local else _error_text(code))
-			elif code in ["no_room", "busy", "build", "full", "rate_limit"]:
-				failed.emit(_error_text(code))
+			elif code in ["no_room", "busy", "build", "gen_version", "full", "rate_limit"]:
+				failed.emit(_error_text("gen_version" if code == "build"
+					and msg.get("why") == "gen_version" else code))
 			else:
 				_fail(_error_text(code))
 
@@ -852,7 +955,10 @@ func _on_remote_turn(msg: Dictionary, raw: String, via: String, mac := "") -> vo
 		return
 	if via == "relay":
 		_relay_contig = maxi(_relay_contig, k)
-	if _p2p != null and k > _applied_turn - MATCH_KEEP:
+	# сверка путей — и после того, как прямой путь закрыт (переподключение, переход на сервер):
+	# пришедшая напрямую до этого строка ждёт своей серверной копии в _seen, и подлог в ней должен
+	# оставаться доказуемым (рецензия 10.10, п. 3)
+	if (_p2p != null or _seen.has(k)) and k > _applied_turn - MATCH_KEEP:
 		_reconcile(k, raw, via, mac)
 	var theirs: Dictionary = _turns[1 - side]
 	# ход приходит один раз; повтор или ход сильно впереди — не наш порядок, не перезаписываем
@@ -909,6 +1015,7 @@ func _on_forge_verdict(msg: Dictionary) -> void:
 		return
 	forge_cheater = cheat
 	_log({"ev": "forge_verdict", "cheat": cheat, "k": msg.get("k")})
+	_end_resync()
 	_send_stats("forge_loss" if cheat == side else "forge_win")
 	if stage == Stage.PLAYING and _world != null and _world.phase == LegionWorld.Phase.BATTLE:
 		_world.net_apply(cheat, {"type": "surrender"})
@@ -1049,7 +1156,9 @@ func heal(snap: Dictionary) -> String:
 
 ## Почему снимок нельзя принять ("" — можно); мир при этом не трогается.
 func _heal_refusal(snap: Dictionary) -> String:
-	if stage != Stage.PLAYING or _world == null or not is_instance_valid(_world):
+	# RESYNC — бой идёт, просто досылаем свои ходы после возврата: снимок принимаем, как в бою
+	# (подтяжка не трогает ни кольцо своих ходов, ни их досылку)
+	if not stage in [Stage.PLAYING, Stage.RESYNC] or _world == null or not is_instance_valid(_world):
 		return "матч не идёт"
 	# B-377 (1): закончившему матч снимок не нужен — иначе мир перезапустился бы (SnapWorld.prepare)
 	# и игрок увидел бы второй экран итога
@@ -1181,7 +1290,8 @@ func _fallback_to_relay() -> void:
 	if _mstats.fallback_tick < 0 and _world != null and is_instance_valid(_world):
 		_mstats.fallback_tick = _world.net_tick
 	path_mode = "relay"
-	delay = maxi(delay, delay_for(_oneway_ms(true)))
+	if dbg_fixed_delay < 0:
+		delay = maxi(delay, delay_for(_oneway_ms(true)))
 	_delay_start = delay
 	_log({"ev": "fallback", "delay": delay})
 	_report_path()
@@ -1217,6 +1327,7 @@ func _report_path() -> void:
 func _on_remote_left() -> void:
 	_remote_left = true
 	_log({"ev": "left"})
+	_end_resync()
 	if stage == Stage.PLAYING or stage == Stage.LOADING:
 		_send_stats("opp_left")
 	if stage == Stage.PLAYING and _world != null and forge_cheater < 0:
@@ -1239,9 +1350,16 @@ func _on_closed() -> void:
 	_chan = null
 	var lost := I18n.t("Связь с сервером потеряна") if kind == "ws" else I18n.t(
 		"Связь с соперником потеряна")
+	if (was == Stage.PLAYING or was == Stage.RESYNC) and not _remote_left and _close_reason == "" \
+			and _can_reconnect():
+		_begin_reconnect()
+		return
+	if was == Stage.RESYNC:
+		was = Stage.PLAYING
 	if was == Stage.CONNECTING:
-		failed.emit(I18n.t("Не удалось подключиться к серверу") if kind == "ws"
-			else I18n.t("Не удалось соединиться с хозяином игры"))
+		failed.emit(_close_reason if _close_reason != "" else (
+			I18n.t("Не удалось подключиться к серверу") if kind == "ws"
+			else I18n.t("Не удалось соединиться с хозяином игры")))
 	elif (was == Stage.PLAYING and not _remote_left) or was == Stage.LOADING:
 		_log({"ev": "closed"})
 		_abort(_close_reason if _close_reason != "" else lost)
@@ -1250,6 +1368,229 @@ func _on_closed() -> void:
 		failed.emit(_close_reason if _close_reason != "" else lost)
 	if was != Stage.PLAYING:
 		stage = Stage.IDLE
+
+
+# ── Переподключение (docs/pvp/NET_LOCKSTEP.md, «Переподключение») ─────────────────
+
+## Вернуться можно: сервер дал секрет (оба умеют), есть чем подключиться, бой идёт.
+func _can_reconnect() -> bool:
+	return _rejoin.token != "" and (_url != "" or rejoin_link.is_valid()) and _world != null \
+		and is_instance_valid(_world) and _world.phase == LegionWorld.Phase.BATTLE \
+		and forge_cheater < 0
+
+
+## Сокет оборвался в бою: мир остаётся (не шагает), прямой путь закрыт (после возврата — только
+## сервер), попытки вернуться в ту же комнату.
+func _begin_reconnect() -> void:
+	_log({"ev": "reconnect", "tick": _world.net_tick, "applied": _applied_turn,
+		"next_out": _next_out, "relay_contig": _relay_contig})
+	_stop_p2p()
+	_hold_q.clear()
+	_dq.clear()
+	_req_wait = -1.0
+	_rejoin.begin(Time.get_ticks_msec())
+	stage = Stage.RECONNECTING
+	_reconnect_label()
+
+
+func _reconnect_label() -> void:
+	_label.text = I18n.t("Связь потеряна — переподключение… (попытка %d)") % maxi(1, _rejoin.attempt)
+	_link.text = ""
+
+
+## Шаг переподключения (раз в кадр, мир стоит): открыть попытку по расписанию, hello с caps →
+## welcome → rejoin → rejoined (дальше RESYNC). Ответа нет ATTEMPT_WAIT_MS, канал закрылся или
+## «busy» — следующая попытка; срок вышел или окончательный отказ — в лобби БЕЗ «leave» (это была бы
+## сдача; комнату по сроку закроет сервер).
+func _tick_reconnect() -> void:
+	var now := Time.get_ticks_msec()
+	if _rejoin.expired(now):
+		_give_up(_close_reason if _close_reason != "" else I18n.t("Связь с сервером потеряна"))
+		return
+	if _chan == null:
+		if now < _rejoin.next_at_ms:
+			return
+		_rejoin.attempt += 1
+		_rejoin.attempt_ms = now
+		_reconnect_label()
+		_chan = _attempt_link()
+		_log({"ev": "rejoin_try", "n": _rejoin.attempt, "ok": _chan != null})
+		if _chan == null:
+			_rejoin.schedule(now)
+			return
+		_pending_hello = _hello(_hello_name, true)
+	_chan.poll()
+	var st := _chan.state()
+	if st == NetLink.State.OPEN:
+		if not _pending_hello.is_empty():
+			_send(_pending_hello)
+			_pending_hello = {}
+		while stage == Stage.RECONNECTING and _chan != null and _chan.available() > 0:
+			var m: Variant = JSON.parse_string(_chan.take_text())
+			if m is Dictionary:
+				_on_reconnect_msg(m as Dictionary)
+	elif st == NetLink.State.CLOSED:
+		while stage == Stage.RECONNECTING and _chan != null and _chan.available() > 0:
+			var m: Variant = JSON.parse_string(_chan.take_text())
+			if m is Dictionary:
+				_on_reconnect_msg(m as Dictionary)
+		if stage == Stage.RECONNECTING:
+			_retry_later(now)
+		return
+	if stage == Stage.RECONNECTING and _chan != null \
+			and now - _rejoin.attempt_ms > NetRejoin.ATTEMPT_WAIT_MS:
+		_log({"ev": "rejoin_timeout", "n": _rejoin.attempt})
+		_retry_later(now)
+
+
+func _attempt_link() -> NetLink:
+	if rejoin_link.is_valid():
+		var l: Variant = rejoin_link.call()
+		return l as NetLink if l is NetLink else null
+	var link := NetLinkWs.client()
+	return link if link.connect_to_url(_url) == OK else null
+
+
+func _retry_later(now: int) -> void:
+	if _chan != null:
+		_chan.close(1000, "retry")
+	_chan = null
+	_rejoin.schedule(now)
+
+
+func _on_reconnect_msg(msg: Dictionary) -> void:
+	match String(msg.get("t", "")):
+		"welcome":
+			if map_id.begins_with(ProcGen.ID_PREFIX) \
+					and _wire_gen_version(msg.get("gen_version")) != ProcGen.VERSION:
+				_give_up(_error_text("gen_version"))
+				return
+			_send(_rejoin.packet(_relay_contig))
+		"rejoined":
+			_on_rejoined(msg)
+		"rejoin_denied":
+			var why := String(msg.get("why", ""))
+			_log({"ev": "rejoin_denied", "why": why})
+			if why == "busy":
+				_retry_later(Time.get_ticks_msec())   # временный: прежний канал ещё числится
+			elif why == "ended":
+				_rejoin_ended(String(msg.get("outcome", "")))
+			else:
+				_give_up(I18n.t("Связь потеряна: вернуться в матч не удалось") if why != "expired"
+					else I18n.t("Связь потеряна: время на возвращение вышло"))
+		"error":
+			_log({"ev": "rejoin_error", "code": msg.get("code")})
+
+
+## Сервер вернул нас в комнату: next — первый свой ход, которого у него нет. Досылаем хвост из
+## кольца (RESYNC), потом бой. Ходы соперника сервер шлёт с have+1 — повторы отсекает
+## _on_remote_turn.
+func _on_rejoined(msg: Dictionary) -> void:
+	var now := Time.get_ticks_msec()
+	var next := NetP2P._int(msg.get("next"), -1)
+	var away := now - _rejoin.started_ms
+	if next < 0 or next > _next_out or (next < _next_out and not _rejoin.has_raw(next)):
+		_log({"ev": "rejoin_bad_next", "next": next, "next_out": _next_out})
+		_give_up(I18n.t("Связь потеряна: свои ходы для досылки не сохранились"))
+		return
+	_rejoin.finish(now, next)
+	_mstats.rejoins = _rejoin.count
+	_mstats.away_s = _rejoin.away_ms / 1000.0
+	_log({"ev": "rejoined", "next": next, "next_out": _next_out, "away_ms": away,
+		"n": _rejoin.attempt, "gen": msg.get("gen")})
+	_acc = 0.0
+	_stall = 0.0
+	_ready_remote = _ready_remote or msg.get("opp_ready") == true
+	# подтяжка, шедшая в момент обрыва, отменена сервером: следующее расхождение — новый снимок
+	_snap_id = -1
+	_snap_n = 0
+	_snap_parts = PackedStringArray()
+	_heal_wait = -1
+	if path_mode == "p2p":
+		_fallback_to_relay()
+	_ping_t = PING_EVERY
+	stage = Stage.RESYNC
+	_label.text = I18n.t("Связь восстановлена — догоняем…")
+	if msg.get("verdict") is Dictionary:
+		_handle(msg["verdict"] as Dictionary)
+
+
+## Досылка хвоста своих ходов — по порядку, не больше RESYNC_PER_FRAME за кадр; новых ходов нет
+## (мир стоит), пока хвост не ушёл целиком.
+func _tick_resync() -> void:
+	var sent := 0
+	var now := Time.get_ticks_msec()
+	while _rejoin.resend_k < _next_out and sent < NetRejoin.RESYNC_PER_FRAME:
+		if not _rejoin.has_raw(_rejoin.resend_k):
+			_give_up(I18n.t("Связь потеряна: свои ходы для досылки не сохранились"))
+			return
+		# курсор — только за ходом, который канал ВЗЯЛ: пропуск хода K при ушедшем K+1 сервер
+		# считает нарушением («вне очереди») и выкидывает без отсрочки (рецензия 10.10, п. 2)
+		if _chan.buffered_out() > NetRejoin.RESYNC_BUF \
+				or _chan.send_text(_rejoin.raw_of(_rejoin.resend_k)) != OK:
+			break
+		_rejoin.resend_k += 1
+		_rejoin.progress_ms = now
+		sent += 1
+	if _rejoin.resend_k < _next_out and now - _rejoin.progress_ms > NetRejoin.RESYNC_STALL_MS:
+		# канал не берёт ни хода — это обрыв: закрываем и идём обычным путём обрыва (возврат
+		# заново, если можно; иначе — в лобби без «leave»)
+		_log({"ev": "resync_stall", "k": _rejoin.resend_k, "next_out": _next_out})
+		_chan.close(1000, "resync stall")
+		_on_closed()
+		return
+	if _rejoin.resend_k >= _next_out:
+		_log({"ev": "resynced", "next_out": _next_out})
+		_rejoin.resend_k = -1
+		_acc = 0.0
+		stage = Stage.PLAYING
+		_label.text = ""
+
+
+## Матч кончился, пока досылали хвост (соперник ушёл, срок его отсрочки вышел, доказан подлог):
+## комнаты на сервере уже нет — досылка прекращается, и событие обрабатывается, как в бою (рецензия
+## 10.10: иначе флаг ставился, сдача — нет, а после досылки бой стоял навсегда).
+func _end_resync() -> void:
+	if stage != Stage.RESYNC:
+		return
+	_log({"ev": "resync_end", "left": _next_out - _rejoin.resend_k})
+	_rejoin.resend_k = -1
+	stage = Stage.PLAYING
+	_label.text = ""
+
+
+## Комнату закрыли, пока нас не было (verifier 11.10): соперник ушёл — победа, как при «left» в бою
+## (мир показывает итог, сессия в лобби локально — связи с комнатой нет); отмена без итога или
+## наш срок вышел — в лобби с причиной.
+func _rejoin_ended(outcome: String) -> void:
+	_log({"ev": "rejoin_ended", "outcome": outcome})
+	if outcome != "opp_left":
+		_give_up(I18n.t("Матч прерван без итога, пока вы переподключались") if outcome == "void"
+			else I18n.t("Время на возвращение вышло — засчитан уход"))
+		return
+	var w := _world
+	_stop_reconnect()
+	_remote_left = true
+	if w != null and is_instance_valid(w) and w.phase == LegionWorld.Phase.BATTLE and side in [0, 1]:
+		w.net_apply(1 - side, {"type": "surrender"})
+		w.net_step()
+	_label.text = I18n.t("Соперник ушёл, пока вы переподключались")
+
+
+## Вернуться не вышло: в лобби только локально — без «leave» (сдача) и без сводки (связи нет).
+func _give_up(text: String) -> void:
+	_log({"ev": "rejoin_give_up", "why": text})
+	_stop_reconnect()
+	_abort(text)
+
+
+func _stop_reconnect() -> void:
+	if _chan != null:
+		_chan.close(1000, "bye")
+	_chan = null
+	_rejoin.active = false
+	_rejoin.resend_k = -1
+	stage = Stage.IDLE
 
 
 ## Копия ходов соперника на сервер не приходит дольше RELAY_HOLD_ABORT — матч без итога у обоих
@@ -1299,9 +1640,15 @@ func _tick_request(delta: float) -> void:
 
 ## Сервер отклонил запрос — без последствий: ждём/играем дальше, следующий — не раньше чем через
 ## RELAY_HOLD_ABORT (простой отсчитывается заново).
-func _on_request_denied(what: String) -> void:
-	_log({"ev": "request_denied", "what": what})
+## Отказ «away» (соперник переподключается) — не отказ по существу: простой НЕ обнуляется, запрос
+## повторяется через VOID_RETRY_MS (рецензия 10.10: обрыв перед законным «void» не должен давать
+## придерживающему ещё 30 с).
+func _on_request_denied(what: String, away := false) -> void:
+	_log({"ev": "request_denied", "what": what, "away": away})
 	_req_wait = -1.0
+	if away:
+		_void_next_ms = Time.get_ticks_msec() + VOID_RETRY_MS
+		return
 	_hold_stall = 0.0
 	_ready_wait = 0.0
 
@@ -1334,6 +1681,8 @@ static func _error_text(code: String) -> String:
 			return I18n.t("У соперника другая версия игры")
 		"proto":
 			return I18n.t("Версия сервера не совпадает с игрой")
+		"gen_version":
+			return I18n.t("Обновите игру и сервер для случайного поля или сыграйте «Дуэль»")
 		"full":
 			return I18n.t("Сервер занят — попробуйте позже")
 		"rate_limit":
@@ -1344,7 +1693,14 @@ static func _error_text(code: String) -> String:
 			return I18n.t("Соперник не загрузил поле — матч отменён")
 		"void":
 			return I18n.t("Матч прерван без итога: ходы не доходили до сервера")
+		"overload":
+			return I18n.t("Матч прерван без итога: сервер переполнен")
 	return I18n.t("Ошибка сервера: %s") % code
+
+
+## JSON-число версии: bool, строка, дробь и бесконечность не являются совместимой версией.
+static func _wire_gen_version(v: Variant) -> int:
+	return int(v) if NetCodec._num(v) else -1
 
 
 func _send(msg: Dictionary) -> void:

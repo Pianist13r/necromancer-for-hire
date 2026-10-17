@@ -33,7 +33,7 @@ const BOT_RUNS := [["gatehouse", 1, 4800], ["archive", 2, 4800], ["wasteland", 3
 ## Лестница CAMPAIGN_V20: карта → уроки по порядку.
 const EXPECT := {
 	"wasteland": [&"draw", &"refresh", &"release", &"perfect", &"build", &"hero_q"],
-	"gatehouse": [&"aim", &"erase", &"guard", &"spring", &"rally"],
+	"gatehouse": [&"aim", &"erase", &"guard", &"guard_push", &"spring", &"rally"],
 	"fork": [&"ring", &"hero_w", &"hero_e"],
 	# B-414 (10.10): рогатка по ОДНОЙ фигуре — в «Архиве» следом за восьмёркой, а не на «Прорабе»
 	"archive": [&"eight", &"sling_one", &"clerk", &"item"],
@@ -243,10 +243,23 @@ func _test_bot_lessons() -> void:
 			var target: Foe = null
 			var when := String(l["when"])
 			var kind: StringName = l["kind"]
-			if not l["start"]:
+			if kind == &"guard_push":
+				var built := w.staff.build(w.staff.plots[0], LegionCfg.KIND_GUARD)
+				var pts := PackedVector2Array([Vector2(460, 344), Vector2(460, 412)])
+				c = w.contracts.add_contract(pts, w.contracts.default_side(pts), false,
+					LegionCfg.KIND_GUARD)
+				if c != null:
+					c.set_dir(Vector2.RIGHT)
+					c.ttl = 999.0
+				var ready := built != null and c != null and _step_until(func() -> bool:
+					return c.posted_posts() >= 5, 12.0)
+				_check(ready, "бот gatehouse/guard_push: Проходная и строй готовы")
+				target = w.spawn_foe_on_path("shield_inspector",
+					PackedVector2Array([Vector2(510, 378), w.cauldron_pos]), Vector2(510, 378))
+			elif not l["start"]:
 				# урок посреди боя: у Котла уже стоит строй (как в настоящем бою)
 				c = _line_on(map_id, _front_line(map_id))
-			if when.begins_with("first_foe:"):
+			if kind != &"guard_push" and when.begins_with("first_foe:"):
 				target = _foe_before(when.get_slice(":", 1), c, 0)
 			elif when == "first_elite":
 				target = _foe_before("zombie", c, 0, 120.0)
@@ -363,6 +376,7 @@ func _test_timing() -> void:
 	var tut := await _start("gatehouse")
 	tut._passed[&"aim"] = true
 	tut._passed[&"erase"] = true
+	tut._passed[&"guard_push"] = true   # только предпосылка старого повода «Сбора»
 	tut._next()
 	var c := _line_near()
 	for u in w.units:

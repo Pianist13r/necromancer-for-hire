@@ -38,6 +38,16 @@ func _run() -> void:
 	_check(is_equal_approx(float(sources.get("zombie", 0)), 70.0), "главный урон — зомби")
 	_check(is_equal_approx(float(sources.get("ghost", 0)), 30.0),
 		"последний удар — только оставшееся HP")
+	var available := _available()
+	var mixed := report.duplicate(true)
+	mixed["roads"] = {"north": 90.0, "south": 10.0}
+	mixed["waves"] = {"3": 100.0}
+	var mixed_before := mixed.duplicate(true)
+	var mixed_plan := BattleDebrief.next_plan(mixed, available)
+	_check(mixed_plan.contains("проверьте ближайший подход")
+		and not mixed_plan.contains("призраки") and not mixed_plan.contains("север"),
+		"план берёт крупнейший фактический источник, не склеивает маргинальные дороги/волны")
+	_check(mixed == mixed_before and available == _available(), "план не меняет входные словари")
 	w.start_map("wasteland")
 	w.set_process(false)
 	w.dev_invuln = true
@@ -58,6 +68,12 @@ func _run() -> void:
 		_check(lines.size() == 3, "три коротких наблюдения из записанного боя")
 		_check(lines[0].contains("Инспектор"), "название главного источника из словаря игры")
 		_check(lines[2].contains("волны 3"), "волна в тексте соответствует данным")
+		var plain := BattleDebrief.panel(real)
+		var guided := BattleDebrief.panel(real, UiStyle.TEXT_DIM, available)
+		_check(plain.get_child_count() == 4 and guided.get_child_count() == 5,
+			"старый panel сохраняет три факта, явный контекст добавляет совет")
+		plain.free()
+		guided.free()
 		var saved := Dictionary(w.stats["debrief"]).duplicate(true)
 		real["sources"]["zombie"] = 999.0
 		_check(w.stats["debrief"] == saved, "экран не может изменить статистику живого мира")
@@ -80,5 +96,85 @@ func _run() -> void:
 	w.queue_free()
 	await process_frame
 	_check(BattleDebrief.lines({}).is_empty(), "нет фактов — нет выдуманного совета")
+	_next_plan_checks()
 	print("LEGION DEBRIEF: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails else 0)
+
+
+func _available() -> Dictionary:
+	return {"kind_unlocked_guard": true, "ability_unlocked_e": true,
+		"kind_unlocked_clerk": false, "ability_unlocked_q": true}
+
+
+func _next_plan_checks() -> void:
+	var available := _available()
+	var ghost := {"damage": 40.0, "sources": {"ghost": 40.0}}
+	var saved_ghost := ghost.duplicate(true)
+	var saved_available := available.duplicate(true)
+	_check(BattleDebrief.next_plan(ghost, {}).is_empty(), "нет явного контекста — нет совета")
+	_check(BattleDebrief.next_plan(ghost, {"ability_unlocked_q": true}).is_empty(),
+		"неполный контекст — нет совета")
+	_check(BattleDebrief.next_plan({"damage": 0.0, "sources": {"ghost": 5.0}}, available).is_empty(),
+		"нулевой фактический урон — нет совета")
+	_check(BattleDebrief.next_plan({"damage": 40.0, "sources": {}}, available).is_empty(),
+		"пустой источник — нет совета")
+	_check(BattleDebrief.next_plan({"damage": 40.0,
+		"sources": {"unknown": 30.0, "ghost": 10.0}}, available).is_empty(),
+		"крупнейший неизвестный источник не заменяется догадкой о втором")
+	for bad_total: float in [NAN, INF, -INF, -1.0]:
+		_check(BattleDebrief.next_plan({"damage": bad_total,
+			"sources": {"ghost": 40.0}}, available).is_empty(),
+			"нечисловой или отрицательный итог не порождает совет")
+	for bad_source: float in [NAN, INF, -INF, 0.0, -1.0]:
+		_check(BattleDebrief.next_plan({"damage": 40.0,
+			"sources": {"ghost": bad_source}}, available).is_empty(),
+			"нечисловой или неположительный источник не порождает совет")
+	_check(BattleDebrief.next_plan({"damage": 40.0,
+		"sources": {"unrecognized_foe": 40.0}}, available).is_empty(),
+		"неизвестному виду не приписывается знакомая тактика")
+	var invalid_available := available.duplicate()
+	invalid_available["ability_unlocked_q"] = 1
+	_check(BattleDebrief.next_plan(ghost, invalid_available).is_empty(),
+		"число вместо явного boolean открытия не принимается")
+	var previous_language := I18n.language
+	I18n.language = "ru"
+	Settings.path = "user://debrief_next_plan_settings.cfg"
+	Settings._cfg = ConfigFile.new()
+	Settings.apply()
+	Controls.reset()
+	var plan := BattleDebrief.next_plan(ghost, available)
+	_check(plan.contains("Вариант для повтора: призраки — Ку") and not plan.contains("аудит"),
+		"закрытый аудит не советуется, открытая Ку доступна: %s" % plan)
+	_check(Controls.swap(&"cast_q", KEY_W).is_empty(), "переназначение Ку на Дубль-вэ")
+	plan = BattleDebrief.next_plan(ghost, available)
+	_check(plan.contains("призраки — Дубль-вэ") and not plan.contains("призраки — Ку"),
+		"совет показывает текущую клавишу один раз: %s" % plan)
+	I18n.language = "en"
+	plan = BattleDebrief.next_plan(ghost, available)
+	_check(plan.contains("Option for a retry: ghosts — W") and not plan.contains("Audit"),
+		"EN и текущая клавиша без закрытого аудита: %s" % plan)
+	_check(ghost == saved_ghost and available == saved_available,
+		"локализованный совет не меняет входные словари")
+	available["ability_unlocked_q"] = false
+	plan = BattleDebrief.next_plan(ghost, available)
+	_check(plan.contains("ghosts — free fighters") and not plan.contains("Audit"),
+		"оба специальных ответа закрыты — остаётся свободный боец: %s" % plan)
+	var shield := {"damage": 20.0, "sources": {"shield_inspector": 20.0}}
+	available["kind_unlocked_guard"] = false
+	available["ability_unlocked_e"] = false
+	plan = BattleDebrief.next_plan(shield, available)
+	_check(plan.contains("shields — from the flank"),
+		"щит без охраны и Е — доступный фланг: %s" % plan)
+	plan = BattleDebrief.next_plan({"damage": 12.0, "sources": {"beetle": 12.0}}, available)
+	_check(plan.contains("check the nearest approach") and plan.contains("keep some fighters free"),
+		"курьеру — сдержанный вариант для повтора: %s" % plan)
+	plan = BattleDebrief.next_plan({"damage": 12.0, "sources": {"signer": 12.0}}, available)
+	_check(plan.contains("notaries — charge"), "нотариусу — существующий ответ: %s" % plan)
+	plan = BattleDebrief.next_plan({"damage": 12.0, "sources": {"boss": 12.0}}, available)
+	_check(plan.contains("Foreman — release before the ram"),
+		"Прорабу — существующий ответ: %s" % plan)
+	_check(ghost == saved_ghost, "отчёт остался прежним после всех вариантов")
+	I18n.language = previous_language
+	Controls.reset()
+	Settings.path = Settings.PATH
+	Settings._cfg = null

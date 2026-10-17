@@ -37,6 +37,16 @@ func _frames(n: int) -> void:
 		await process_frame
 
 
+## Холодный старт теперь проходит асинхронную подготовку; тёплый остаётся немедленным.
+func _await_battle_preparation() -> void:
+	var deadline := Time.get_ticks_msec() + 60000
+	while main.battle_preparation_pending() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(not main.battle_preparation_pending() and main.world != null,
+		"подготовка боя завершилась в пределах срока")
+	await _frames(3)
+
+
 func _fresh_main() -> void:
 	if main != null:
 		main.queue_free()
@@ -94,7 +104,7 @@ func _test_pause_menu_leak_does_not_infect_campaign() -> void:
 	var mid := LegionEndless.object_map_id(
 		LegionRunStore.endless_seed(false), LegionRunStore.endless_k(false), true)
 	main.screen.start.emit(mid)
-	await _frames(3)
+	await _await_battle_preparation()
 	_check(main._in_endless_battle, "бой стартовал как забег (_in_endless_battle)")
 
 	# пауза → «Меню» (Esc, «Меню») — БЕЗ исхода боя, минуя _on_match_ended.
@@ -151,7 +161,7 @@ func _test_daily_and_normal_runs_dont_wipe_each_other() -> void:
 		var mid := LegionEndless.object_map_id(LegionRunStore.endless_seed(false),
 			LegionRunStore.endless_k(false), true)
 		main.screen.start.emit(mid)
-		await _frames(3)
+		await _await_battle_preparation()
 		main.world.force_end(true)
 		await _frames(3)
 		(main.screen as LegionResult).next.emit()
@@ -193,7 +203,7 @@ func _test_retry_after_victory_does_not_recount() -> void:
 	var mid := LegionEndless.object_map_id(
 		LegionRunStore.endless_seed(false), LegionRunStore.endless_k(false), true)
 	main.screen.start.emit(mid)
-	await _frames(3)
+	await _await_battle_preparation()
 
 	main.world.force_end(true)
 	await _frames(3)
@@ -232,7 +242,7 @@ func _test_bounty_earned_and_spendable_in_office() -> void:
 	var mid := LegionEndless.object_map_id(
 		LegionRunStore.endless_seed(false), LegionRunStore.endless_k(false), true)
 	main.screen.start.emit(mid)
-	await _frames(3)
+	await _await_battle_preparation()
 	main.world.force_end(true)
 	await _frames(3)
 	_check(Campaign.bounty() > 0,
@@ -321,7 +331,7 @@ func _test_daily_one_attempt_per_day() -> void:
 	var mid := LegionEndless.object_map_id(
 		LegionRunStore.endless_seed(true), LegionRunStore.endless_k(true), true)
 	main.screen.start.emit(mid)
-	await _frames(3)
+	await _await_battle_preparation()
 	_check(main._pause_screen == null, "боя ещё не поставили на паузу")
 
 	main.world.set_paused(true)
@@ -393,7 +403,7 @@ func _test_collection_save_from_pause_and_result_and_replay() -> void:
 	var mid := LegionEndless.object_map_id(LegionRunStore.endless_seed(false),
 		LegionRunStore.endless_k(false), true)
 	main.screen.start.emit(mid)
-	await _frames(3)
+	await _await_battle_preparation()
 
 	# сохранение из паузы — главное место (Игорь: «если проигрываешь или тебе надо бежать»).
 	main.world.set_paused(true)

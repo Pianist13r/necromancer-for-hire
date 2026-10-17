@@ -34,6 +34,10 @@ const BOT_RUNS := [["bridge", 1, 3600], ["fork", 2, 3600], ["wasteland", 3, 3600
 ## Полоса карты _gray между рекой (x 620–706) и скалой (x 870+), вдали от Котла.
 const LAB := Vector2(760, 120)
 const DEVICE := 7
+const PERF_BUDGET_US := 2000.0
+const PERF_WARMUP := 20
+const PERF_BATCHES := 7
+const PERF_SCANS := 50
 
 var w: LegionWorld
 var cfg: Dictionary = {}
@@ -106,6 +110,10 @@ func _run() -> void:
 	w = scene.instantiate() as LegionWorld
 	root.add_child(w)
 	await _frames(2)
+	if OS.get_cmdline_user_args().has("--intuit-heavy-only"):
+		_test_perf()
+		_finish("LEGION INTUIT HEAVY ONLY")
+		return
 	# бот — первым, пока мир не видел ни одного ввода: порядок тот же, что при съёмке эталона
 	_test_bot_same()
 	_check(_intuit() != null, "у мира есть слой подсказок (world.intuit)")
@@ -131,23 +139,27 @@ func _run() -> void:
 	_test_wall()
 	_test_draft_empty()
 	_test_perf()
+	_finish("LEGION INTUIT")
+
+
+func _finish(summary: String) -> void:
 	_set_hints(true)
 	_check(FileAccess.file_exists(Settings.PATH) == _settings_existed
 		and (not _settings_existed or FileAccess.get_modified_time(Settings.PATH) == _settings_mtime),
 		"user://settings.cfg не тронут (был: %s)" % _settings_existed)
 	Settings.scheme_override = ""
 	Campaign.reset()
-	print("LEGION INTUIT: %d/%d OK" % [_checks - _fails, _checks])
+	print("%s: %d/%d OK" % [summary, _checks - _fails, _checks])
 	quit(1 if _fails > 0 else 0)
 
 
 # ── Мир ──────────────────────────────────────────────────────────────────────
 
-func _fresh() -> void:
+func _fresh(map_data: Dictionary = {}) -> void:
 	Settings.scheme_override = Settings.SCHEME_SLING
 	w.dev = {"no_waves": "1", "spawn_units": "0"}
 	w.args.erase("bot")
-	w.start_map("_gray")
+	w.start_map("_gray", map_data)
 	w.dev_invuln = false
 	w.contracts.mana = w.contracts.mana_max
 	_set_hints(true)
@@ -1011,30 +1023,147 @@ func _test_draft_empty() -> void:
 # ── Замер скана ──────────────────────────────────────────────────────────────
 
 func _test_perf() -> void:
-	print("— замер скана")
-	_fresh()
+	print("— тяжёлый скан: функциональная проверка")
+	_test_perf_aggregation()
+	# no_waves не убирает спящих мимиков карты: benchmark задаёт точную популяцию.
+	var map_data := LegionWorld.load_map("_gray").duplicate(true)
+	map_data["sleepers"] = []
+	_fresh(map_data)
 	for i in 6:
 		_man(_column(float(i) * 100.0 - 60.0) if i < 5 else _column(520))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
+	var sentinel: Foe = null
 	for i in 80:
-		_still_foe(Vector2(rng.randf_range(700, 1200), rng.randf_range(60, 680)))
-	var t0 := Time.get_ticks_usec()
-	for i in 50:
-		_scan()
-	var us := float(Time.get_ticks_usec() - t0) / 50.0
-	print("  скан: %.0f мкс (80 врагов, %d договоров)" % [us, w.contracts.contracts.size()])
-	_check(_intuit() != null and us < 2000.0, "скан дешёвый: %.0f мкс раз в 0,1 с" % us)
+		var f := _still_foe(Vector2(rng.randf_range(700, 1200), rng.randf_range(60, 680)))
+		if i == 0:
+			sentinel = f
+	_heavy_functional(80, sentinel)
+	var plain_samples := PackedFloat64Array()
+	if OS.get_environment("NECRO_INTUIT_PERF_BUDGET") == "1":
+		plain_samples = _perf_samples()
 	# D-0927-53: приманки рядом включают проход пути натиска — худший случай, 8 приманок у строя
 	for i in 8:
 		_still_foe(Vector2(rng.randf_range(700, 900), rng.randf_range(60, 680)),
 			"signer" if i % 2 == 0 else "ghost")
-	t0 = Time.get_ticks_usec()
-	for i in 50:
+	_heavy_functional(88, sentinel)
+	if OS.get_environment("NECRO_INTUIT_PERF_BUDGET") == "1":
+		_perf_budget("80 foes / 6 contracts", plain_samples)
+		_perf_budget("88 foes / 8 lures / 6 contracts", _perf_samples())
+	else:
+		print("PERF_BUDGET NOT_RUN (NECRO_INTUIT_PERF_BUDGET=1 enables isolated benchmark)")
+
+
+func _heavy_oracle(label: String) -> void:
+	var same := true
+	var segments := 0
+	for c: Contract in w.contracts.contracts:
+		for s in c.seg_count():
+			if c.seg_alive(s):
+				segments += 1
+			var want: Variant = _fc("seg_gold", [c, s], null)
+			var got: Variant = _ic("is_gold", [c, s], null)
+			same = same and want != null and got != null and want == got
+	_check(same and segments > 0, "%s: все сегменты совпали с перебором (%d живых)"
+		% [label, segments])
+
+
+func _heavy_functional(foe_count: int, sentinel: Foe) -> void:
+	var label := "heavy%d" % foe_count
+	var active := 0
+	var lures := 0
+	var manned := 0
+	for f: Foe in w.foes:
+		if f.is_active():
+			active += 1
+			if LegionGrid.is_lure(f):
+				lures += 1
+	for contract: Contract in w.contracts.contracts:
+		var all_manned := contract.seg_count() > 0
+		for s in contract.seg_count():
+			all_manned = all_manned and contract.seg_manned(s) > 0
+		if all_manned:
+			manned += 1
+	_check(w.foes.size() == foe_count and active == foe_count
+		and lures == foe_count - 80 and w.contracts.contracts.size() == 6 and manned == 6,
+		"%s: foes=%d active=%d lures=%d contracts=%d manned=%d"
+		% [label, w.foes.size(), active, lures, w.contracts.contracts.size(), manned])
+	_check(sentinel != null and w.foes.has(sentinel) and sentinel.is_active(),
+		"%s: sentinel — явно созданный активный враг" % label)
+	if sentinel == null or w.contracts.contracts.is_empty():
+		return
+	_scan()
+	_heavy_oracle(label + " random")
+	var positions := PackedVector2Array()
+	for f: Foe in w.foes:
+		positions.append(f.position)
+		f.position = Vector2(-10000, -10000)
+	var c: Contract = w.contracts.contracts[0]
+	sentinel.position = c.seg_center(0) + c.seg_dir(0) * 40.0
+	# Без await: автоматический _process не должен исправить пропущенный ручной scan.
+	_scan()
+	_check(_fc("seg_gold", [c, 0], false) == true
+		and _ic("is_gold", [c, 0], false) == true,
+		"%s sentinel ON: враг действительно зажёг золото" % label)
+	_heavy_oracle(label + " sentinel ON")
+	sentinel.position = Vector2(-10000, -10000)
+	_scan()
+	_check(_fc("seg_gold", [c, 0], true) == false
+		and _ic("is_gold", [c, 0], true) == false,
+		"%s sentinel OFF: прежнее золото погасло" % label)
+	_heavy_oracle(label + " sentinel OFF")
+	for i in w.foes.size():
+		w.foes[i].position = positions[i]
+	_scan()
+	_heavy_oracle(label + " restored")
+
+
+func _perf_samples() -> PackedFloat64Array:
+	# Полный scan включает собственную сетку, упаковку приманок и все советы.
+	for i in PERF_WARMUP:
 		_scan()
-	var us2 := float(Time.get_ticks_usec() - t0) / 50.0
-	print("  скан с приманками: %.0f мкс (88 врагов, из них 8 приманок)" % us2)
-	_check(_intuit() != null and us2 < 2000.0, "скан с приманками дешёвый: %.0f мкс" % us2)
+	var samples := PackedFloat64Array()
+	for batch in PERF_BATCHES:
+		var t0 := Time.get_ticks_usec()
+		for i in PERF_SCANS:
+			_scan()
+		samples.append(float(Time.get_ticks_usec() - t0) / float(PERF_SCANS))
+	return samples
+
+
+func _perf_budget(label: String, samples: PackedFloat64Array) -> void:
+	print("PERF_RAW %s warmup=%d batches=%d scans_per_batch=%d mean_us=%s"
+		% [label, PERF_WARMUP, PERF_BATCHES, PERF_SCANS, str(samples)])
+	_check(_perf_within_budget(samples),
+		"PERF_BUDGET %s median=%.3f us < %.0f us"
+		% [label, _perf_median(samples), PERF_BUDGET_US])
+
+
+func _perf_median(samples: PackedFloat64Array) -> float:
+	if samples.size() != PERF_BATCHES:
+		return INF
+	for sample in samples:
+		if not is_finite(sample) or sample <= 0.0:
+			return INF
+	var sorted := samples.duplicate()
+	sorted.sort()
+	return sorted[int(PERF_BATCHES / 2.0)]
+
+
+func _perf_within_budget(samples: PackedFloat64Array) -> bool:
+	return _perf_median(samples) < PERF_BUDGET_US
+
+
+func _test_perf_aggregation() -> void:
+	var below := PackedFloat64Array([1999, 1999, 1999, 1999, 1999, 1999, 1999])
+	var edge := PackedFloat64Array([2000, 2000, 2000, 2000, 2000, 2000, 2000])
+	var outlier := PackedFloat64Array([9000, 1999, 1999, 1999, 1999, 1999, 1999])
+	_check(_perf_within_budget(below), "budget predicate: 1999 us принят")
+	_check(not _perf_within_budget(edge), "budget predicate: ровно 2000 us отвергнут")
+	_check(_perf_median(outlier) == 1999.0 and outlier[0] == 9000.0,
+		"budget predicate: медиана сохраняет исходный выброс")
+	_check(not _perf_within_budget(PackedFloat64Array()),
+		"budget predicate: неполная выборка отвергнута")
 
 
 # ── 8. Бот ───────────────────────────────────────────────────────────────────

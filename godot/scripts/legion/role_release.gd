@@ -326,6 +326,9 @@ static func _tick_front(w: LegionWorld, job: Dictionary, dt: float) -> void:
 			break
 		for target in contacts:
 			_push(target, dir * part)
+			# Урок наблюдает реальное смещение, не меняя приказ или численные правила боя.
+			if w.tutorial != null and w.tutorial.guard_lesson != null:
+				w.tutorial.guard_lesson.observe(job, target, dir * part)
 		job["run"] = float(job["run"]) + part
 		left -= part
 	job["moving"] = float(job["run"]) > before
@@ -434,6 +437,8 @@ static func _fire_band(w: LegionWorld, job: Dictionary, band: int) -> void:
 			best = lateral
 			shooter = u
 		if shooter != null:
+			# Отметка — при выпуске, а не по прилёту: HP цели меняется только после полёта печати,
+			# и следующая полоса того же вала не должна послать в неё второй выстрел.
 			hits[target] = true
 			shooter._atk_cd = 0.0
 			shooter.strike_release_target(target, true)
@@ -449,26 +454,22 @@ static func _end(job: Dictionary) -> void:
 
 static func draw(w: LegionWorld, ci: CanvasItem) -> void:
 	for job in jobs(w):
+		if job["role"] == LegionCfg.KIND_CLERK:
+			# B-494: прежний бегущий фронт полос показывал зону, но не выстрел и попадание.
+			# Огневой вал виден настоящими печатями и вспышками попаданий (LegionProjectiles).
+			continue
 		var axis: Vector2 = job["dir"]
 		var color: Color = LegionCfg.UNIT_KINDS[job["role"]]["color"]
 		color.a = LegionCfg.ROLE_DRAW_ALPHA
 		var origins: PackedVector2Array = job["origins"]
 		var members: Array = job["members"]
 		var run := float(job["run"])
-		var center: Vector2 = job["center"]
-		if job["role"] == LegionCfg.KIND_CLERK:
-			run = float(job["band"]) / LegionCfg.CLERK_BARRAGE_BANDS * float(job["depth"])
 		for i in members.size():
 			var u := _member(members[i])
 			if not _live(u, job):
 				continue
 			var p := origins[i] + axis * run
-			if job["role"] == LegionCfg.KIND_CLERK:
-				p = center + axis * run + axis.orthogonal() \
-					* (origins[i] - center).dot(axis.orthogonal())
-				var travel := maxf(0.0, (p - origins[i]).dot(axis))
-				p = origins[i] + axis * clear_fire(w, origins[i], axis, travel)
-			elif bool(job["blocked"]):
+			if bool(job["blocked"]):
 				color = LegionCfg.PRESS_COLOR
 			ci.draw_line(origins[i], p, Color(color, 0.15), LegionCfg.ROLE_DRAW_LINE, true)
 			ci.draw_line(p - axis.orthogonal() * LegionCfg.CLERK_BARRAGE_LANE_PAD,

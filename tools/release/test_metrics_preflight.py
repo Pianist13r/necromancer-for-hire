@@ -10,12 +10,13 @@ import contextlib
 from pathlib import Path
 import shutil
 import sqlite3
+import struct
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
-import zipfile
+from release_test_fixtures import write_platform_inputs
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -65,11 +66,16 @@ class ReleasePreflightTest(unittest.TestCase):
         for rel in LICENSE_FILES + ["tools/release/README-macOS.txt", "tools/release/README-Linux.txt",
                                     "dist/Necromancer-single/Necromancer.exe",
                                     "dist/Necromancer/Necromancer.exe", "dist/Necromancer/Necromancer.pck",
-                                    "dist/Necromancer/README.txt", "dist/linux/Necromancer.x86_64"]:
+                                    "dist/Necromancer/README.txt"]:
             self.write(rel)
-        (self.root / "dist/macOS").mkdir(parents=True)
-        with zipfile.ZipFile(self.root / "dist/macOS/Necromancer-macOS.zip", "w") as z:
-            z.writestr("Necromancer.app/Contents/Info.plist", "x")
+        # Valid synthetic embed_pck pair, so these tests reach the metrics/version checks.
+        engine = b"MZ synthetic engine"
+        pck = b"GDPC" + struct.pack("<5I", 4, 4, 7, 2, 2) + bytes(8)
+        (self.root / "dist/Necromancer/Necromancer.exe").write_bytes(engine)
+        (self.root / "dist/Necromancer/Necromancer.pck").write_bytes(pck)
+        (self.root / "dist/Necromancer-single/Necromancer.exe").write_bytes(
+            engine + pck + struct.pack("<Q", len(pck)) + b"GDPC")
+        write_platform_inputs(self.root / "dist")
         self.write("godot/scripts/common/play_metrics.gd",
                    f'class_name PlayMetrics\n\nconst ENDPOINT := "{endpoint}"\n')
         self.set_client("9.9.9-alpha")

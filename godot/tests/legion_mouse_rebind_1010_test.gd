@@ -351,7 +351,8 @@ func _test_texts() -> void:
 ## Озвучка, называющая кнопку мыши, у левши молчит (voice_muted), прочие реплики — нет.
 func _test_voice() -> void:
 	print("— д) голос с кнопкой мыши у левши молчит")
-	var others: Array[StringName] = [&"lg_tut_3", &"lg_tut_guard", &"lg_tut_perfect_b", &"lg_tut_eight"]
+	var others: Array[StringName] = [&"lg_tut_3", &"lg_tut_guard", &"lg_tut_perfect_b",
+		&"lg_tut_eight", &"lg_tut_sling_one", &"lg_tut_guard_push"]
 	var spoken := true
 	for v: StringName in LessonsCfg.VOICE_MOUSE:
 		spoken = spoken and not LegionTutorial.voice_muted(v)
@@ -360,13 +361,28 @@ func _test_voice() -> void:
 	var muted := true
 	for v: StringName in LessonsCfg.VOICE_MOUSE:
 		muted = muted and LegionTutorial.voice_muted(v)
-	_check(LessonsCfg.VOICE_MOUSE.size() == 6 and muted,
-		"левша: %d реплик с кнопкой мыши молчат" % LessonsCfg.VOICE_MOUSE.size())
+	_check(not LessonsCfg.VOICE_MOUSE.has(&"lg_tut_sling_one") and muted,
+		"левша: голос рогатки без кнопки не глушится вместе с кнопочными репликами")
 	var others_ok := true
 	for v: StringName in others:
 		others_ok = others_ok and not LegionTutorial.voice_muted(v)
 	_check(others_ok, "левша: реплики без кнопки мыши звучат (%s)" % ", ".join(others))
+	var old_language := I18n.language
+	var routed := true
+	for language in ["ru", "en"]:
+		I18n.select(language)
+		for id: StringName in [&"lg_tut_eight", &"lg_tut_sling_one", &"lg_tut_guard_push"]:
+			var path := I18n.voice_path(id)
+			var clip := load(path) as AudioStream
+			routed = routed and clip != null and clip.get_length() > 0.0
+	_check(routed, "RU/EN: три новых урока разрешаются в загружаемые голосовые ресурсы")
+	I18n.select("en")
+	_check(preload("res://scripts/legion/legion_tutorial_voice.gd").sequence(&"lg_tut_sling_one")
+		== [&"lg_tut_sling_one"], "EN/левша: рогатка не выбирает старый вариант с кнопкой")
 	Settings.set_left_handed(false)
+	_check(preload("res://scripts/legion/legion_tutorial_voice.gd").sequence(&"lg_tut_sling_one")
+		== [&"lg_tut_sling_one"], "EN/правша: рогатка не выбирает старый вариант с кнопкой")
+	I18n.select(old_language)
 	# линтер: каждая реплика урока, называющая кнопку мыши, — в VOICE_MOUSE
 	var tsv := ProjectSettings.globalize_path("res://").path_join("../tools/voice/lines.tsv")
 	var text := FileAccess.get_file_as_string(tsv)

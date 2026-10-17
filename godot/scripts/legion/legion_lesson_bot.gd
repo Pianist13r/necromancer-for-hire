@@ -13,6 +13,8 @@ const AIM_TURN_DEG := 45.0
 static func act(t: LegionTutorial) -> void:
 	var world := t.world
 	match t.step_kind():
+		&"guard_push":
+			t.guard_lesson.act()
 		&"draw":
 			if not t.bot_done:
 				t.bot_done = true

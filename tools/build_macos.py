@@ -2,7 +2,7 @@
 # Сборка macOS-версии «Некроманта» с Windows-хоста: официальный шаблон macos.zip
 # кладётся в песочницу APPDATA, затем --import и --export-release пресета macOS.
 # Только stdlib. Скачивания нет: --template даёт уже скачанный официальный macos.zip.
-# Песочница и логи НЕ удаляются — остаются как диагностический след.
+# Одноразовая песочница удаляется при завершении, журналы рядом с результатом сохраняются.
 
 import argparse
 import os
@@ -88,23 +88,24 @@ def main():
         sys.exit(f"[FAIL] отказ перезаписывать существующий файл: {out}")
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    sandbox = Path(tempfile.mkdtemp(prefix="necro-macos-"))
-    appdata = sandbox / "appdata"
-    (appdata / TEMPLATE_DIR).mkdir(parents=True)
-    shutil.copy2(template, appdata / TEMPLATE_DIR / "macos.zip")
-    env = {**os.environ, "APPDATA": str(appdata)}
+    # TemporaryDirectory cleans only this invocation's sandbox, including on failure.
+    with tempfile.TemporaryDirectory(prefix="necro-macos-") as sandbox_dir:
+        sandbox = Path(sandbox_dir)
+        appdata = sandbox / "appdata"
+        (appdata / TEMPLATE_DIR).mkdir(parents=True)
+        shutil.copy2(template, appdata / TEMPLATE_DIR / "macos.zip")
+        env = {**os.environ, "APPDATA": str(appdata)}
 
-    base = ["--headless", "--path", str(repo / "godot"), "--fixed-fps", "60"]
-    run_godot(godot, [*base, "--import", "--", "--mute"], env,
-              out.with_suffix(".import.log"))
-    run_godot(godot, [*base, "--export-release", "macOS", str(out), "--", "--mute"],
-              env, out.with_suffix(".export.log"))
+        base = ["--headless", "--path", str(repo / "godot"), "--fixed-fps", "60"]
+        run_godot(godot, [*base, "--import", "--", "--mute"], env,
+                  out.with_suffix(".import.log"))
+        run_godot(godot, [*base, "--export-release", "macOS", str(out), "--", "--mute"],
+                  env, out.with_suffix(".export.log"))
 
-    print(f"[OK] собрано: {out}")
-    verify(out)
-    shutil.copy2(repo / "tools/release/README-macOS.txt", out.parent / "README-macOS.txt")
-    print(f"Песочница (не удаляется): {sandbox}")
-    print("ВНИМАНИЕ: сборка не запускалась на настоящем macOS — проверена только структура zip.")
+        print(f"[OK] собрано: {out}")
+        verify(out)
+        shutil.copy2(repo / "tools/release/README-macOS.txt", out.parent / "README-macOS.txt")
+        print("ВНИМАНИЕ: сборка не запускалась на настоящем macOS — проверена только структура zip.")
 
 
 if __name__ == "__main__":

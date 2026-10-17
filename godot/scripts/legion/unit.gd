@@ -698,10 +698,13 @@ func _strike(foe: Node2D, mult: float, charged := false, ground_hit := false) ->
 	if sealed:
 		dmg *= LegionCfg.SEAL_DAMAGE_MULT
 		_seal_t = 0.0
-	if bool(spec["ranged"]) and not ground_hit:
-		# урон — по попаданию: пока снаряд летит, цель может умереть от другого, и выстрел пропадёт
+	if bool(spec["ranged"]):
+		# урон — по попаданию: пока снаряд летит, цель может умереть от другого, и выстрел пропадёт.
+		# Огневой вал (ground_hit, B-494) — тоже настоящая печать: раньше урон шёл мгновенно, без
+		# видимого полёта. Награду удара с разбега при убийстве несёт только печать вала:
+		# обычные печати (и в окне после натиска) её не давали и не дают.
 		projectile_sealed = sealed
-		world.fire_projectile(self, foe, dmg)
+		world.fire_projectile(self, foe, dmg, ground_hit, charged and ground_hit)
 		projectile_sealed = false
 	elif foe is Foe:
 		var f := foe as Foe
@@ -721,8 +724,9 @@ func _strike(foe: Node2D, mult: float, charged := false, ground_hit := false) ->
 		world.damage_cauldron(dmg, "", (foe as LegionBuilding).side)
 
 
-## У ролей касание не прекращает приказ. Огневой вал проверяет позицию цели в текущей полосе,
-## затем наносит удар туда сразу: снаряд не подхватывает врага за пределами выбранной зоны.
+## У ролей касание не прекращает приказ. Огневой вал проверяет позицию цели в текущей полосе и
+## выпускает печать именно в неё (ground_hit): цель выбирает полоса, снаряд не перенацеливается
+## на врага за пределами зоны. Касание (комбо, ульты) — при выпуске, урон — по прилёту печати.
 func strike_release_target(foe: Node2D, ground_hit := false) -> void:
 	if _atk_cd > 0.0 or _volley.is_empty():
 		return

@@ -85,8 +85,10 @@ func _on_unit_spawned(u: Legionnaire) -> void:
 			+ I18n.t("от ближнего края полосы к дальнему. Рогатка задаёт направление и дальность."))
 
 
+## B-487: галочка «Подсказки» выключена — молчим и флаг НЕ ставим (как советы LegionIntuit):
+## включили галочку — подсказка придёт на тот же повод, а не пропадёт навсегда.
 func _fire(id: StringName, text: String, time := -1.0) -> void:
-	if Campaign.hint_seen(id) or _taught(id):
+	if not Settings.hints_enabled() or Campaign.hint_seen(id) or _taught(id):
 		return
 	Campaign.mark_hint_seen(id)
 	world.toast(text, &"info", time)

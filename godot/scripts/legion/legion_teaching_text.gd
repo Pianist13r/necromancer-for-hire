@@ -20,7 +20,8 @@ static func render(source: String) -> String:
 	var values := {"rally_cd": LegionCfg.RALLY_CD, "perfect": LegionCfg.PERFECT_FIRST_MULT,
 		"slow": LegionCfg.DELAY_SLOW, "delay": LegionCfg.DELAY_MAX / LegionCfg.DELAY_DRAIN,
 		"combo_window": LegionCfg.COMBO_WINDOW, "combo_cap": LegionCfg.COMBO_CAP,
-		"spring": 1.0 + LegionCfg.SPRING_DMG, "charge": FigureCfg.CHARGE_TIME}
+		"spring": 1.0 + LegionCfg.SPRING_DMG, "charge": FigureCfg.CHARGE_TIME,
+		"overtime_fill": FigureCfg.OVERTIME_FILL * 100.0}
 	for key: String in values:
 		source = source.replace("{cfg:" + key + "}", number(float(values[key])))
 	for figure: StringName in FigureCfg.CHARGE_FILL:

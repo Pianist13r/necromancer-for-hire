@@ -75,15 +75,25 @@ func _menu_daily_disabled() -> bool:
 
 
 ## В бой объекта 1 «Вызова дня» из меню, Котёл почти добит (проигрываемый объект).
-func _enter_daily_battle() -> void:
+func _enter_daily_battle() -> bool:
 	main.show_menu()
 	await _frames(2)
 	(main.screen as LegionMenu).daily_pressed.emit()
 	await _frames(2)
-	main.screen.start.emit(_obj(true))
-	await _frames(3)
-	main.world.damage_cauldron(main.world.cauldron_hp * 0.9, "lawyer")
-	await _frames(2)
+	var expected_map := _obj(true)
+	main.screen.start.emit(expected_map)
+	# Первый бой создаёт мир после асинхронного прогрева; число кадров не контракт.
+	var deadline := Time.get_ticks_msec() + 60000
+	while Time.get_ticks_msec() < deadline:
+		if not main.battle_preparation_pending() and main.world != null \
+				and main.world.map_id == expected_map \
+				and main.world.phase == LegionWorld.Phase.BATTLE:
+			main.world.damage_cauldron(main.world.cauldron_hp * 0.9, "lawyer")
+			await _frames(2)
+			return true
+		await process_frame
+	_check(false, "бой дня готов за 60 секунд: нужная карта, мир и фаза боя")
+	return false
 
 
 func _has_picker() -> bool:
@@ -122,7 +132,8 @@ func _run() -> void:
 func _test_tutorial_from_daily_pause() -> void:
 	await _fresh_main()
 	_reset()
-	await _enter_daily_battle()
+	if not await _enter_daily_battle():
+		return
 	var today := LegionEndless.today_date()
 	main.world.set_paused(true)
 	await _frames(2)
@@ -166,7 +177,8 @@ func _test_tutorial_from_daily_pause() -> void:
 func _test_crash_mid_daily_battle() -> void:
 	await _fresh_main()
 	_reset()
-	await _enter_daily_battle()
+	if not await _enter_daily_battle():
+		return
 	var today := LegionEndless.today_date()
 	var obj := main.world.map_id
 	_check(String(_saved("daily_run", LegionRunStore.OPEN_KEY, "")) == obj,
@@ -192,7 +204,8 @@ func _test_crash_mid_daily_battle() -> void:
 func _test_window_close_mid_daily_battle() -> void:
 	await _fresh_main()
 	_reset()
-	await _enter_daily_battle()
+	if not await _enter_daily_battle():
+		return
 	var today := LegionEndless.today_date()
 	main.notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
 	var done: Variant = _saved("daily_run", LegionRunStore.DONE_KEY, {})
@@ -205,7 +218,8 @@ func _test_window_close_mid_daily_battle() -> void:
 func _test_between_objects_exit_allowed() -> void:
 	await _fresh_main()
 	_reset()
-	await _enter_daily_battle()
+	if not await _enter_daily_battle():
+		return
 	main.world.force_end(true)
 	await _frames(3)
 	_check(main.screen is LegionResult, "объект 1 сдан — итог")
@@ -227,7 +241,8 @@ func _test_between_objects_exit_allowed() -> void:
 func _test_date_back_and_forth() -> void:
 	await _fresh_main()
 	_reset()
-	await _enter_daily_battle()
+	if not await _enter_daily_battle():
+		return
 	main.world.set_paused(true)
 	await _frames(2)
 	main._pause_screen.menu_pressed.emit()   # «Да, уйти» — конец попытки сегодня

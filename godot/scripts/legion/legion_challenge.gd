@@ -237,19 +237,39 @@ static func is_climax(wave: Dictionary) -> bool:
 	return bool(wave.get("climax", false))
 
 
-## Подсказка превью кульминации: чем отвечать — по составу волны (вызов виден заранее).
-## Клавиши — текущие (Controls.text здесь — единственный сток: строку выводит только HUD).
-static func answer_hint(groups: Array) -> String:
+## Подсказка превью кульминации: чем отвечать — по составу волны и доступным средствам.
+## Пустой available оставляет прежний полный совет вне кампании и у старых вызовов.
+static func answer_hint(groups: Array, available: Dictionary = {}) -> String:
 	var tips := PackedStringArray()
 	var seen := {}
 	for g: Dictionary in groups:
 		seen[String(g.get("type", ""))] = true
 	if seen.has("shield_inspector"):
-		tips.append(Controls.text("щиты — охрана или {key:cast_e}"))
+		var guard := bool(available.get("kind_unlocked_guard", true))
+		var e := bool(available.get("ability_unlocked_e", true))
+		if guard and e:
+			tips.append(Controls.text("щиты — охрана или {key:cast_e}"))
+		elif guard:
+			tips.append(Controls.text("щиты — охрана"))
+		elif e:
+			tips.append(Controls.text("щиты — {key:cast_e}"))
+		else:
+			tips.append(I18n.t("щиты — с фланга"))
 	if seen.has("ghost"):
-		tips.append(Controls.text("призраки — аудит или {key:cast_q}"))
+		var clerk := bool(available.get("kind_unlocked_clerk", true))
+		var q := bool(available.get("ability_unlocked_q", true))
+		if clerk and q:
+			tips.append(Controls.text("призраки — аудит или {key:cast_q}"))
+		elif clerk:
+			tips.append(Controls.text("призраки — аудит"))
+		elif q:
+			tips.append(Controls.text("призраки — {key:cast_q}"))
+		else:
+			tips.append(I18n.t("призраки — свободные бойцы"))
 	if seen.has("signer"):
 		tips.append(I18n.t("нотариусы — натиск"))
 	if seen.has("boss"):
 		tips.append(I18n.t("Прораб — выпуск перед тараном"))
-	return Controls.text(" · ".join(tips))
+	# Каждая часть уже локализована и раскрыла клавишу: второй Controls.text мог
+	# принять её имя за старую прозу и заменить ещё раз при обмене Ку↔Дубль-вэ.
+	return " · ".join(tips)

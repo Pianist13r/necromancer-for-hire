@@ -788,12 +788,36 @@ func _tick_boss(dt: float) -> bool:
 
 func _summon_escort() -> void:
 	var rest := _path.slice(_wp)
+	# B-478: dev-трасса свиты (--dev escort_trace=1); выключена — null, призыв прежний
+	var trace := world.escort_trace
+	if trace != null:
+		trace.on_roar(self)
 	for i in int(def["escort"]):
 		var center := (float(def["escort"]) - 1.0) / 2.0
 		var offset := Vector2((i - center) * LegionCfg.BOSS_ESCORT_SPACING, 0)
 		var at := _safe_push(position, position + offset + LegionCfg.BOSS_ESCORT_OFFSET)
 		# свита — призванные: душ, опыта и премии не дают (пакет staff, DESIGN_V15 §12 п.4)
-		world.spawn_foe_on_path("zombie", rest, at, true)
+		var f := world.spawn_foe_on_path("zombie", rest, at, true)
+		if trace != null:
+			trace.on_summon(self, f)
+
+
+## B-478: занят дракой — стоит у цели (строй или боец рядом). Только чтение для dev-трассы.
+func _trace_engaged() -> bool:
+	return _target != null
+
+
+## B-478: состояние Прораба для dev-трассы свиты (escort_trace.gd) — только чтение, бой не
+## читает. wp/wp_n — точка дороги и длина пути (после тарана и обхода путь перестраивается).
+func _trace_state() -> Dictionary:
+	var ram := ""
+	if ram_t >= 0.0:
+		ram = "warn"
+	elif _ram_run >= 0.0:
+		ram = "run"
+	return {"state": String(State.keys()[state]).to_lower(), "wp": _wp, "wp_n": _path.size(),
+		"eng": _target != null, "ram": ram, "stun": snappedf(stun_t, 0.01),
+		"roar_in": snappedf(maxf(0.0, _roar_cd), 0.1)}
 
 
 func _ram_hit() -> void:

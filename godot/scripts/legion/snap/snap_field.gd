@@ -47,7 +47,9 @@ const FIELD_SKIP: Array[String] = [
 	"_draft_net", "_aim_sent_ms", "_aim_unsent",
 	# вид и звук, счётчики отрисовки
 	"_rite_fx", "_cross_fx", "_ring_fx", "_popups", "_hits", "_vis", "_vis_frame", "_fading",
-	"_strokes", "_sfx", "_wall_fx", "_wall_ms", "drawn_lines", "drawn_flow", "wall_bumps",
+	"_strokes", "_wall_fx", "_wall_ms", "drawn_lines", "drawn_flow", "wall_bumps",
+	# Пул и очередность голосов — только местное воспроизведение, не состояние симуляции.
+	"_sfx_players", "_sfx_next_index",
 	# ContractRenderer (выделен из поля 05.10): только отрисовка, состояния боя не держит
 	"_renderer",
 	# рабочие буферы одного вызова (strike_clear, разбор полос)

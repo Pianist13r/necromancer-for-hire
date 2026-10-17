@@ -51,6 +51,17 @@ var _fails := 0
 var _checks := 0
 ## кусок → всё ли совпало во всех проверках (а)/(б)
 var _chunk_ok: Dictionary = {}
+## Только диагностика стоимости оснастки: часы и сбор полей выключены без opt-in.
+var _profile_enabled := false
+var _profile_start_us := 0
+var _profile_phase := ""
+var _profile_phase_start_us := 0
+var _profile_baseline: Dictionary = {}
+var _profile_totals: Dictionary = {
+	"step_work_us": 0, "step_wait_us": 0, "step_frames": 0, "world_steps": 0,
+	"net_work_us": 0, "net_wait_us": 0, "net_frames": 0, "net_world_steps": 0,
+	"snapshot_pair_us": 0, "serialize_compare_us": 0, "comparisons": 0,
+}
 
 
 func _initialize() -> void:
@@ -67,27 +78,89 @@ func _check(cond: bool, what: String) -> void:
 
 
 func _run() -> void:
+	_profile_enabled = OS.get_environment("NECRO_SNAPSHOT_PROFILE") == "1"
+	if _profile_enabled:
+		_profile_start_us = Time.get_ticks_usec()
 	Campaign.set_save_path(SAVE)
 	Campaign.reset()
+	# Адресная RED/GREEN-проверка оснастки; её итог не обозначает полный snapshot PASS.
+	if OS.get_cmdline_user_args().has("--snapshot-view-only"):
+		await _test_view_fixture()
+		Campaign.reset()
+		print("LEGION SNAPSHOT VIEW ONLY: %d/%d OK" % [_checks - _fails, _checks])
+		quit(1 if _fails > 0 else 0)
+		return
 	for key in NetSnap.CHUNKS:
 		_chunk_ok[key] = true
+	_profile_begin("common")
 	await _test_common()
+	_profile_end()
 	for map_id in MAPS:
+		_profile_begin("roundtrip:" + map_id)
 		await _test_roundtrip(map_id)
+		_profile_end()
 	for map_id in MAPS:
+		_profile_begin("items:" + map_id)
 		await _test_items(map_id)
+		_profile_end()
 	for map_id in MAPS:
+		_profile_begin("staff_flow:" + map_id)
 		await _test_staff_flow(map_id)
+		_profile_end()
 	for map_id in MAPS:
+		_profile_begin("net:" + map_id)
 		await _test_net(map_id)
+		_profile_end()
 	for map_id in MAPS:
+		_profile_begin("net_end:" + map_id)
 		await _test_net_end(map_id)
+		_profile_end()
 	for map_id in MAPS:
+		_profile_begin("resume:" + map_id)
 		await _test_resume(map_id)
+		_profile_end()
 	Campaign.reset()
 	_report_chunks()
 	print("LEGION SNAPSHOT: %d/%d OK" % [_checks - _fails, _checks])
 	quit(1 if _fails > 0 else 0)
+
+
+func _profile_begin(label: String) -> void:
+	if not _profile_enabled:
+		return
+	_profile_phase = label
+	_profile_phase_start_us = Time.get_ticks_usec()
+	_profile_baseline = _profile_totals.duplicate()
+	_profile_emit("phase_start")
+
+
+func _profile_end() -> void:
+	if _profile_enabled:
+		_profile_emit("phase_end")
+
+
+## Счётчики cumulative за весь тест, phase_delta — от начала текущей фазы.
+func _profile_emit(event: String, details: Dictionary = {}) -> void:
+	if not _profile_enabled:
+		return
+	var now_us := Time.get_ticks_usec()
+	var delta := {}
+	for key: String in _profile_totals:
+		delta[key] = int(_profile_totals[key]) - int(_profile_baseline.get(key, 0))
+	var row := {"event": event, "phase": _profile_phase,
+		"elapsed_us": now_us - _profile_start_us,
+		"phase_elapsed_us": now_us - _profile_phase_start_us,
+		"cumulative": _profile_totals.duplicate(), "phase_delta": delta}
+	row.merge(details)
+	print("SNAPSHOT_PROFILE " + JSON.stringify(row))
+
+
+func _profile_worlds(ws: Array) -> Array[Dictionary]:
+	var counts: Array[Dictionary] = []
+	for w: LegionWorld in ws:
+		counts.append({"now": w.now, "phase": w.phase, "units": w.units.size(),
+			"foes": w.foes.size(), "corpses": w._corpses.size()})
+	return counts
 
 
 # ── Мир ─────────────────────────────────────────────────────────────────────
@@ -100,6 +173,8 @@ func _new_world() -> LegionWorld:
 	await process_frame
 	w.set_process(false)
 	w.dev = {"noview": "1"}
+	# _ready уже вычислил no_view по аргументам: dev ниже сам не обновляет этот флаг.
+	w.no_view = true
 	w.args["pvp_bots"] = true
 	w._base_seed = SEED
 	return w
@@ -114,10 +189,20 @@ func _free(w: LegionWorld) -> void:
 ## n шагов каждого мира в бою, после шага — кадр дерева (уборка queue_free, как в игре).
 func _steps(ws: Array, n: int) -> void:
 	for i in n:
+		var work_start_us := Time.get_ticks_usec() if _profile_enabled else 0
 		for w: LegionWorld in ws:
 			if w.phase == LegionWorld.Phase.BATTLE:
 				w._step(DT)
+				if _profile_enabled:
+					_profile_totals["world_steps"] += 1
+		var wait_start_us := 0
+		if _profile_enabled:
+			wait_start_us = Time.get_ticks_usec()
+			_profile_totals["step_work_us"] += wait_start_us - work_start_us
 		await process_frame
+		if _profile_enabled:
+			_profile_totals["step_wait_us"] += Time.get_ticks_usec() - wait_start_us
+			_profile_totals["step_frames"] += 1
 
 
 ## Снимок «как по сети».
@@ -183,8 +268,104 @@ func _report_chunks() -> void:
 
 # ── 0. Общее ────────────────────────────────────────────────────────────────
 
+## Исправление noview убирает случайный длинный прогон анимаций. Этот короткий контроль
+## сохраняет явный путь видимого сетевого клиента. Foe.visible — состояние боя, не трогаем.
+func _test_view_fixture() -> void:
+	print("— вид снимка: сервер без анимаций и видимый клиент")
+	var a := await _new_world()
+	var b := await _new_world()
+	var c := await _new_world()
+	c.no_view = false
+	c.dev.erase("noview")
+	for w: LegionWorld in [a, b, c]:
+		w.start_net_match("pvp:duel", SEED, 1 if w == c else 0)
+	var unit_index := a.units.size()
+	var foe_index := a.foes.size()
+	for w: LegionWorld in [b, c]:
+		_check(w.units.size() == unit_index and w.foes.size() == foe_index,
+			"вид: до загрузки дополнительных объектов у получателя нет")
+	var u := a.spawn_unit(LegionCfg.KIND_GUARD, Vector2(300, 360), null, 0)
+	var path := PackedVector2Array([Vector2(1000, 360), Vector2(950, 360)])
+	var f := a.spawn_foe_on_path("zombie", path, path[0], false, {"wave": 0})
+	_check(u != null and f != null and a.units.size() == unit_index + 1
+		and a.foes.size() == foe_index + 1,
+		"вид: явно созданы боец и враг")
+	_check_view_world(a, true, "порождение")
+	var snap := _wire(a.snapshot())
+	_check(_whole(snap), "вид: снимок записан целиком")
+	_load_report(b.load_snapshot(snap), "вид без анимаций")
+	_load_report(c.load_snapshot(snap), "видимый клиент")
+	_check_view_world(b, true, "восстановление без вида")
+	_check_view_world(c, false, "восстановление с видом")
+	_check(c.net_mode and c.local_side == 1, "вид: клиент остаётся сетевым стороной 1")
+	for w: LegionWorld in [b, c]:
+		_check(w.units.size() == unit_index + 1 and w.foes.size() == foe_index + 1,
+			"вид: восстановлены непустые армия и враги")
+		if w.units.size() > unit_index and w.foes.size() > foe_index:
+			_check(w.units[unit_index] != u and w.foes[foe_index] != f,
+				"вид: восстановлены отдельные дополнительные узлы")
+		_check(var_to_bytes(snap) == var_to_bytes(w.snapshot()), "вид: wire-снимок совпал сразу")
+	var ticks_before: Array[int] = []
+	for w: LegionWorld in [a, b, c]:
+		_check(w.net_can_step(), "вид: сетевой мир готов шагать")
+		ticks_before.append(w.net_tick)
+	var advanced := false
+	if c.units.size() > unit_index and c.units[unit_index].view._anim != null:
+		var anim := c.units[unit_index].view._anim
+		for i in 60:
+			var frame := anim.frame
+			var progress := anim.frame_progress
+			await _net_steps([a, b, c], 1)
+			advanced = advanced or anim.frame != frame or anim.frame_progress != progress
+	else:
+		# Ошибка fixture не должна сокращать сценарий досчёта.
+		await _net_steps([a, b, c], 60)
+	_check(advanced, "вид: анимация видимого клиента действительно продвигалась")
+	var worlds: Array[LegionWorld] = [a, b, c]
+	for i in worlds.size():
+		_check(worlds[i].net_tick == ticks_before[i] + 60,
+			"вид: мир %d выполнил ровно 60 сетевых тиков" % i)
+	_check_view_world(b, true, "после 60 шагов без вида")
+	_check_view_world(c, false, "после 60 шагов с видом")
+	for w: LegionWorld in [b, c]:
+		_check(var_to_bytes(a.snapshot()) == var_to_bytes(w.snapshot())
+			and a.net_digest() == w.net_digest(), "вид: +60 шагов снимок и digest вровень")
+	for w: LegionWorld in [a, b, c]:
+		await _free(w)
+
+
+func _check_view_world(w: LegionWorld, no_view: bool, label: String) -> void:
+	_check(w.no_view == no_view and w.dev.has("noview") == no_view, label + ": флаг и dev")
+	var processing := not no_view
+	for key: String in ["units", "foes"]:
+		var actors: Array = w.units if key == "units" else w.foes
+		var correct := not actors.is_empty()
+		var clips := 0
+		for actor: Variant in actors:
+			var view: CharView = actor.view
+			correct = correct and view.visible == processing
+			correct = correct and view.can_process() == processing
+			if no_view:
+				correct = correct and view.process_mode == Node.PROCESS_MODE_DISABLED
+				correct = correct and _view_descendants_stopped(view)
+			if view._anim != null:
+				clips += 1
+				correct = correct and view._anim.can_process() == processing
+		_check(correct and clips > 0, "%s: %s, вид и клип (%d)" % [label, key, clips])
+
+
+func _view_descendants_stopped(node: Node) -> bool:
+	if node.can_process():
+		return false
+	for child: Node in node.get_children():
+		if not _view_descendants_stopped(child):
+			return false
+	return true
+
+
 func _test_common() -> void:
 	print("— общее: реестр ссылок и RNG")
+	await _test_view_fixture()
 	var r := RandomNumberGenerator.new()
 	r.seed = 12345
 	for i in 17:
@@ -285,9 +466,14 @@ func _test_resume(map_id: String) -> void:
 	twin.start_map(map_id)
 	var tick := 0
 	for k in KS:
+		if _profile_enabled:
+			_profile_emit("checkpoint_start", {"k": k, "worlds": _profile_worlds([a, twin])})
 		await _steps([a, twin], k * 60 - tick)
 		tick = k * 60
 		if a.phase != LegionWorld.Phase.BATTLE:
+			if _profile_enabled:
+				_profile_emit("checkpoint_skipped", {"k": k,
+					"worlds": _profile_worlds([a, twin])})
 			print("  --   матч кончился до %d с (%s) — K пропущен" % [k, _brief(a)])
 			break
 		var label := "б) %s K=%d" % [map_id, k]
@@ -301,14 +487,31 @@ func _test_resume(map_id: String) -> void:
 		_load_report(twin.load_snapshot(_wire(snap)), label_t)
 		var first := -1
 		var first_diff := ""
+		var pair_bytes := 0
 		for i in M * 60:
 			await _steps([a, b, twin], 1)
 			if first < 0 and b.phase == LegionWorld.Phase.BATTLE:
+				var snapshot_start_us := Time.get_ticks_usec() if _profile_enabled else 0
 				var sa := a.snapshot()
 				var sb := b.snapshot()
-				if var_to_bytes(sa) != var_to_bytes(sb):
+				var serialize_start_us := 0
+				if _profile_enabled:
+					serialize_start_us = Time.get_ticks_usec()
+					_profile_totals["snapshot_pair_us"] += serialize_start_us - snapshot_start_us
+				var ba := var_to_bytes(sa)
+				var bb := var_to_bytes(sb)
+				var different := ba != bb
+				if _profile_enabled:
+					_profile_totals["serialize_compare_us"] += Time.get_ticks_usec() - serialize_start_us
+					_profile_totals["comparisons"] += 1
+					pair_bytes = ba.size() + bb.size()
+				if different:
 					first = i + 1
 					first_diff = _chunk_diffs(sa, sb)
+			if _profile_enabled and (i + 1) % 600 == 0:
+				_profile_emit("resume_progress", {"k": k, "resume_tick": i + 1,
+					"last_pair_bytes": pair_bytes, "first_diff_tick": first,
+					"worlds": _profile_worlds([a, b, twin])})
 		tick += M * 60
 		var want := a.snapshot()
 		print("  A: " + _brief(a))
@@ -321,6 +524,8 @@ func _test_resume(map_id: String) -> void:
 		_compare(want, b.snapshot(), label)
 		_check(_brief(twin) == _brief(a), label_t + ": Котлы, бойцы, враги и исход как у A")
 		_compare(want, twin.snapshot(), label_t)
+		if _profile_enabled:
+			_profile_emit("checkpoint_end", {"k": k, "worlds": _profile_worlds([a, b, twin])})
 		await _free(b)
 	await _free(twin)
 	await _free(a)
@@ -710,9 +915,18 @@ func _test_net_end(map_id: String) -> void:
 
 func _net_steps(ws: Array, n: int) -> void:
 	for i in n:
+		var work_start_us := Time.get_ticks_usec() if _profile_enabled else 0
 		for w: LegionWorld in ws:
 			w.net_step()
+		var wait_start_us := 0
+		if _profile_enabled:
+			wait_start_us = Time.get_ticks_usec()
+			_profile_totals["net_work_us"] += wait_start_us - work_start_us
+			_profile_totals["net_world_steps"] += ws.size()
 		await process_frame
+		if _profile_enabled:
+			_profile_totals["net_wait_us"] += Time.get_ticks_usec() - wait_start_us
+			_profile_totals["net_frames"] += 1
 
 
 func _net_same(a: LegionWorld, c: LegionWorld, out: Callable, label: String) -> void:

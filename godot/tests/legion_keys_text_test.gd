@@ -153,6 +153,9 @@ func _run() -> void:
 	_test_swap_once()
 	await _test_swap_ui()
 	_test_layout()
+	w.queue_free()
+	await _frames(2)
+	w = null
 	Controls.reset()
 	Settings.scheme_override = ""
 	Campaign.reset()
@@ -594,7 +597,9 @@ func _test_swap_once() -> void:
 	row.queue_free()
 	var dv := DossierView.new()
 	root.add_child(dv)
-	var dossier_text := String((dv.call("_text", "Досье Ку") as Label).text)
+	var dossier_label := dv.call("_text", "Досье Ку") as Label
+	var dossier_text := String(dossier_label.text)
+	dossier_label.free()
 	_check(dossier_text == "Досье Дубль-вэ", "Досье: одна подстановка («%s»)" % dossier_text)
 	dv.queue_free()
 	Controls.reset()
